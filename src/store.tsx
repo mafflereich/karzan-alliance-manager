@@ -8,6 +8,7 @@ const defaultData: Database = {
     "g001": { name: "Karzan一會" },
     "g002": { name: "Karzan二會" }
   },
+  guildOrder: ["g001", "g002"],
   members: {
     "u123": {
       name: "玩家阿明",

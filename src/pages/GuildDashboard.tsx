@@ -59,7 +59,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
         </div>
         <div className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-2">
-            {Object.entries(db.guilds).map(([id, g]: [string, any]) => (
+            {(db.guildOrder || Object.keys(db.guilds)).map((id) => {
+              const g = db.guilds[id];
+              if (!g) return null;
+              return (
               <li key={id}>
                 <button
                   onClick={() => {
@@ -75,7 +78,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                   {g.name}
                 </button>
               </li>
-            ))}
+            )})}
           </ul>
         </div>
         <div className="p-4 border-t border-stone-800">

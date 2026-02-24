@@ -26,6 +26,7 @@ export interface Costume {
 
 export interface Database {
   guilds: Record<string, Guild>;
+  guildOrder?: string[];
   members: Record<string, Member>;
   costume_definitions: Costume[];
 }

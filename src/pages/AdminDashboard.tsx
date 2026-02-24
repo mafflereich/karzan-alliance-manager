@@ -64,7 +64,8 @@ function GuildsManager() {
     const newId = `g${Date.now()}`;
     setDb(prev => ({
       ...prev,
-      guilds: { ...prev.guilds, [newId]: { name: newGuildName.trim() } }
+      guilds: { ...prev.guilds, [newId]: { name: newGuildName.trim() } },
+      guildOrder: [...(prev.guildOrder || Object.keys(prev.guilds)), newId]
     }));
     setNewGuildName('');
   };
@@ -95,15 +96,14 @@ function GuildsManager() {
   const moveGuild = (e: React.MouseEvent, index: number, direction: -1 | 1) => {
     e.stopPropagation();
     setDb(prev => {
-      const entries = Object.entries(prev.guilds);
-      if (index + direction < 0 || index + direction >= entries.length) return prev;
+      const order = [...(prev.guildOrder || Object.keys(prev.guilds))];
+      if (index + direction < 0 || index + direction >= order.length) return prev;
       
-      const temp = entries[index];
-      entries[index] = entries[index + direction];
-      entries[index + direction] = temp;
+      const temp = order[index];
+      order[index] = order[index + direction];
+      order[index + direction] = temp;
       
-      const newGuilds = Object.fromEntries(entries);
-      return { ...prev, guilds: newGuilds };
+      return { ...prev, guildOrder: order };
     });
   };
 
@@ -129,7 +129,10 @@ function GuildsManager() {
       </div>
 
       <div className="flex flex-col gap-3">
-        {Object.entries(db.guilds).map(([id, guild]: [string, any], index, arr) => (
+        {(db.guildOrder || Object.keys(db.guilds)).map((id, index, arr) => {
+          const guild = db.guilds[id];
+          if (!guild) return null;
+          return (
           <div 
             key={id} 
             onClick={() => { if (!editingGuildId) setSelectedGuildId(id); }}
@@ -177,7 +180,7 @@ function GuildsManager() {
               </>
             )}
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );
@@ -404,7 +407,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
               value={formData.targetGuildId}
               onChange={e => setFormData({...formData, targetGuildId: e.target.value})}
             >
-              {Object.entries(db.guilds).map(([id, g]: [string, any]) => <option key={id} value={id}>{g.name}</option>)}
+              {(db.guildOrder || Object.keys(db.guilds)).map((id) => {
+                const g = db.guilds[id];
+                if (!g) return null;
+                return <option key={id} value={id}>{g.name}</option>;
+              })}
             </select>
           </div>
           <div className="flex-1 min-w-[200px]">
