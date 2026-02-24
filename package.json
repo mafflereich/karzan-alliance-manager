@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "karzan-alliance-manager",
   "homepage": "https://wiagg232.github.io/karzan-alliance-manager/",
   "private": true,
   "version": "0.0.0",
@@ -10,8 +10,6 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
