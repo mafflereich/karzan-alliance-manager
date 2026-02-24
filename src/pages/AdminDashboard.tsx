@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft } from 'lucide-react';
 import { Role } from '../types';
+import { getTierColor } from '../utils';
 
 export default function AdminDashboard() {
   const { db, setDb, setCurrentView } = useAppContext();
@@ -58,14 +59,15 @@ function GuildsManager() {
   const [selectedGuildId, setSelectedGuildId] = useState<string | null>(null);
   const [editingGuildId, setEditingGuildId] = useState<string | null>(null);
   const [editGuildName, setEditGuildName] = useState('');
+  const [editGuildTier, setEditGuildTier] = useState<number>(1);
+  const [editGuildOrder, setEditGuildOrder] = useState<number>(1);
 
   const handleAddGuild = () => {
     if (!newGuildName.trim()) return;
     const newId = `g${Date.now()}`;
     setDb(prev => ({
       ...prev,
-      guilds: { ...prev.guilds, [newId]: { name: newGuildName.trim() } },
-      guildOrder: [...(prev.guildOrder || Object.keys(prev.guilds)), newId]
+      guilds: { ...prev.guilds, [newId]: { name: newGuildName.trim(), tier: 1, order: 99 } }
     }));
     setNewGuildName('');
   };
@@ -74,10 +76,12 @@ function GuildsManager() {
     return Object.values(db.members).filter((m: any) => m.guildId === guildId).length;
   };
 
-  const startEdit = (e: React.MouseEvent, id: string, name: string) => {
+  const startEdit = (e: React.MouseEvent, id: string, guild: any) => {
     e.stopPropagation();
     setEditingGuildId(id);
-    setEditGuildName(name);
+    setEditGuildName(guild.name);
+    setEditGuildTier(guild.tier || 1);
+    setEditGuildOrder(guild.order || 1);
   };
 
   const saveEdit = (e: React.MouseEvent) => {
@@ -87,25 +91,25 @@ function GuildsManager() {
       ...prev,
       guilds: {
         ...prev.guilds,
-        [editingGuildId]: { ...prev.guilds[editingGuildId], name: editGuildName.trim() }
+        [editingGuildId]: { 
+          ...prev.guilds[editingGuildId], 
+          name: editGuildName.trim(),
+          tier: editGuildTier,
+          order: editGuildOrder
+        }
       }
     }));
     setEditingGuildId(null);
   };
 
-  const moveGuild = (e: React.MouseEvent, index: number, direction: -1 | 1) => {
-    e.stopPropagation();
-    setDb(prev => {
-      const order = [...(prev.guildOrder || Object.keys(prev.guilds))];
-      if (index + direction < 0 || index + direction >= order.length) return prev;
-      
-      const temp = order[index];
-      order[index] = order[index + direction];
-      order[index + direction] = temp;
-      
-      return { ...prev, guildOrder: order };
-    });
-  };
+  const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
+    const tierA = a[1].tier || 99;
+    const tierB = b[1].tier || 99;
+    if (tierA !== tierB) return tierA - tierB;
+    const orderA = a[1].order || 99;
+    const orderB = b[1].order || 99;
+    return orderA - orderB;
+  });
 
   if (selectedGuildId) {
     return <GuildMembersManager guildId={selectedGuildId} onBack={() => setSelectedGuildId(null)} />;
@@ -128,59 +132,79 @@ function GuildsManager() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {(db.guildOrder || Object.keys(db.guilds)).map((id, index, arr) => {
-          const guild = db.guilds[id];
-          if (!guild) return null;
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map(tier => {
+          const tierGuilds = sortedGuilds.filter(g => (g[1].tier || 1) === tier);
+          if (tierGuilds.length === 0) return null;
           return (
-          <div 
-            key={id} 
-            onClick={() => { if (!editingGuildId) setSelectedGuildId(id); }}
-            className={`p-4 border border-stone-200 rounded-xl bg-stone-50 flex justify-between items-center transition-colors group ${!editingGuildId ? 'cursor-pointer hover:bg-stone-100 hover:border-amber-300' : ''}`}
-          >
-            {editingGuildId === id ? (
-              <div className="flex-1 flex gap-2 items-center mr-4">
-                <input 
-                  type="text" 
-                  className="flex-1 p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                  value={editGuildName}
-                  onChange={e => setEditGuildName(e.target.value)}
-                  onClick={e => e.stopPropagation()}
-                  autoFocus
-                />
-                <button onClick={saveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="儲存"><Save className="w-5 h-5" /></button>
-                <button onClick={(e) => { e.stopPropagation(); setEditingGuildId(null); }} className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg transition-colors" title="取消"><X className="w-5 h-5" /></button>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <h3 className="font-bold text-lg text-stone-800 group-hover:text-amber-700 transition-colors">{guild.name}</h3>
-                  <p className="text-sm text-stone-500">成員數: {getMemberCount(id)} / 30</p>
+            <div key={tier} className="flex flex-col gap-3">
+              <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>梯隊 {tier}</h3>
+              {tierGuilds.map(([id, guild]) => (
+                <div 
+                  key={id} 
+                  onClick={() => { if (!editingGuildId) setSelectedGuildId(id); }}
+                  className={`p-4 border border-stone-200 rounded-xl bg-stone-50 flex flex-col gap-3 transition-colors group ${!editingGuildId ? 'cursor-pointer hover:bg-stone-100 hover:border-amber-300' : ''}`}
+                >
+                  {editingGuildId === id ? (
+                    <div className="flex flex-col gap-2">
+                      <input 
+                        type="text" 
+                        className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                        value={editGuildName}
+                        onChange={e => setEditGuildName(e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        placeholder="公會名稱"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          className="flex-1 p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                          value={editGuildTier}
+                          onChange={e => setEditGuildTier(Number(e.target.value))}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <option value={1}>梯隊 1</option>
+                          <option value={2}>梯隊 2</option>
+                          <option value={3}>梯隊 3</option>
+                          <option value={4}>梯隊 4</option>
+                        </select>
+                        <input 
+                          type="number" 
+                          className="w-20 p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                          value={editGuildOrder}
+                          onChange={e => setEditGuildOrder(Number(e.target.value))}
+                          onClick={e => e.stopPropagation()}
+                          placeholder="順序"
+                          min={1}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={saveEdit} className="flex-1 p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"><Save className="w-4 h-4" /> 儲存</button>
+                        <button onClick={(e) => { e.stopPropagation(); setEditingGuildId(null); }} className="flex-1 p-2 bg-stone-200 text-stone-600 rounded-lg hover:bg-stone-300 transition-colors flex items-center justify-center gap-1"><X className="w-4 h-4" /> 取消</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs font-bold rounded">順序 {guild.order || 1}</span>
+                        </div>
+                        <h3 className="font-bold text-lg text-stone-800 group-hover:text-amber-700 transition-colors">{guild.name}</h3>
+                        <p className={`text-sm font-medium ${getMemberCount(id) > 30 ? 'text-red-500 bg-red-50 px-1 py-0.5 rounded inline-block' : 'text-stone-500'}`}>
+                          成員數: {getMemberCount(id)} / 30
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={(e) => startEdit(e, id, guild)} className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit2 className="w-5 h-5" /></button>
+                        <Users className="w-5 h-5 ml-1 text-stone-400 group-hover:text-amber-500 transition-colors" />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-col gap-1 mr-2">
-                    <button 
-                      onClick={(e) => moveGuild(e, index, -1)} 
-                      disabled={index === 0}
-                      className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-200 rounded disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={(e) => moveGuild(e, index, 1)} 
-                      disabled={index === arr.length - 1}
-                      className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-200 rounded disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                      <ArrowDown className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button onClick={(e) => startEdit(e, id, guild.name)} className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit2 className="w-5 h-5" /></button>
-                  <Users className="w-5 h-5 ml-2 text-stone-400 group-hover:text-amber-500 transition-colors" />
-                </div>
-              </>
-            )}
-          </div>
-        )})}
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -194,6 +218,15 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({ name: '', role: 'Member' as Role, note: '', targetGuildId: guildId });
+
+  const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
+    const tierA = a[1].tier || 99;
+    const tierB = b[1].tier || 99;
+    if (tierA !== tierB) return tierA - tierB;
+    const orderA = a[1].order || 99;
+    const orderB = b[1].order || 99;
+    return orderA - orderB;
+  });
 
   const guild = db.guilds[guildId];
   const members = Object.entries(db.members)
@@ -217,7 +250,8 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     const currentCount = getMemberCount(targetGId);
     const isSameGuild = excludeMemberId && db.members[excludeMemberId]?.guildId === targetGId;
     
-    if (!isSameGuild && currentCount >= 30) return "該公會人數已達 30 人上限";
+    // Allow exceeding 30 members
+    // if (!isSameGuild && currentCount >= 30) return "該公會人數已達 30 人上限";
 
     if (role === 'Master') {
       const master = getGuildMaster(targetGId);
@@ -303,10 +337,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
     
     const currentCount = getMemberCount(guildId);
-    if (currentCount + lines.length > 30) {
-      alert(`批量新增後將超過 30 人上限 (目前 ${currentCount} 人，欲新增 ${lines.length} 人)`);
-      return;
-    }
+    // Allow exceeding 30 members
+    // if (currentCount + lines.length > 30) {
+    //   alert(`批量新增後將超過 30 人上限 (目前 ${currentCount} 人，欲新增 ${lines.length} 人)`);
+    //   return;
+    // }
 
     const newMembers: Record<string, any> = {};
     lines.forEach((line, index) => {
@@ -347,7 +382,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
         </button>
         <div className="flex-1">
           <h2 className="text-2xl font-bold text-stone-800">{guild.name} - 成員管理</h2>
-          <p className="text-sm text-stone-500">成員數: {members.length} / 30</p>
+          <p className={`text-sm font-medium ${members.length > 30 ? 'text-red-500 bg-red-50 px-2 py-0.5 rounded inline-block' : 'text-stone-500'}`}>
+            成員數: {members.length} / 30
+          </p>
         </div>
         {!isAdding && !editingId && !isBatchAdding && (
           <div className="flex gap-2">
@@ -407,9 +444,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
               value={formData.targetGuildId}
               onChange={e => setFormData({...formData, targetGuildId: e.target.value})}
             >
-              {(db.guildOrder || Object.keys(db.guilds)).map((id) => {
-                const g = db.guilds[id];
-                if (!g) return null;
+              {(sortedGuilds as [string, any][]).map(([id, g]) => {
                 return <option key={id} value={id}>{g.name}</option>;
               })}
             </select>

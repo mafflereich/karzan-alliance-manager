@@ -2,6 +2,8 @@ export type Role = 'Master' | 'Deputy' | 'Member';
 
 export interface Guild {
   name: string;
+  tier?: number;
+  order?: number;
 }
 
 export interface CostumeRecord {

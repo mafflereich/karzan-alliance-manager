@@ -3,6 +3,7 @@ import { useAppContext } from '../store';
 import { ChevronLeft, Edit2, Menu, X, Shield } from 'lucide-react';
 import MemberEditModal from '../components/MemberEditModal';
 import { Role } from '../types';
+import { getTierTextColorDark } from '../utils';
 
 export default function GuildDashboard({ guildId }: { guildId: string }) {
   const { db, setCurrentView } = useAppContext();
@@ -31,6 +32,15 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     return `${yyyy}/${mm}/${dd}`;
   };
 
+  const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
+    const tierA = a[1].tier || 99;
+    const tierB = b[1].tier || 99;
+    if (tierA !== tierB) return tierA - tierB;
+    const orderA = a[1].order || 99;
+    const orderB = b[1].order || 99;
+    return orderA - orderB;
+  });
+
   return (
     <div className="min-h-screen bg-stone-100 pb-10 flex">
       {/* Sidebar Overlay */}
@@ -58,28 +68,36 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-1 px-2">
-            {(db.guildOrder || Object.keys(db.guilds)).map((id) => {
-              const g = db.guilds[id];
-              if (!g) return null;
+          <div className="space-y-6 px-2">
+            {[1, 2, 3, 4].map(tier => {
+              const tierGuilds = sortedGuilds.filter(g => (g[1].tier || 1) === tier);
+              if (tierGuilds.length === 0) return null;
               return (
-              <li key={id}>
-                <button
-                  onClick={() => {
-                    setCurrentView({ type: 'guild', guildId: id });
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    id === guildId 
-                      ? 'bg-amber-500/10 text-amber-500 font-medium' 
-                      : 'hover:bg-stone-800 hover:text-white'
-                  }`}
-                >
-                  {g.name}
-                </button>
-              </li>
-            )})}
-          </ul>
+                <div key={tier}>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider mb-2 px-4 ${getTierTextColorDark(tier)}`}>梯隊 {tier}</h3>
+                  <ul className="space-y-1">
+                    {tierGuilds.map(([id, g]) => (
+                      <li key={id}>
+                        <button
+                          onClick={() => {
+                            setCurrentView({ type: 'guild', guildId: id });
+                            setIsSidebarOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 rounded-lg transition-colors flex justify-between items-center ${
+                            id === guildId 
+                              ? 'bg-amber-500/10 text-amber-500 font-medium' 
+                              : 'hover:bg-stone-800 hover:text-white text-stone-300'
+                          }`}
+                        >
+                          <span>{g.name}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
         </div>
         <div className="p-4 border-t border-stone-800">
           <button 
@@ -102,7 +120,9 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
           </button>
           <div>
             <h1 className="font-bold text-xl text-stone-800">{guild.name}</h1>
-            <p className="text-stone-500 text-xs">成員總覽與服裝練度</p>
+            <p className={`text-xs font-medium ${members.length > 30 ? 'text-red-500 bg-red-50 px-1.5 py-0.5 rounded inline-block mt-1' : 'text-stone-500 mt-1'}`}>
+              成員數: {members.length} / 30
+            </p>
           </div>
         </header>
 

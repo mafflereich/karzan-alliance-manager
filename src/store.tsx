@@ -5,8 +5,8 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 const defaultData: Database = {
   guilds: {
-    "g001": { name: "Karzan一會" },
-    "g002": { name: "Karzan二會" }
+    "g001": { name: "Karzan一會", tier: 1, order: 1 },
+    "g002": { name: "Karzan二會", tier: 1, order: 2 }
   },
   guildOrder: ["g001", "g002"],
   members: {
