@@ -31,6 +31,7 @@ interface AppContextType {
   
   // New functions
   fetchMembers: (guildId: string) => void;
+  fetchAllMembers: () => Promise<void>;
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
   updateMemberCostume: (memberId: string, costumeId: string, level: number, weapon: boolean) => Promise<void>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
@@ -190,6 +191,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     
     setMemberUnsub(() => unsub);
+  };
+
+  const fetchAllMembers = async () => {
+    if (isOffline) return;
+
+    const querySnapshot = await getDocs(collection(firestore, 'members'));
+    const allMembers: Record<string, Member> = {};
+    querySnapshot.forEach((doc) => {
+      allMembers[doc.id] = { ...doc.data() as Member, id: doc.id };
+    });
+    setDbState(prev => ({ ...prev, members: allMembers }));
   };
 
   // Cleanup subscription on unmount
@@ -578,7 +590,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{ 
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser,
-      fetchMembers, addMember, updateMemberCostume, updateMember, addGuild, updateGuild, deleteGuild, deleteMember,
+      fetchMembers, fetchAllMembers, addMember, updateMemberCostume, updateMember, addGuild, updateGuild, deleteGuild, deleteMember,
       addCostume, updateCostume, deleteCostume, swapCostumeOrder, resetCostumeOrders, restoreData, updateUserPassword
     }}>
       {children}

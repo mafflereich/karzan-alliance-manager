@@ -6,8 +6,12 @@ import { getTierColor, getTierBorderHoverClass } from '../utils';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function AdminDashboard() {
-  const { db, setDb, setCurrentView, currentUser, setCurrentUser } = useAppContext();
+  const { db, setDb, setCurrentView, currentUser, setCurrentUser, fetchAllMembers } = useAppContext();
   const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'settings' | 'backup'>('guilds');
+
+  useEffect(() => {
+    fetchAllMembers();
+  }, []);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -69,8 +73,9 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
 }
 
 function GuildsManager() {
-  const { db, addGuild, updateGuild, deleteGuild } = useAppContext();
+  const { db, addGuild, updateGuild, deleteGuild, fetchAllMembers } = useAppContext();
   const [newGuildName, setNewGuildName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedGuildId, setSelectedGuildId] = useState<string | null>(null);
   const [editingGuildId, setEditingGuildId] = useState<string | null>(null);
   const [editGuildName, setEditGuildName] = useState('');
@@ -89,12 +94,15 @@ function GuildsManager() {
 
   const handleAddGuild = async () => {
     if (!newGuildName.trim()) return;
+    setIsSaving(true);
     try {
       await addGuild(newGuildName.trim());
       setNewGuildName('');
     } catch (error: any) {
       console.error("Error adding guild:", error);
       alert(`新增公會失敗: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -155,8 +163,13 @@ function GuildsManager() {
     return orderA - orderB;
   });
 
+  const handleBackFromMembers = () => {
+    setSelectedGuildId(null);
+    fetchAllMembers();
+  };
+
   if (selectedGuildId) {
-    return <GuildMembersManager guildId={selectedGuildId} onBack={() => setSelectedGuildId(null)} />;
+    return <GuildMembersManager guildId={selectedGuildId} onBack={handleBackFromMembers} />;
   }
 
   return (
@@ -171,8 +184,8 @@ function GuildsManager() {
           value={newGuildName}
           onChange={e => setNewGuildName(e.target.value)}
         />
-        <button onClick={handleAddGuild} className="px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 flex items-center gap-2">
-          <Plus className="w-5 h-5" /> 新增公會
+        <button onClick={handleAddGuild} disabled={isSaving} className="px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 flex items-center gap-2 disabled:opacity-50">
+          {isSaving ? '儲存中...' : <><Plus className="w-5 h-5" /> 新增公會</>}
         </button>
       </div>
 
@@ -268,6 +281,7 @@ function GuildsManager() {
 function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () => void }) {
   const { db, fetchMembers, addMember, updateMember, deleteMember } = useAppContext();
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -343,7 +357,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       alert(error);
       return;
     }
-
+    setIsSaving(true);
     try {
       if (editingId) {
         await updateMember(editingId, {
@@ -361,6 +375,8 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     } catch (error: any) {
       console.error("Error saving member:", error);
       alert(`儲存成員失敗: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -402,7 +418,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const handleBatchAdd = async () => {
     if (!batchInput.trim()) return;
     const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
-    
+    setIsSaving(true);
     try {
       // Batch add logic
       for (const line of lines) {
@@ -425,6 +441,8 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     } catch (error: any) {
       console.error("Error batch adding members:", error);
       alert(`批量新增失敗: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -462,7 +480,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
             onChange={e => setBatchInput(e.target.value)}
           />
           <div className="flex gap-2 justify-end">
-            <button onClick={handleBatchAdd} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">確認新增</button>
+            <button onClick={handleBatchAdd} disabled={isSaving} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50">
+              {isSaving ? '儲存中...' : '確認新增'}
+            </button>
             <button onClick={() => { setIsBatchAdding(false); setBatchInput(''); }} className="px-4 py-2 bg-stone-300 text-stone-800 rounded-lg hover:bg-stone-400">取消</button>
           </div>
         </div>
@@ -514,7 +534,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
             />
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSave} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">儲存</button>
+            <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50">
+              {isSaving ? '儲存中...' : '儲存'}
+            </button>
             <button onClick={cancelEdit} className="px-4 py-2 bg-stone-300 text-stone-800 rounded-lg hover:bg-stone-400">取消</button>
           </div>
         </div>
@@ -665,6 +687,7 @@ function CostumesManager() {
   const [editImageName, setEditImageName] = useState('');
   const [isBatchAdding, setIsBatchAdding] = useState(false);
   const [batchInput, setBatchInput] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -692,7 +715,7 @@ function CostumesManager() {
   const handleBatchAdd = async () => {
     if (!batchInput.trim()) return;
     const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
-    
+    setIsSaving(true);
     try {
       // Get current max order
       let currentMaxOrder = db.costume_definitions.reduce((max, c) => Math.max(max, c.order ?? 0), 0);
@@ -713,6 +736,8 @@ function CostumesManager() {
     } catch (error: any) {
       console.error("Error batch adding costumes:", error);
       alert(`批量新增服裝失敗: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1089,7 +1114,7 @@ function SettingsManager() {
 }
 
 function BackupManager() {
-  const { db, restoreData } = useAppContext();
+  const { db, restoreData, fetchAllMembers } = useAppContext();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState('');
@@ -1119,9 +1144,12 @@ function BackupManager() {
     document.body.removeChild(link);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setIsExporting(true);
     try {
+      // Ensure all members are loaded before exporting
+      await fetchAllMembers();
+
       // 1. Export Guilds
       const guildsHeader = 'id,name,tier,order\n';
       const guildsRows = Object.values(db.guilds).map((g: any) => 
