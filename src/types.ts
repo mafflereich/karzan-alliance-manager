@@ -1,6 +1,7 @@
 export type Role = '會長' | '副會長' | '成員';
 
 export interface Guild {
+  id?: string;
   name: string;
   tier?: number;
   order?: number;
@@ -12,6 +13,7 @@ export interface CostumeRecord {
 }
 
 export interface Member {
+  id?: string;
   name: string;
   guildId: string;
   role: Role;
@@ -25,6 +27,7 @@ export interface Costume {
   name: string;
   character: string;
   imageName?: string;
+  order?: number;
 }
 
 export interface User {

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../store';
 import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User, AlertCircle } from 'lucide-react';
 import { Role } from '../types';
 import { getTierColor, getTierBorderHoverClass } from '../utils';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function AdminDashboard() {
   const { db, setDb, setCurrentView, currentUser, setCurrentUser } = useAppContext();
@@ -64,22 +65,33 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
 }
 
 function GuildsManager() {
-  const { db, setDb } = useAppContext();
+  const { db, addGuild, updateGuild, deleteGuild } = useAppContext();
   const [newGuildName, setNewGuildName] = useState('');
   const [selectedGuildId, setSelectedGuildId] = useState<string | null>(null);
   const [editingGuildId, setEditingGuildId] = useState<string | null>(null);
   const [editGuildName, setEditGuildName] = useState('');
   const [editGuildTier, setEditGuildTier] = useState<number>(1);
   const [editGuildOrder, setEditGuildOrder] = useState<number>(1);
+  
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    isDanger: false
+  });
 
-  const handleAddGuild = () => {
+  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
+
+  const handleAddGuild = async () => {
     if (!newGuildName.trim()) return;
-    const newId = `g${Date.now()}`;
-    setDb(prev => ({
-      ...prev,
-      guilds: { ...prev.guilds, [newId]: { name: newGuildName.trim(), tier: 1, order: 99 } }
-    }));
-    setNewGuildName('');
+    try {
+      await addGuild(newGuildName.trim());
+      setNewGuildName('');
+    } catch (error: any) {
+      console.error("Error adding guild:", error);
+      alert(`新增公會失敗: ${error.message}`);
+    }
   };
 
   const getMemberCount = (guildId: string) => {
@@ -94,22 +106,40 @@ function GuildsManager() {
     setEditGuildOrder(guild.order || 1);
   };
 
-  const saveEdit = (e: React.MouseEvent) => {
+  const saveEdit = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!editGuildName.trim() || !editingGuildId) return;
-    setDb(prev => ({
-      ...prev,
-      guilds: {
-        ...prev.guilds,
-        [editingGuildId]: { 
-          ...prev.guilds[editingGuildId], 
-          name: editGuildName.trim(),
-          tier: editGuildTier,
-          order: editGuildOrder
+    try {
+      await updateGuild(editingGuildId, {
+        name: editGuildName.trim(),
+        tier: editGuildTier,
+        order: editGuildOrder
+      });
+      setEditingGuildId(null);
+    } catch (error: any) {
+      console.error("Error updating guild:", error);
+      alert(`更新公會失敗: ${error.message}`);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setConfirmModal({
+      isOpen: true,
+      title: '刪除公會',
+      message: '確定要刪除此公會嗎？此動作無法復原。',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await deleteGuild(id);
+          closeConfirmModal();
+        } catch (error: any) {
+          console.error("Error deleting guild:", error);
+          alert(`刪除公會失敗: ${error.message}`);
+          closeConfirmModal();
         }
       }
-    }));
-    setEditingGuildId(null);
+    });
   };
 
   const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
@@ -206,6 +236,7 @@ function GuildsManager() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button onClick={(e) => startEdit(e, id, guild)} className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit2 className="w-5 h-5" /></button>
+                        <button onClick={(e) => handleDelete(e, id)} className="p-2 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-5 h-5" /></button>
                         <Users className="w-5 h-5 ml-1 text-stone-400 group-hover:text-amber-500 transition-colors" />
                       </div>
                     </div>
@@ -216,13 +247,38 @@ function GuildsManager() {
           );
         })}
       </div>
+      
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+        isDanger={confirmModal.isDanger}
+        confirmText={confirmModal.isDanger ? "刪除" : "確認"}
+      />
     </div>
   );
 }
 
 function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () => void }) {
-  const { db, setDb } = useAppContext();
+  const { db, fetchMembers, addMember, updateMember, deleteMember } = useAppContext();
   const [isAdding, setIsAdding] = useState(false);
+  
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    isDanger: false
+  });
+
+  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
+
+  useEffect(() => {
+    fetchMembers(guildId);
+  }, [guildId]);
+
   const [isBatchAdding, setIsBatchAdding] = useState(false);
   const [batchInput, setBatchInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -263,13 +319,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const validateMoveOrAdd = (targetGId: string, role: Role, excludeMemberId?: string) => {
     if (!targetGId) return "請選擇公會";
     if (!formData.name.trim()) return "請輸入名稱";
-
-    const currentCount = getMemberCount(targetGId);
-    const isSameGuild = excludeMemberId && db.members[excludeMemberId]?.guildId === targetGId;
     
-    // Allow exceeding 30 members
-    // if (!isSameGuild && currentCount >= 30) return "該公會人數已達 30 人上限";
-
+    // Check role limits only if role is changing or new member
+    // This logic is simplified for now
     if (role === '會長') {
       const master = getGuildMaster(targetGId);
       if (master && master[0] !== excludeMemberId) return "該公會已有會長";
@@ -281,55 +333,50 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     return null;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const error = validateMoveOrAdd(formData.targetGuildId, formData.role, editingId || undefined);
     if (error) {
       alert(error);
       return;
     }
 
-    if (editingId) {
-      setDb(prev => ({
-        ...prev,
-        members: {
-          ...prev.members,
-          [editingId]: { 
-            ...prev.members[editingId], 
-            name: formData.name,
-            role: formData.role,
-            note: formData.note,
-            guildId: formData.targetGuildId
-          }
-        }
-      }));
-      setEditingId(null);
-    } else {
-      const newId = `u${Date.now()}`;
-      setDb(prev => ({
-        ...prev,
-        members: {
-          ...prev.members,
-          [newId]: { 
-            name: formData.name,
-            role: formData.role,
-            note: formData.note,
-            guildId: formData.targetGuildId,
-            records: {} 
-          }
-        }
-      }));
-      setIsAdding(false);
+    try {
+      if (editingId) {
+        await updateMember(editingId, {
+          name: formData.name,
+          role: formData.role,
+          note: formData.note,
+          guildId: formData.targetGuildId
+        });
+        setEditingId(null);
+      } else {
+        await addMember(formData.targetGuildId, formData.name, formData.role, formData.note);
+        setIsAdding(false);
+      }
+      setFormData({ name: '', role: '成員', note: '', targetGuildId: guildId });
+    } catch (error: any) {
+      console.error("Error saving member:", error);
+      alert(`儲存成員失敗: ${error.message}`);
     }
-    setFormData({ name: '', role: '成員', note: '', targetGuildId: guildId });
   };
 
   const handleDeleteMember = (id: string) => {
-    if (window.confirm('確定要刪除此成員嗎？')) {
-      setDb(prev => {
-        const { [id]: _, ...nextMembers } = prev.members;
-        return { ...prev, members: nextMembers };
-      });
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: '刪除成員',
+      message: '確定要刪除此成員嗎？此動作無法復原。',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await deleteMember(id);
+          closeConfirmModal();
+        } catch (error: any) {
+          console.error("Error deleting member:", error);
+          alert(`刪除成員失敗: ${error.message}`);
+          closeConfirmModal();
+        }
+      }
+    });
   };
 
   const startEdit = (id: string) => {
@@ -348,46 +395,33 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     setFormData({ name: '', role: '成員', note: '', targetGuildId: guildId });
   };
 
-  const handleBatchAdd = () => {
+  const handleBatchAdd = async () => {
     if (!batchInput.trim()) return;
     const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
     
-    const currentCount = getMemberCount(guildId);
-    // Allow exceeding 30 members
-    // if (currentCount + lines.length > 30) {
-    //   alert(`批量新增後將超過 30 人上限 (目前 ${currentCount} 人，欲新增 ${lines.length} 人)`);
-    //   return;
-    // }
+    try {
+      // Batch add logic
+      for (const line of lines) {
+        const parts = line.split(/[,，\t]/).map(s => s.trim());
+        const name = parts[0];
+        const roleStr = parts[1] || '';
+        const note = parts.slice(2).join(',').trim();
+        
+        let role: Role = '成員';
+        if (roleStr === 'Master' || roleStr === '會長') role = '會長';
+        else if (roleStr === 'Deputy' || roleStr === '副會長') role = '副會長';
 
-    const newMembers: Record<string, any> = {};
-    lines.forEach((line, index) => {
-      const parts = line.split(/[,，\t]/).map(s => s.trim());
-      const name = parts[0];
-      const roleStr = parts[1] || '';
-      const note = parts.slice(2).join(',').trim();
-      
-      let role: Role = '成員';
-      if (roleStr === 'Master' || roleStr === '會長') role = '會長';
-      else if (roleStr === 'Deputy' || roleStr === '副會長') role = '副會長';
-
-      newMembers[`u${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`] = {
-        name: name || '未命名',
-        role,
-        note: note || '',
-        guildId,
-        records: {}
-      };
-    });
-
-    setDb(prev => ({
-      ...prev,
-      members: {
-        ...prev.members,
-        ...newMembers
+        if (name) {
+          await addMember(guildId, name, role, note);
+        }
       }
-    }));
-    setBatchInput('');
-    setIsBatchAdding(false);
+
+      setBatchInput('');
+      setIsBatchAdding(false);
+    } catch (error: any) {
+      console.error("Error batch adding members:", error);
+      alert(`批量新增失敗: ${error.message}`);
+    }
   };
 
   return (
@@ -602,12 +636,22 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           </tbody>
         </table>
       </div>
+      
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+        isDanger={confirmModal.isDanger}
+        confirmText={confirmModal.isDanger ? "刪除" : "確認"}
+      />
     </div>
   );
 }
 
 function CostumesManager() {
-  const { db, setDb } = useAppContext();
+  const { db, addCostume, updateCostume, deleteCostume, swapCostumeOrder, resetCostumeOrders } = useAppContext();
   const [newChar, setNewChar] = useState('');
   const [newName, setNewName] = useState('');
   const [newImageName, setNewImageName] = useState('');
@@ -617,56 +661,99 @@ function CostumesManager() {
   const [editImageName, setEditImageName] = useState('');
   const [isBatchAdding, setIsBatchAdding] = useState(false);
   const [batchInput, setBatchInput] = useState('');
+  
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    isDanger: false
+  });
 
-  const handleAdd = () => {
+  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
+
+  const handleAdd = async () => {
     if (!newChar.trim() || !newName.trim()) return;
-    const newId = `costume_${Date.now()}`;
-    setDb(prev => ({
-      ...prev,
-      costume_definitions: [
-        ...prev.costume_definitions,
-        { id: newId, character: newChar.trim(), name: newName.trim(), imageName: newImageName.trim() }
-      ]
-    }));
-    setNewChar('');
-    setNewName('');
-    setNewImageName('');
+    try {
+      await addCostume(newChar.trim(), newName.trim(), newImageName.trim());
+      setNewChar('');
+      setNewName('');
+      setNewImageName('');
+    } catch (error: any) {
+      console.error("Error adding costume:", error);
+      alert(`新增服裝失敗: ${error.message}`);
+    }
   };
 
-  const handleBatchAdd = () => {
+  const handleBatchAdd = async () => {
     if (!batchInput.trim()) return;
     const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
-    const newCostumes = lines.map((line, index) => {
-      const parts = line.split(/[,，\t]/).map(s => s.trim());
-      const char = parts[0];
-      const name = parts[1] || char;
-      const imageName = parts[2] || '';
-      return {
-        id: `costume_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`,
-        character: char,
-        name: name,
-        imageName: imageName
-      };
-    });
+    
+    try {
+      // Get current max order
+      let currentMaxOrder = db.costume_definitions.reduce((max, c) => Math.max(max, c.order ?? 0), 0);
 
-    setDb(prev => ({
-      ...prev,
-      costume_definitions: [
-        ...prev.costume_definitions,
-        ...newCostumes
-      ]
-    }));
-    setBatchInput('');
-    setIsBatchAdding(false);
+      for (const line of lines) {
+        const parts = line.split(/[,，\t]/).map(s => s.trim());
+        const char = parts[0];
+        const name = parts[1] || char;
+        const imageName = parts[2] || '';
+        
+        if (char && name) {
+          currentMaxOrder++;
+          await addCostume(char, name, imageName, currentMaxOrder);
+        }
+      }
+      setBatchInput('');
+      setIsBatchAdding(false);
+    } catch (error: any) {
+      console.error("Error batch adding costumes:", error);
+      alert(`批量新增服裝失敗: ${error.message}`);
+    }
+  };
+
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetOrders = async () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '重置排序',
+      message: '確定要重置所有服裝的排序嗎？這將會根據目前的顯示順序重新編號，修復排序錯誤。',
+      isDanger: false,
+      onConfirm: async () => {
+        setIsResetting(true);
+        try {
+          await resetCostumeOrders();
+          alert('排序已重置完成');
+          closeConfirmModal();
+        } catch (error: any) {
+          console.error("Error resetting orders:", error);
+          alert(`重置排序失敗: ${error.message}`);
+          closeConfirmModal();
+        } finally {
+          setIsResetting(false);
+        }
+      }
+    });
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('確定要刪除此服裝嗎？這可能會影響已登記的成員資料。')) {
-      setDb(prev => ({
-        ...prev,
-        costume_definitions: prev.costume_definitions.filter(c => c.id !== id)
-      }));
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: '刪除服裝',
+      message: '確定要刪除此服裝嗎？這可能會影響已登記的成員資料。',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await deleteCostume(id);
+          closeConfirmModal();
+        } catch (error: any) {
+          console.error("Error deleting costume:", error);
+          alert(`刪除服裝失敗: ${error.message}`);
+          closeConfirmModal();
+        }
+      }
+    });
   };
 
   const startEdit = (costume: any) => {
@@ -676,28 +763,34 @@ function CostumesManager() {
     setEditImageName(costume.imageName || '');
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editChar.trim() || !editName.trim() || !editingId) return;
-    setDb(prev => ({
-      ...prev,
-      costume_definitions: prev.costume_definitions.map(c => 
-        c.id === editingId ? { ...c, character: editChar.trim(), name: editName.trim(), imageName: editImageName.trim() } : c
-      )
-    }));
-    setEditingId(null);
+    try {
+      await updateCostume(editingId, {
+        character: editChar.trim(),
+        name: editName.trim(),
+        imageName: editImageName.trim()
+      });
+      setEditingId(null);
+    } catch (error: any) {
+      console.error("Error updating costume:", error);
+      alert(`更新服裝失敗: ${error.message}`);
+    }
   };
 
-  const moveCostume = (index: number, direction: -1 | 1) => {
-    setDb(prev => {
-      const newDefs = [...prev.costume_definitions];
-      if (index + direction < 0 || index + direction >= newDefs.length) return prev;
-      
-      const temp = newDefs[index];
-      newDefs[index] = newDefs[index + direction];
-      newDefs[index + direction] = temp;
-      
-      return { ...prev, costume_definitions: newDefs };
-    });
+  const moveCostume = async (index: number, direction: -1 | 1) => {
+    const newDefs = [...db.costume_definitions];
+    if (index + direction < 0 || index + direction >= newDefs.length) return;
+    
+    const costume1 = newDefs[index];
+    const costume2 = newDefs[index + direction];
+    
+    try {
+      await swapCostumeOrder(costume1.id, costume2.id);
+    } catch (error: any) {
+      console.error("Error moving costume:", error);
+      alert(`移動失敗: ${error.message}`);
+    }
   };
 
   return (
@@ -743,6 +836,14 @@ function CostumesManager() {
               </button>
               <button onClick={() => setIsBatchAdding(true)} className="px-4 py-2 bg-stone-200 text-stone-800 rounded-lg hover:bg-stone-300 flex items-center gap-2 h-[42px]">
                 批量新增
+              </button>
+              <button 
+                onClick={handleResetOrders} 
+                className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 flex items-center gap-2 h-[42px] disabled:opacity-50" 
+                title="修復排序問題"
+                disabled={isResetting}
+              >
+                {isResetting ? '重置中...' : '重置排序'}
               </button>
             </div>
           </>
@@ -849,18 +950,28 @@ function CostumesManager() {
           </div>
         )}
       </div>
+      
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+        isDanger={confirmModal.isDanger}
+        confirmText={confirmModal.isDanger ? "刪除" : "確認"}
+      />
     </div>
   );
 }
 
 function SettingsManager() {
-  const { db, setDb } = useAppContext();
+  const { db, updateUserPassword } = useAppContext();
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleUpdatePassword = (username: string) => {
+  const handleUpdatePassword = async (username: string) => {
     if (!newPassword.trim()) {
       setError('密碼不能為空');
       return;
@@ -870,18 +981,17 @@ function SettingsManager() {
       return;
     }
     
-    setDb(prev => ({
-      ...prev,
-      users: {
-        ...prev.users,
-        [username]: { ...prev.users[username], password: newPassword.trim() }
-      }
-    }));
-    setEditingUser(null);
-    setNewPassword('');
-    setConfirmPassword('');
-    setError('');
-    alert(`帳號 ${username} 的密碼已更新`);
+    try {
+      await updateUserPassword(username, newPassword.trim());
+      setEditingUser(null);
+      setNewPassword('');
+      setConfirmPassword('');
+      setError('');
+      alert(`帳號 ${username} 的密碼已更新`);
+    } catch (error: any) {
+      console.error("Error updating password:", error);
+      setError(`更新失敗: ${error.message}`);
+    }
   };
 
   const startEdit = (username: string, currentPass: string) => {

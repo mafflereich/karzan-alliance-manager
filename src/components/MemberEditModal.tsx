@@ -4,7 +4,7 @@ import { X, Save, CheckCircle2, Swords } from 'lucide-react';
 import { CostumeRecord } from '../types';
 
 export default function MemberEditModal({ memberId, onClose }: { memberId: string, onClose: () => void }) {
-  const { db, setDb } = useAppContext();
+  const { db, updateMember } = useAppContext();
   const [localRecords, setLocalRecords] = useState<Record<string, CostumeRecord>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -44,28 +44,22 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setDb(prev => ({
-      ...prev,
-      members: {
-        ...prev.members,
-        [memberId]: {
-          ...prev.members[memberId],
-          records: localRecords,
-          updatedAt: Date.now()
-        }
-      }
-    }));
-    
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await updateMember(memberId, { records: localRecords });
+      
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
         onClose();
       }, 1000);
-    }, 500);
+    } catch (error) {
+      console.error("Error updating member:", error);
+      alert("儲存失敗，請稍後再試");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const groupedCostumes = db.costume_definitions.reduce((acc, costume) => {
