@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../store';
-import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User, AlertCircle } from 'lucide-react';
-import { Role } from '../types';
+import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User, AlertCircle, Download, Upload, FileText } from 'lucide-react';
+import { Role, Guild, Member, Costume } from '../types';
 import { getTierColor, getTierBorderHoverClass } from '../utils';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function AdminDashboard() {
   const { db, setDb, setCurrentView, currentUser, setCurrentUser } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'settings'>('guilds');
+  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'settings' | 'backup'>('guilds');
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -20,7 +20,7 @@ export default function AdminDashboard() {
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Shield className="w-6 h-6 text-amber-500" />
-            Karzan 聯盟管理後台
+            Kazran 聯盟管理後台
             <span className="text-xs font-normal bg-stone-800 px-2 py-0.5 rounded text-stone-400">
               Logged in as: {currentUser}
             </span>
@@ -32,11 +32,14 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
-        <div className="flex gap-4 mb-6 border-b border-stone-300 pb-2">
+        <div className="flex gap-4 mb-6 border-b border-stone-300 pb-2 overflow-x-auto">
           <TabButton active={activeTab === 'guilds'} onClick={() => setActiveTab('guilds')} icon={<Shield />} label="公會管理" />
           <TabButton active={activeTab === 'costumes'} onClick={() => setActiveTab('costumes')} icon={<Sword />} label="服裝資料庫" />
           {currentUser === 'admin' && (
-            <TabButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Lock />} label="帳號設定" />
+            <>
+              <TabButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Lock />} label="帳號設定" />
+              <TabButton active={activeTab === 'backup'} onClick={() => setActiveTab('backup')} icon={<Save />} label="備份與還原" />
+            </>
           )}
         </div>
 
@@ -44,6 +47,7 @@ export default function AdminDashboard() {
           {activeTab === 'guilds' && <GuildsManager />}
           {activeTab === 'costumes' && <CostumesManager />}
           {activeTab === 'settings' && currentUser === 'admin' && <SettingsManager />}
+          {activeTab === 'backup' && currentUser === 'admin' && <BackupManager />}
         </div>
       </main>
     </div>
@@ -1080,6 +1084,304 @@ function SettingsManager() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function BackupManager() {
+  const { db, restoreData } = useAppContext();
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState('');
+  
+  const guildsFileRef = useRef<HTMLInputElement>(null);
+  const membersFileRef = useRef<HTMLInputElement>(null);
+  const costumesFileRef = useRef<HTMLInputElement>(null);
+
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    isDanger: false
+  });
+
+  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
+
+  const downloadCSV = (filename: string, content: string) => {
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExport = () => {
+    setIsExporting(true);
+    try {
+      // 1. Export Guilds
+      const guildsHeader = 'id,name,tier,order\n';
+      const guildsRows = Object.values(db.guilds).map((g: any) => 
+        `${g.id},${g.name},${g.tier || 1},${g.order || 99}`
+      ).join('\n');
+      downloadCSV(`guilds_${new Date().toISOString().slice(0,10)}.csv`, guildsHeader + guildsRows);
+
+      // 2. Export Costumes
+      const costumesHeader = 'id,character,name,imageName,order\n';
+      const costumesRows = db.costume_definitions.map(c => 
+        `${c.id},${c.character},${c.name},${c.imageName || ''},${c.order || ''}`
+      ).join('\n');
+      downloadCSV(`costumes_${new Date().toISOString().slice(0,10)}.csv`, costumesHeader + costumesRows);
+
+      // 3. Export Members
+      // Note: records are complex objects. We'll JSON stringify them, but escape quotes.
+      const membersHeader = 'id,guildId,name,role,note,records\n';
+      const membersRows = Object.values(db.members).map((m: any) => {
+        // Escape double quotes in JSON string by doubling them for CSV standard
+        const recordsJson = JSON.stringify(m.records).replace(/"/g, '""');
+        return `${m.id},${m.guildId},${m.name},${m.role},${m.note || ''},"${recordsJson}"`;
+      }).join('\n');
+      downloadCSV(`members_${new Date().toISOString().slice(0,10)}.csv`, membersHeader + membersRows);
+
+      alert('已開始下載 3 個 CSV 檔案 (公會, 成員, 服裝)');
+    } catch (error: any) {
+      console.error("Export error:", error);
+      alert(`匯出失敗: ${error.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const parseCSV = (text: string): any[] => {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length < 2) return [];
+    
+    const headers = lines[0].split(',').map(h => h.trim());
+    const result = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      // Handle quoted values (like our JSON records)
+      const values: string[] = [];
+      let inQuote = false;
+      let currentValue = '';
+      
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"') {
+          if (inQuote && line[j+1] === '"') {
+            currentValue += '"'; // Escaped quote
+            j++;
+          } else {
+            inQuote = !inQuote;
+          }
+        } else if (char === ',' && !inQuote) {
+          values.push(currentValue);
+          currentValue = '';
+        } else {
+          currentValue += char;
+        }
+      }
+      values.push(currentValue);
+
+      const obj: any = {};
+      headers.forEach((h, idx) => {
+        obj[h] = values[idx];
+      });
+      result.push(obj);
+    }
+    return result;
+  };
+
+  const handleImport = async () => {
+    const guildsFile = guildsFileRef.current?.files?.[0];
+    const membersFile = membersFileRef.current?.files?.[0];
+    const costumesFile = costumesFileRef.current?.files?.[0];
+
+    if (!guildsFile && !membersFile && !costumesFile) {
+      alert('請至少選擇一個檔案進行匯入');
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: '確認還原資料',
+      message: '確定要匯入選定的 CSV 檔案嗎？這將會更新或新增資料。現有的資料若ID相同將被覆蓋。',
+      isDanger: true,
+      onConfirm: async () => {
+        closeConfirmModal();
+        setIsImporting(true);
+        setImportStatus('讀取檔案中...');
+
+        try {
+          const guilds: Guild[] = [];
+          const members: Member[] = [];
+          const costumes: Costume[] = [];
+
+          if (guildsFile) {
+            const text = await guildsFile.text();
+            const data = parseCSV(text);
+            data.forEach(row => {
+              if (row.id && row.name) {
+                guilds.push({
+                  id: row.id,
+                  name: row.name,
+                  tier: row.tier ? Number(row.tier) : 1,
+                  order: row.order ? Number(row.order) : 99
+                });
+              }
+            });
+          }
+
+          if (costumesFile) {
+            const text = await costumesFile.text();
+            const data = parseCSV(text);
+            data.forEach(row => {
+              if (row.id && row.character && row.name) {
+                costumes.push({
+                  id: row.id,
+                  character: row.character,
+                  name: row.name,
+                  imageName: row.imageName,
+                  order: row.order ? Number(row.order) : undefined
+                });
+              }
+            });
+          }
+
+          if (membersFile) {
+            const text = await membersFile.text();
+            const data = parseCSV(text);
+            data.forEach(row => {
+              if (row.id && row.guildId && row.name) {
+                let records = {};
+                try {
+                  if (row.records) {
+                    records = JSON.parse(row.records);
+                  }
+                } catch (e) {
+                  console.warn(`Failed to parse records for member ${row.id}`, e);
+                }
+
+                members.push({
+                  id: row.id,
+                  guildId: row.guildId,
+                  name: row.name,
+                  role: row.role as Role,
+                  note: row.note,
+                  records: records,
+                  updatedAt: Date.now()
+                });
+              }
+            });
+          }
+
+          setImportStatus(`準備匯入: ${guilds.length} 公會, ${costumes.length} 服裝, ${members.length} 成員...`);
+          await restoreData(guilds, members, costumes);
+          
+          alert('匯入成功！資料已更新。');
+          setImportStatus('');
+          // Clear inputs
+          if (guildsFileRef.current) guildsFileRef.current.value = '';
+          if (membersFileRef.current) membersFileRef.current.value = '';
+          if (costumesFileRef.current) costumesFileRef.current.value = '';
+
+        } catch (error: any) {
+          console.error("Import error:", error);
+          alert(`匯入失敗: ${error.message}`);
+          setImportStatus('匯入失敗');
+        } finally {
+          setIsImporting(false);
+        }
+      }
+    });
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-6 text-stone-800">備份與還原</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Export Section */}
+        <div className="bg-stone-50 p-6 rounded-xl border border-stone-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-green-100 rounded-full text-green-600">
+              <Download className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-stone-800">匯出備份</h3>
+          </div>
+          <div className="text-stone-600 mb-6">
+            將目前的資料庫匯出為 CSV 檔案。系統將會產生 3 個檔案：
+            <ul className="list-disc list-inside mt-2 ml-2 text-sm">
+              <li>guilds_date.csv (公會資料)</li>
+              <li>costumes_date.csv (服裝列表)</li>
+              <li>members_date.csv (成員及裝備紀錄)</li>
+            </ul>
+          </div>
+          <button 
+            onClick={handleExport} 
+            disabled={isExporting}
+            className="w-full py-3 bg-stone-800 text-white rounded-lg hover:bg-stone-700 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isExporting ? '匯出中...' : '匯出所有資料 (CSV)'}
+          </button>
+        </div>
+
+        {/* Import Section */}
+        <div className="bg-stone-50 p-6 rounded-xl border border-stone-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-blue-100 rounded-full text-blue-600">
+              <Upload className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-stone-800">還原資料</h3>
+          </div>
+          <div className="text-stone-600 mb-6">
+            選擇對應的 CSV 檔案進行匯入。您可以只選擇其中一個檔案進行部分更新。
+            <br/>
+            <span className="text-amber-600 text-sm font-bold flex items-center gap-1 mt-1">
+              <AlertCircle className="w-4 h-4" /> 注意：ID 相同的資料將被覆蓋
+            </span>
+          </div>
+          
+          <div className="flex flex-col gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-stone-600 mb-1">公會資料 (guilds.csv)</label>
+              <input ref={guildsFileRef} type="file" accept=".csv" className="w-full text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300"/>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-600 mb-1">服裝列表 (costumes.csv)</label>
+              <input ref={costumesFileRef} type="file" accept=".csv" className="w-full text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300"/>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-600 mb-1">成員資料 (members.csv)</label>
+              <input ref={membersFileRef} type="file" accept=".csv" className="w-full text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300"/>
+            </div>
+          </div>
+
+          {importStatus && <p className="text-sm text-blue-600 mb-2 text-center">{importStatus}</p>}
+
+          <button 
+            onClick={handleImport} 
+            disabled={isImporting}
+            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isImporting ? '匯入中...' : '開始還原'}
+          </button>
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+        isDanger={confirmModal.isDanger}
+        confirmText={confirmModal.isDanger ? "確認還原" : "確認"}
+      />
     </div>
   );
 }
