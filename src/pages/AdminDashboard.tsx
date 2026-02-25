@@ -71,6 +71,8 @@ export default function AdminDashboard() {
 }
 
 function ToolsManager() {
+  const { db, deleteMember } = useAppContext();
+  const [isProcessing, setIsProcessing] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -93,6 +95,74 @@ function ToolsManager() {
     });
   };
 
+  const handleRemoveDuplicates = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '移除重複成員',
+      message: '確定要移除重複成員嗎？此動作將會刪除所有公會中同名且無服飾資料的成員。',
+      isDanger: true,
+      onConfirm: async () => {
+        setIsProcessing(true);
+        closeConfirmModal();
+        const membersByGuild: Record<string, any[]> = {};
+        for (const memberId in db.members) {
+          const member = db.members[memberId];
+          if (!membersByGuild[member.guildId]) {
+            membersByGuild[member.guildId] = [];
+          }
+          membersByGuild[member.guildId].push({ id: memberId, ...member });
+        }
+
+        for (const guildId in membersByGuild) {
+          const members = membersByGuild[guildId];
+          const membersByName: Record<string, any[]> = {};
+          for (const member of members) {
+            if (!membersByName[member.name]) {
+              membersByName[member.name] = [];
+            }
+            membersByName[member.name].push(member);
+          }
+
+          for (const name in membersByName) {
+            const duplicateMembers = membersByName[name];
+            if (duplicateMembers.length > 1) {
+              const membersWithCostumes = duplicateMembers.filter(m => Object.keys(m.records || {}).length > 0);
+              if (membersWithCostumes.length <= 1) {
+                const membersToDelete = duplicateMembers.filter(m => Object.keys(m.records || {}).length === 0);
+                if (membersWithCostumes.length === 1) {
+                  for (const member of membersToDelete) {
+                    await deleteMember(member.id);
+                  }
+                } else {
+                  for (let i = 1; i < membersToDelete.length; i++) {
+                    await deleteMember(membersToDelete[i].id);
+                  }
+                }
+              } else {
+                const membersByCostume: Record<string, any[]> = {};
+                for (const member of membersWithCostumes) {
+                  const costumeKey = JSON.stringify(member.records);
+                  if (!membersByCostume[costumeKey]) {
+                    membersByCostume[costumeKey] = [];
+                  }
+                  membersByCostume[costumeKey].push(member);
+                }
+
+                for (const costumeKey in membersByCostume) {
+                  const sameCostumeMembers = membersByCostume[costumeKey];
+                  for (let i = 1; i < sameCostumeMembers.length; i++) {
+                    await deleteMember(sameCostumeMembers[i].id);
+                  }
+                }
+              }
+            }
+          }
+        }
+        setIsProcessing(false);
+      }
+    });
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold mb-6 text-stone-800 flex items-center gap-2">
@@ -100,20 +170,40 @@ function ToolsManager() {
         便利小功能
       </h2>
       
-      <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
-        <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
-          <RefreshCw className="w-8 h-8" />
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
+            <RefreshCw className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">自動搬運</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            此功能可用於自動處理成員資料搬運，目前僅供介面展示。
+          </p>
+          <button
+            onClick={handleAutoTransfer}
+            disabled={isProcessing}
+            className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? '處理中...' : '開始自動搬運'}
+          </button>
         </div>
-        <h3 className="text-xl font-bold text-stone-800 mb-2">自動搬運</h3>
-        <p className="text-stone-500 mb-6 max-w-md">
-          此功能可用於自動處理成員資料搬運，目前僅供介面展示。
-        </p>
-        <button
-          onClick={handleAutoTransfer}
-          className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md"
-        >
-          開始自動搬運
-        </button>
+
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-red-100 rounded-full text-red-600 mb-4">
+            <Trash2 className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">移除重複成員</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            移除所有公會中同名且無服飾資料的成員，或同名且服飾資料完全相同的成員。
+          </p>
+          <button
+            onClick={handleRemoveDuplicates}
+            disabled={isProcessing}
+            className="px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? '處理中...' : '開始移除'}
+          </button>
+        </div>
       </div>
 
       <ConfirmModal
@@ -243,7 +333,16 @@ function GuildsManager() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6 text-stone-800">公會列表</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-stone-800">公會列表</h2>
+        <button 
+          onClick={() => fetchAllMembers()} 
+          className="p-2 text-stone-500 hover:bg-stone-200 rounded-full transition-colors"
+          title="重新整理"
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
+      </div>
 
       <div className="flex gap-2 mb-6">
         <input
