@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../store';
-import { X, Save, CheckCircle2 } from 'lucide-react';
+import { X, Save, CheckCircle2, Swords } from 'lucide-react';
 import { CostumeRecord } from '../types';
 
 export default function MemberEditModal({ memberId, onClose }: { memberId: string, onClose: () => void }) {
@@ -22,6 +22,21 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
   const handleRecordChange = (costumeId: string, field: keyof CostumeRecord, value: any) => {
     setLocalRecords(prev => {
       const current = prev[costumeId] || { level: -1, weapon: false };
+      
+      // If updating weapon, sync across all costumes of the same character
+      if (field === 'weapon') {
+        const targetCostume = db.costume_definitions.find(c => c.id === costumeId);
+        if (targetCostume) {
+          const characterCostumes = db.costume_definitions.filter(c => c.character === targetCostume.character);
+          const nextRecords = { ...prev };
+          characterCostumes.forEach(c => {
+            const cRecord = nextRecords[c.id] || { level: -1, weapon: false };
+            nextRecords[c.id] = { ...cRecord, weapon: value };
+          });
+          return nextRecords;
+        }
+      }
+
       return {
         ...prev,
         [costumeId]: { ...current, [field]: value }
@@ -137,7 +152,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
                         </div>
                         
                         <label className="flex items-center gap-2 cursor-pointer group bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 active:bg-stone-100 transition-colors shrink-0">
-                          <span className={`text-sm font-bold transition-colors ${record.weapon ? 'text-amber-600' : 'text-stone-400'}`}>專武</span>
+                          <Swords className={`w-4 h-4 transition-colors ${record.weapon ? 'text-amber-600' : 'text-stone-400'}`} />
                           <div className="relative flex items-center">
                             <input 
                               type="checkbox" 
@@ -161,17 +176,20 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
         <div className="bg-white px-6 py-4 border-t border-stone-200 flex justify-end gap-3">
           <button 
             onClick={onClose}
-            className="px-5 py-2 text-stone-600 font-medium hover:bg-stone-100 rounded-xl transition-colors"
+            className="p-2 text-stone-500 hover:bg-stone-100 rounded-xl transition-colors"
+            title="取消"
           >
-            取消
+            <X className="w-6 h-6" />
           </button>
           <button 
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium shadow-sm transition-all active:scale-95 disabled:opacity-70"
+            className={`flex items-center justify-center p-2 rounded-xl font-medium shadow-sm transition-all active:scale-95 disabled:opacity-70 ${
+              showSuccess ? 'bg-green-600 text-white' : 'bg-amber-600 hover:bg-amber-700 text-white'
+            }`}
+            title={showSuccess ? '已儲存' : isSaving ? '儲存中...' : '儲存變更'}
           >
-            {showSuccess ? <CheckCircle2 className="w-5 h-5" /> : <Save className="w-5 h-5" />}
-            {showSuccess ? '已儲存' : isSaving ? '儲存中...' : '儲存變更'}
+            {showSuccess ? <CheckCircle2 className="w-6 h-6" /> : <Save className="w-6 h-6" />}
           </button>
         </div>
       </div>

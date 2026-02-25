@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
-import { ChevronLeft, Edit2, Menu, X, Shield } from 'lucide-react';
+import { ChevronLeft, Edit2, Menu, X, Shield, Swords } from 'lucide-react';
 import MemberEditModal from '../components/MemberEditModal';
 import { Role } from '../types';
 import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass } from '../utils';
@@ -187,22 +187,22 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                           const record = member.records[c.id];
                           const hasCostume = record && record.level >= 0;
                           
-                          let levelColorClass = "text-amber-600 bg-amber-50"; // default for +5
+                          let levelColorClass = "bg-amber-500 text-white"; // default for +5
                           if (hasCostume) {
-                            if (record.level <= 0) levelColorClass = "text-stone-600 bg-stone-100";
-                            else if (record.level <= 2) levelColorClass = "text-blue-600 bg-blue-50";
-                            else if (record.level <= 4) levelColorClass = "text-purple-600 bg-purple-50";
+                            if (record.level <= 0) levelColorClass = "bg-stone-200 text-stone-600";
+                            else if (record.level <= 2) levelColorClass = "bg-blue-500 text-white";
+                            else if (record.level <= 4) levelColorClass = "bg-purple-500 text-white";
                           }
 
                           return (
-                            <td key={c.id} className="p-3 text-center border-r border-stone-100 last:border-r-0">
+                            <td key={c.id} className={`p-0 text-center border-r border-stone-100 last:border-r-0 h-full ${hasCostume ? levelColorClass : ''}`}>
                               {hasCostume ? (
-                                <div className="flex flex-col items-center justify-center gap-1">
-                                  <span className={`font-bold px-2 py-0.5 rounded text-sm ${levelColorClass}`}>+{record.level}</span>
-                                  {record.weapon && <span className="text-[10px] bg-stone-800 text-white px-1.5 py-0.5 rounded-sm">專武</span>}
+                                <div className="flex flex-col items-center justify-center h-full min-h-[60px] py-2 gap-1">
+                                  <span className="font-bold text-sm">+{record.level}</span>
+                                  {record.weapon && <Swords className="w-4 h-4" />}
                                 </div>
                               ) : (
-                                <span className="text-stone-300 text-sm">-</span>
+                                <div className="flex items-center justify-center h-full min-h-[60px] text-stone-300 text-sm">-</div>
                               )}
                             </td>
                           );
@@ -210,10 +210,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                         <td className="p-3 text-center sticky right-0 bg-white group-hover:bg-stone-50 border-l border-stone-200 shadow-[-1px_0_0_0_#e7e5e4] transition-colors">
                           <button 
                             onClick={() => setEditingMemberId(id)}
-                            className="flex items-center justify-center gap-1 px-3 py-1.5 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-lg text-sm font-medium transition-colors mx-auto"
+                            className="flex items-center justify-center p-2 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors mx-auto"
+                            title="編輯"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
-                            編輯
+                            <Edit2 className="w-4 h-4" />
                           </button>
                         </td>
                       </tr>

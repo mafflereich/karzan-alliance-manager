@@ -27,9 +27,16 @@ export interface Costume {
   imageName?: string;
 }
 
+export interface User {
+  username: string;
+  password: string;
+  role: 'admin' | 'manager';
+}
+
 export interface Database {
   guilds: Record<string, Guild>;
   guildOrder?: string[];
   members: Record<string, Member>;
   costume_definitions: Costume[];
+  users: Record<string, User>;
 }

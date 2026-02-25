@@ -23,7 +23,11 @@ const defaultData: Database = {
   costume_definitions: [
     { id: "costume_001", name: "優斯緹亞 (劍道社)", character: "Justia" },
     { id: "costume_002", name: "莎赫拉查德 (代號S)", character: "Schera" }
-  ]
+  ],
+  users: {
+    "admin": { username: "admin", password: "123", role: "admin" },
+    "manager": { username: "manager", password: "123", role: "manager" }
+  }
 };
 
 type ViewState = { type: 'admin' } | { type: 'guild', guildId: string } | null;
@@ -33,6 +37,8 @@ interface AppContextType {
   setDb: React.Dispatch<React.SetStateAction<Database>>;
   currentView: ViewState;
   setCurrentView: React.Dispatch<React.SetStateAction<ViewState>>;
+  currentUser: string | null;
+  setCurrentUser: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -40,13 +46,19 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [db, setDbState] = useState<Database>(defaultData);
   const [currentView, setCurrentView] = useState<ViewState>(null);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const docRef = doc(firestore, 'appData', 'main');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
-        setDbState(docSnap.data() as Database);
+        const data = docSnap.data() as Database;
+        setDbState({
+          ...defaultData,
+          ...data,
+          users: data.users || defaultData.users
+        });
       } else {
         // Initialize with default data if document doesn't exist
         setDoc(docRef, defaultData).catch(console.error);
@@ -75,7 +87,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   return (
-    <AppContext.Provider value={{ db, setDb, currentView, setCurrentView }}>
+    <AppContext.Provider value={{ db, setDb, currentView, setCurrentView, currentUser, setCurrentUser }}>
       {children}
     </AppContext.Provider>
   );

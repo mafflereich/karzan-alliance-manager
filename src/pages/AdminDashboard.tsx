@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
-import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft } from 'lucide-react';
+import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User, AlertCircle } from 'lucide-react';
 import { Role } from '../types';
 import { getTierColor, getTierBorderHoverClass } from '../utils';
 
 export default function AdminDashboard() {
-  const { db, setDb, setCurrentView } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes'>('guilds');
+  const { db, setDb, setCurrentView, currentUser, setCurrentUser } = useAppContext();
+  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'settings'>('guilds');
 
-  const handleLogout = () => setCurrentView(null);
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setCurrentView(null);
+  };
 
   return (
     <div className="min-h-screen bg-stone-100">
@@ -17,6 +20,9 @@ export default function AdminDashboard() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Shield className="w-6 h-6 text-amber-500" />
             Karzan 聯盟管理後台
+            <span className="text-xs font-normal bg-stone-800 px-2 py-0.5 rounded text-stone-400">
+              Logged in as: {currentUser}
+            </span>
           </h1>
           <button onClick={handleLogout} className="flex items-center gap-2 hover:text-amber-400 transition-colors">
             <LogOut className="w-5 h-5" /> 登出
@@ -28,11 +34,15 @@ export default function AdminDashboard() {
         <div className="flex gap-4 mb-6 border-b border-stone-300 pb-2">
           <TabButton active={activeTab === 'guilds'} onClick={() => setActiveTab('guilds')} icon={<Shield />} label="公會管理" />
           <TabButton active={activeTab === 'costumes'} onClick={() => setActiveTab('costumes')} icon={<Sword />} label="服裝資料庫" />
+          {currentUser === 'admin' && (
+            <TabButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Lock />} label="帳號設定" />
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6">
           {activeTab === 'guilds' && <GuildsManager />}
           {activeTab === 'costumes' && <CostumesManager />}
+          {activeTab === 'settings' && currentUser === 'admin' && <SettingsManager />}
         </div>
       </main>
     </div>
@@ -838,6 +848,127 @@ function CostumesManager() {
             目前沒有任何服裝資料
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SettingsManager() {
+  const { db, setDb } = useAppContext();
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleUpdatePassword = (username: string) => {
+    if (!newPassword.trim()) {
+      setError('密碼不能為空');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('兩次輸入的密碼不一致');
+      return;
+    }
+    
+    setDb(prev => ({
+      ...prev,
+      users: {
+        ...prev.users,
+        [username]: { ...prev.users[username], password: newPassword.trim() }
+      }
+    }));
+    setEditingUser(null);
+    setNewPassword('');
+    setConfirmPassword('');
+    setError('');
+    alert(`帳號 ${username} 的密碼已更新`);
+  };
+
+  const startEdit = (username: string, currentPass: string) => {
+    setEditingUser(username);
+    setNewPassword(currentPass);
+    setConfirmPassword(currentPass);
+    setError('');
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-6 text-stone-800">帳號密碼管理</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {(Object.entries(db.users) as [string, any][]).map(([username, user]) => (
+          <div key={username} className="p-6 border border-stone-200 rounded-xl bg-stone-50 flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <User className="w-5 h-5 text-stone-500" />
+                <span className="font-bold text-stone-800">{username}</span>
+                <span className={`text-xs px-2 py-0.5 rounded ${user.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {user.role}
+                </span>
+              </div>
+            </div>
+
+            {editingUser === username ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-stone-500 mb-1">新密碼</label>
+                  <input 
+                    type="password" 
+                    className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                    value={newPassword}
+                    onChange={e => { setNewPassword(e.target.value); setError(''); }}
+                    placeholder="輸入新密碼"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-stone-500 mb-1">確認新密碼</label>
+                  <input 
+                    type="password" 
+                    className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                    value={confirmPassword}
+                    onChange={e => { setConfirmPassword(e.target.value); setError(''); }}
+                    placeholder="再次輸入新密碼"
+                  />
+                </div>
+
+                {error && (
+                  <div className="text-red-500 text-xs flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <button 
+                    onClick={() => handleUpdatePassword(username)}
+                    className="flex-1 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 transition-colors text-sm font-medium"
+                  >
+                    儲存
+                  </button>
+                  <button 
+                    onClick={() => { setEditingUser(null); setNewPassword(''); setConfirmPassword(''); setError(''); }}
+                    className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg hover:bg-stone-300 transition-colors text-sm font-medium"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 text-stone-500">
+                  <Lock className="w-4 h-4" />
+                  <span className="text-sm">密碼: ••••••••</span>
+                </div>
+                <button 
+                  onClick={() => startEdit(username, user.password)}
+                  className="text-amber-600 hover:text-amber-700 text-sm font-medium"
+                >
+                  修改密碼
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
