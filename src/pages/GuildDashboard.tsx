@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppContext } from '../store';
-import { ChevronLeft, Edit2, Menu, X, Shield, Swords } from 'lucide-react';
+import { ChevronLeft, Edit2, Menu, X, Shield, Swords, MoveHorizontal } from 'lucide-react';
 import MemberEditModal from '../components/MemberEditModal';
 import { Role } from '../types';
 import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass } from '../utils';
@@ -9,6 +9,30 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
   const { db, setCurrentView } = useAppContext();
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Draggable scroll state
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - scrollRef.current.offsetLeft);
+    setScrollLeft(scrollRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => setIsDragging(false);
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5; // Scroll speed multiplier
+    scrollRef.current.scrollLeft = scrollLeft - walk;
+  };
 
   const guild = db.guilds[guildId];
   const members = Object.entries(db.members)
@@ -135,9 +159,22 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
 
         <main className="flex-1 overflow-auto p-4">
           <div className="max-w-full mx-auto">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs text-stone-400 flex items-center gap-1">
+                <MoveHorizontal className="w-3 h-3" />
+                <span>可左右拖曳或捲動查看完整表格</span>
+              </div>
+            </div>
             <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
+              <div 
+                ref={scrollRef}
+                className={`overflow-x-auto cursor-grab ${isDragging ? 'cursor-grabbing select-none' : ''}`}
+                onMouseDown={handleMouseDown}
+                onMouseLeave={handleMouseLeave}
+                onMouseUp={handleMouseUp}
+                onMouseMove={handleMouseMove}
+              >
+                <table className="w-full text-left border-collapse min-w-max">
                   <thead>
                     <tr className="bg-stone-50 border-b-2 border-stone-200 text-stone-600">
                       <th className="p-3 font-semibold sticky left-0 bg-stone-50 z-10 border-r border-stone-200 shadow-[1px_0_0_0_#e7e5e4]">成員</th>
