@@ -10,6 +10,7 @@ export interface Guild {
 export interface CostumeRecord {
   level: number; // -1 for Not Owned, 0-5 for +0 to +5
   weapon: boolean;
+  cValue?: number; // 6-24
 }
 
 export interface Member {

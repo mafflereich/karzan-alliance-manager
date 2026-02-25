@@ -4,7 +4,7 @@ import { ChevronLeft, Edit2, Menu, X, Shield, Swords, MoveHorizontal } from 'luc
 import MemberEditModal from '../components/MemberEditModal';
 import Footer from '../components/Footer';
 import { Role } from '../types';
-import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass } from '../utils';
+import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass, truncateName } from '../utils';
 
 export default function GuildDashboard({ guildId }: { guildId: string }) {
   const { db, setCurrentView } = useAppContext();
@@ -207,7 +207,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                         <td className="p-3 font-medium text-stone-800 sticky left-0 bg-white group-hover:bg-stone-50 border-r border-stone-200 shadow-[1px_0_0_0_#e7e5e4] transition-colors">
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                              <span>{member.name}</span>
+                              <span title={member.name}>{truncateName(member.name)}</span>
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                                 member.role === '會長' ? 'bg-red-100 text-red-800' :
                                 member.role === '副會長' ? 'bg-amber-100 text-amber-800' :

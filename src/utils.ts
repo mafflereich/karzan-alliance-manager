@@ -57,3 +57,19 @@ export const getTierTextHoverClass = (tier: number) => {
     default: return 'group-hover:text-amber-700';
   }
 };
+
+export const truncateName = (name: string, maxLength: number = 14) => {
+  let currentLength = 0;
+  let truncated = '';
+  for (let i = 0; i < name.length; i++) {
+    const char = name[i];
+    // Check if character is full-width (approximate check)
+    const isFullWidth = /[^\x00-\xff]/.test(char);
+    currentLength += isFullWidth ? 2 : 1;
+    if (currentLength > maxLength) {
+      return truncated + '...';
+    }
+    truncated += char;
+  }
+  return name;
+};
