@@ -14,9 +14,16 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
   const members = Object.entries(db.members)
     .filter(([_, m]: [string, any]) => m.guildId === guildId)
     .sort((a: [string, any], b: [string, any]) => {
-      const roleOrder = { Master: 1, Deputy: 2, Member: 3 };
-      if (roleOrder[a[1].role as Role] !== roleOrder[b[1].role as Role]) {
-        return roleOrder[a[1].role as Role] - roleOrder[b[1].role as Role];
+      const roleOrder: Record<string, number> = { 
+        '會長': 1, 'Master': 1,
+        '副會長': 2, 'Deputy': 2,
+        '成員': 3, 'Member': 3 
+      };
+      const orderA = roleOrder[a[1].role] || 99;
+      const orderB = roleOrder[b[1].role] || 99;
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
       }
       return a[1].name.localeCompare(b[1].name);
     });
@@ -151,8 +158,8 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                             <div className="flex items-center gap-2">
                               <span>{member.name}</span>
                               <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                                member.role === 'Master' ? 'bg-amber-100 text-amber-800' :
-                                member.role === 'Deputy' ? 'bg-blue-100 text-blue-800' :
+                                member.role === '會長' ? 'bg-amber-100 text-amber-800' :
+                                member.role === '副會長' ? 'bg-blue-100 text-blue-800' :
                                 'bg-stone-200 text-stone-700'
                               }`}>{member.role}</span>
                             </div>

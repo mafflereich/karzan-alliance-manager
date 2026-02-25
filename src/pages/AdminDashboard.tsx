@@ -217,7 +217,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const [batchInput, setBatchInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  const [formData, setFormData] = useState({ name: '', role: 'Member' as Role, note: '', targetGuildId: guildId });
+  const [formData, setFormData] = useState({ name: '', role: '成員' as Role, note: '', targetGuildId: guildId });
 
   const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
     const tierA = a[1].tier || 99;
@@ -232,16 +232,23 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const members = Object.entries(db.members)
     .filter(([_, m]: [string, any]) => m.guildId === guildId)
     .sort((a: [string, any], b: [string, any]) => {
-      const roleOrder = { Master: 1, Deputy: 2, Member: 3 };
-      if (roleOrder[a[1].role as Role] !== roleOrder[b[1].role as Role]) {
-        return roleOrder[a[1].role as Role] - roleOrder[b[1].role as Role];
+      const roleOrder: Record<string, number> = { 
+        '會長': 1, 'Master': 1,
+        '副會長': 2, 'Deputy': 2,
+        '成員': 3, 'Member': 3 
+      };
+      const orderA = roleOrder[a[1].role] || 99;
+      const orderB = roleOrder[b[1].role] || 99;
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
       }
       return a[1].name.localeCompare(b[1].name);
     });
 
   const getMemberCount = (gId: string) => Object.values(db.members).filter((m: any) => m.guildId === gId).length;
-  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === 'Master');
-  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === 'Deputy');
+  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '會長');
+  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '副會長');
 
   const validateMoveOrAdd = (targetGId: string, role: Role, excludeMemberId?: string) => {
     if (!targetGId) return "請選擇公會";
@@ -253,11 +260,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     // Allow exceeding 30 members
     // if (!isSameGuild && currentCount >= 30) return "該公會人數已達 30 人上限";
 
-    if (role === 'Master') {
+    if (role === '會長') {
       const master = getGuildMaster(targetGId);
       if (master && master[0] !== excludeMemberId) return "該公會已有會長";
     }
-    if (role === 'Deputy') {
+    if (role === '副會長') {
       const deputy = getGuildDeputy(targetGId);
       if (deputy && deputy[0] !== excludeMemberId) return "該公會已有副會長";
     }
@@ -303,15 +310,14 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       }));
       setIsAdding(false);
     }
-    setFormData({ name: '', role: 'Member', note: '', targetGuildId: guildId });
+    setFormData({ name: '', role: '成員', note: '', targetGuildId: guildId });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('確定要刪除此成員嗎？')) {
+  const handleDeleteMember = (id: string) => {
+    if (window.confirm('確定要刪除此成員嗎？')) {
       setDb(prev => {
-        const newMembers = { ...prev.members };
-        delete newMembers[id];
-        return { ...prev, members: newMembers };
+        const { [id]: _, ...nextMembers } = prev.members;
+        return { ...prev, members: nextMembers };
       });
     }
   };
@@ -329,7 +335,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const cancelEdit = () => {
     setIsAdding(false);
     setEditingId(null);
-    setFormData({ name: '', role: 'Member', note: '', targetGuildId: guildId });
+    setFormData({ name: '', role: '成員', note: '', targetGuildId: guildId });
   };
 
   const handleBatchAdd = () => {
@@ -350,9 +356,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       const roleStr = parts[1] || '';
       const note = parts.slice(2).join(',').trim();
       
-      let role: Role = 'Member';
-      if (roleStr === 'Master' || roleStr === '會長') role = 'Master';
-      else if (roleStr === 'Deputy' || roleStr === '副會長') role = 'Deputy';
+      let role: Role = '成員';
+      if (roleStr === 'Master' || roleStr === '會長') role = '會長';
+      else if (roleStr === 'Deputy' || roleStr === '副會長') role = '副會長';
 
       newMembers[`u${Date.now()}_${index}_${Math.random().toString(36).substr(2, 5)}`] = {
         name: name || '未命名',
@@ -432,9 +438,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
               value={formData.role}
               onChange={e => setFormData({...formData, role: e.target.value as Role})}
             >
-              <option value="Member">成員 (Member)</option>
-              <option value="Deputy">副會長 (Deputy)</option>
-              <option value="Master">會長 (Master)</option>
+              <option value="成員">成員</option>
+              <option value="副會長">副會長</option>
+              <option value="會長">會長</option>
             </select>
           </div>
           <div className="flex-1 min-w-[150px]">
@@ -482,8 +488,8 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                 <td className="p-3 font-medium text-stone-800">{member.name}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    member.role === 'Master' ? 'bg-amber-100 text-amber-800' :
-                    member.role === 'Deputy' ? 'bg-blue-100 text-blue-800' :
+                    member.role === '會長' ? 'bg-amber-100 text-amber-800' :
+                    member.role === '副會長' ? 'bg-blue-100 text-blue-800' :
                     'bg-stone-200 text-stone-700'
                   }`}>
                     {member.role}
@@ -491,8 +497,20 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                 </td>
                 <td className="p-3 text-stone-600 text-sm">{member.note || '-'}</td>
                 <td className="p-3 flex justify-end gap-2">
-                  <button onClick={() => startEdit(id)} className="p-2 text-stone-500 hover:text-amber-600 transition-colors"><Edit2 className="w-4 h-4" /></button>
-                  <button onClick={() => handleDelete(id)} className="p-2 text-stone-500 hover:text-red-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  <button 
+                    onClick={() => startEdit(id)} 
+                    className="p-2 text-stone-500 hover:text-amber-600 transition-colors"
+                    title="編輯"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteMember(id)} 
+                    className="p-2 text-stone-500 hover:text-red-600 transition-colors"
+                    title="刪除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -609,7 +627,7 @@ function CostumesManager() {
               <label className="block text-sm font-medium text-stone-600 mb-1">角色名稱 (Character)</label>
               <input 
                 type="text" 
-                placeholder="例如: 優斯緹亞" 
+                placeholder="例如: 悠絲緹亞" 
                 className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                 value={newChar}
                 onChange={e => setNewChar(e.target.value)}
@@ -639,7 +657,7 @@ function CostumesManager() {
             <label className="block text-sm font-medium text-stone-600">批量新增服裝 (每行一筆，格式: 角色名稱, 服裝名稱)</label>
             <textarea 
               className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none min-h-[100px]"
-              placeholder="優斯緹亞, 劍道社&#10;莎赫拉查德, 代號S"
+              placeholder="悠絲緹亞, 劍道社&#10;莎赫拉查德, 代號S"
               value={batchInput}
               onChange={e => setBatchInput(e.target.value)}
             />

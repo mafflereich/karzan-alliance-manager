@@ -13,7 +13,7 @@ const defaultData: Database = {
     "u123": {
       name: "玩家阿明",
       guildId: "g001",
-      role: "Member",
+      role: "成員",
       records: {
         "costume_001": { level: 5, weapon: true },
         "costume_002": { level: -1, weapon: false }

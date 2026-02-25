@@ -1,4 +1,4 @@
-export type Role = 'Master' | 'Deputy' | 'Member';
+export type Role = '會長' | '副會長' | '成員';
 
 export interface Guild {
   name: string;
