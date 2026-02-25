@@ -52,13 +52,12 @@ export default function AdminDashboard() {
 
 function TabButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
   return (
-    <button 
+    <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${
-        active ? 'text-amber-600 border-b-2 border-amber-600' : 'text-stone-500 hover:text-stone-800'
-      }`}
+      className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${active ? 'text-amber-600 border-b-2 border-amber-600' : 'text-stone-500 hover:text-stone-800'
+        }`}
     >
-      {React.cloneElement(icon as React.ReactElement, { className: 'w-5 h-5' })}
+      {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-5 h-5' })}
       {label}
     </button>
   );
@@ -72,12 +71,12 @@ function GuildsManager() {
   const [editGuildName, setEditGuildName] = useState('');
   const [editGuildTier, setEditGuildTier] = useState<number>(1);
   const [editGuildOrder, setEditGuildOrder] = useState<number>(1);
-  
+
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     isDanger: false
   });
 
@@ -158,11 +157,11 @@ function GuildsManager() {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6 text-stone-800">公會列表</h2>
-      
+
       <div className="flex gap-2 mb-6">
-        <input 
-          type="text" 
-          placeholder="新公會名稱" 
+        <input
+          type="text"
+          placeholder="新公會名稱"
           className="flex-1 p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
           value={newGuildName}
           onChange={e => setNewGuildName(e.target.value)}
@@ -180,15 +179,15 @@ function GuildsManager() {
             <div key={tier} className="flex flex-col gap-3">
               <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>梯隊 {tier}</h3>
               {tierGuilds.map(([id, guild]) => (
-                <div 
-                  key={id} 
+                <div
+                  key={id}
                   onClick={() => { if (!editingGuildId) setSelectedGuildId(id); }}
                   className={`p-4 border border-stone-200 rounded-xl bg-stone-50 flex flex-col gap-3 transition-colors group ${!editingGuildId ? `cursor-pointer ${getTierBorderHoverClass(tier)}` : ''}`}
                 >
                   {editingGuildId === id ? (
                     <div className="flex flex-col gap-2">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                         value={editGuildName}
                         onChange={e => setEditGuildName(e.target.value)}
@@ -208,8 +207,8 @@ function GuildsManager() {
                           <option value={3}>梯隊 3</option>
                           <option value={4}>梯隊 4</option>
                         </select>
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           className="w-20 p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                           value={editGuildOrder}
                           onChange={e => setEditGuildOrder(Number(e.target.value))}
@@ -247,7 +246,7 @@ function GuildsManager() {
           );
         })}
       </div>
-      
+
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -264,12 +263,12 @@ function GuildsManager() {
 function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () => void }) {
   const { db, fetchMembers, addMember, updateMember, deleteMember } = useAppContext();
   const [isAdding, setIsAdding] = useState(false);
-  
+
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     isDanger: false
   });
 
@@ -282,7 +281,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const [isBatchAdding, setIsBatchAdding] = useState(false);
   const [batchInput, setBatchInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({ name: '', role: '成員' as Role, note: '', targetGuildId: guildId });
 
   const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
@@ -298,14 +297,14 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const members = Object.entries(db.members)
     .filter(([_, m]: [string, any]) => m.guildId === guildId)
     .sort((a: [string, any], b: [string, any]) => {
-      const roleOrder: Record<string, number> = { 
+      const roleOrder: Record<string, number> = {
         '會長': 1, 'Master': 1,
         '副會長': 2, 'Deputy': 2,
-        '成員': 3, 'Member': 3 
+        '成員': 3, 'Member': 3
       };
       const orderA = roleOrder[a[1].role] || 99;
       const orderB = roleOrder[b[1].role] || 99;
-      
+
       if (orderA !== orderB) {
         return orderA - orderB;
       }
@@ -319,7 +318,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const validateMoveOrAdd = (targetGId: string, role: Role, excludeMemberId?: string) => {
     if (!targetGId) return "請選擇公會";
     if (!formData.name.trim()) return "請輸入名稱";
-    
+
     // Check role limits only if role is changing or new member
     // This logic is simplified for now
     if (role === '會長') {
@@ -398,7 +397,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const handleBatchAdd = async () => {
     if (!batchInput.trim()) return;
     const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
-    
+
     try {
       // Batch add logic
       for (const line of lines) {
@@ -406,7 +405,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
         const name = parts[0];
         const roleStr = parts[1] || '';
         const note = parts.slice(2).join(',').trim();
-        
+
         let role: Role = '成員';
         if (roleStr === 'Master' || roleStr === '會長') role = '會長';
         else if (roleStr === 'Deputy' || roleStr === '副會長') role = '副會長';
@@ -450,8 +449,8 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 
       {isBatchAdding && (
         <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-6 flex flex-col gap-4">
-          <label className="block text-sm font-medium text-stone-600">批量新增成員 (每行一筆，格式: 名稱, 職位, 備註) <br/>職位可填: 會長, 副會長, 成員 (預設)</label>
-          <textarea 
+          <label className="block text-sm font-medium text-stone-600">批量新增成員 (每行一筆，格式: 名稱, 職位, 備註) <br />職位可填: 會長, 副會長, 成員 (預設)</label>
+          <textarea
             className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none min-h-[100px]"
             placeholder="玩家阿明, 會長, 這是備註&#10;玩家阿華, 成員&#10;玩家小美"
             value={batchInput}
@@ -468,19 +467,19 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
         <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-6 flex gap-4 items-end flex-wrap">
           <div className="flex-1 min-w-[150px]">
             <label className="block text-sm font-medium text-stone-600 mb-1">名稱</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="w-full p-2 border border-stone-300 rounded-lg"
               value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
           <div className="flex-1 min-w-[150px]">
             <label className="block text-sm font-medium text-stone-600 mb-1">職位</label>
-            <select 
+            <select
               className="w-full p-2 border border-stone-300 rounded-lg"
               value={formData.role}
-              onChange={e => setFormData({...formData, role: e.target.value as Role})}
+              onChange={e => setFormData({ ...formData, role: e.target.value as Role })}
             >
               <option value="成員">成員</option>
               <option value="副會長">副會長</option>
@@ -489,10 +488,10 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           </div>
           <div className="flex-1 min-w-[150px]">
             <label className="block text-sm font-medium text-stone-600 mb-1">所屬公會</label>
-            <select 
+            <select
               className="w-full p-2 border border-stone-300 rounded-lg"
               value={formData.targetGuildId}
-              onChange={e => setFormData({...formData, targetGuildId: e.target.value})}
+              onChange={e => setFormData({ ...formData, targetGuildId: e.target.value })}
             >
               {(sortedGuilds as [string, any][]).map(([id, g]) => {
                 return <option key={id} value={id}>{g.name}</option>;
@@ -501,11 +500,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           </div>
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-stone-600 mb-1">備註</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="w-full p-2 border border-stone-300 rounded-lg"
               value={formData.note}
-              onChange={e => setFormData({...formData, note: e.target.value})}
+              onChange={e => setFormData({ ...formData, note: e.target.value })}
               placeholder="例如: 請假中"
             />
           </div>
@@ -533,19 +532,19 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                 return (
                   <tr key={id} className="bg-amber-50/50 border-b border-stone-100">
                     <td className="p-2">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         className="w-full p-1.5 border border-stone-300 rounded bg-white text-sm"
                         value={formData.name}
-                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
                         autoFocus
                       />
                     </td>
                     <td className="p-2">
-                      <select 
+                      <select
                         className="w-full p-1.5 border border-stone-300 rounded bg-white text-sm"
                         value={formData.role}
-                        onChange={e => setFormData({...formData, role: e.target.value as Role})}
+                        onChange={e => setFormData({ ...formData, role: e.target.value as Role })}
                       >
                         <option value="成員">成員</option>
                         <option value="副會長">副會長</option>
@@ -554,34 +553,34 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                     </td>
                     <td className="p-2">
                       <div className="flex flex-col gap-1">
-                        <select 
+                        <select
                           className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs mb-1"
                           value={formData.targetGuildId}
-                          onChange={e => setFormData({...formData, targetGuildId: e.target.value})}
+                          onChange={e => setFormData({ ...formData, targetGuildId: e.target.value })}
                         >
                           {(sortedGuilds as [string, any][]).map(([gId, g]) => (
                             <option key={gId} value={gId}>{g.name}</option>
                           ))}
                         </select>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           className="w-full p-1.5 border border-stone-300 rounded bg-white text-sm"
                           value={formData.note}
-                          onChange={e => setFormData({...formData, note: e.target.value})}
+                          onChange={e => setFormData({ ...formData, note: e.target.value })}
                           placeholder="備註"
                         />
                       </div>
                     </td>
                     <td className="p-2 text-right">
                       <div className="flex justify-end gap-1">
-                        <button 
+                        <button
                           onClick={handleSave}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="儲存"
                         >
                           <Save className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={cancelEdit}
                           className="p-2 text-stone-400 hover:bg-stone-100 rounded-lg transition-colors"
                           title="取消"
@@ -598,25 +597,24 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                 <tr key={id} className="border-b border-stone-100 hover:bg-stone-50">
                   <td className="p-3 font-medium text-stone-800">{member.name}</td>
                   <td className="p-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      member.role === '會長' ? 'bg-red-100 text-red-800' :
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.role === '會長' ? 'bg-red-100 text-red-800' :
                       member.role === '副會長' ? 'bg-amber-100 text-amber-800' :
-                      'bg-stone-200 text-stone-700'
-                    }`}>
+                        'bg-stone-200 text-stone-700'
+                      }`}>
                       {member.role}
                     </span>
                   </td>
                   <td className="p-3 text-stone-600 text-sm">{member.note || '-'}</td>
                   <td className="p-3 flex justify-end gap-2">
-                    <button 
-                      onClick={() => startEdit(id)} 
+                    <button
+                      onClick={() => startEdit(id)}
                       className="p-2 text-stone-500 hover:text-amber-600 transition-colors"
                       title="編輯"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => handleDeleteMember(id)} 
+                    <button
+                      onClick={() => handleDeleteMember(id)}
                       className="p-2 text-stone-500 hover:text-red-600 transition-colors"
                       title="刪除"
                     >
@@ -636,7 +634,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           </tbody>
         </table>
       </div>
-      
+
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -661,12 +659,12 @@ function CostumesManager() {
   const [editImageName, setEditImageName] = useState('');
   const [isBatchAdding, setIsBatchAdding] = useState(false);
   const [batchInput, setBatchInput] = useState('');
-  
+
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     isDanger: false
   });
 
@@ -688,7 +686,7 @@ function CostumesManager() {
   const handleBatchAdd = async () => {
     if (!batchInput.trim()) return;
     const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
-    
+
     try {
       // Get current max order
       let currentMaxOrder = db.costume_definitions.reduce((max, c) => Math.max(max, c.order ?? 0), 0);
@@ -698,10 +696,10 @@ function CostumesManager() {
         const char = parts[0];
         const name = parts[1] || char;
         const imageName = parts[2] || '';
-        
+
         if (char && name) {
           currentMaxOrder++;
-          await addCostume(char, name, imageName, currentMaxOrder);
+          await addCostume(char, name, imageName);
         }
       }
       setBatchInput('');
@@ -781,10 +779,10 @@ function CostumesManager() {
   const moveCostume = async (index: number, direction: -1 | 1) => {
     const newDefs = [...db.costume_definitions];
     if (index + direction < 0 || index + direction >= newDefs.length) return;
-    
+
     const costume1 = newDefs[index];
     const costume2 = newDefs[index + direction];
-    
+
     try {
       await swapCostumeOrder(costume1.id, costume2.id);
     } catch (error: any) {
@@ -796,15 +794,15 @@ function CostumesManager() {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6 text-stone-800">服裝資料庫</h2>
-      
+
       <div className="flex gap-2 mb-6 bg-stone-50 p-4 rounded-xl border border-stone-200 items-end flex-wrap">
         {!isBatchAdding ? (
           <>
             <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-stone-600 mb-1">角色名稱</label>
-              <input 
-                type="text" 
-                placeholder="例如: 悠絲緹亞" 
+              <input
+                type="text"
+                placeholder="例如: 悠絲緹亞"
                 className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                 value={newChar}
                 onChange={e => setNewChar(e.target.value)}
@@ -812,9 +810,9 @@ function CostumesManager() {
             </div>
             <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-stone-600 mb-1">服裝名稱</label>
-              <input 
-                type="text" 
-                placeholder="例如: 劍道社" 
+              <input
+                type="text"
+                placeholder="例如: 劍道社"
                 className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
@@ -822,9 +820,9 @@ function CostumesManager() {
             </div>
             <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-stone-600 mb-1">圖片名稱 (選填)</label>
-              <input 
-                type="text" 
-                placeholder="例如: Lathel_1" 
+              <input
+                type="text"
+                placeholder="例如: Lathel_1"
                 className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                 value={newImageName}
                 onChange={e => setNewImageName(e.target.value)}
@@ -837,9 +835,9 @@ function CostumesManager() {
               <button onClick={() => setIsBatchAdding(true)} className="px-4 py-2 bg-stone-200 text-stone-800 rounded-lg hover:bg-stone-300 flex items-center gap-2 h-[42px]">
                 批量新增
               </button>
-              <button 
-                onClick={handleResetOrders} 
-                className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 flex items-center gap-2 h-[42px] disabled:opacity-50" 
+              <button
+                onClick={handleResetOrders}
+                className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 flex items-center gap-2 h-[42px] disabled:opacity-50"
                 title="修復排序問題"
                 disabled={isResetting}
               >
@@ -850,7 +848,7 @@ function CostumesManager() {
         ) : (
           <div className="w-full flex flex-col gap-2">
             <label className="block text-sm font-medium text-stone-600">批量新增服裝 (每行一筆，格式: 角色名稱, 服裝名稱, 圖片名稱)</label>
-            <textarea 
+            <textarea
               className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none min-h-[100px]"
               placeholder="悠絲緹亞, 劍道社, Lathel_1&#10;莎赫拉查德, 代號S, Scheherazade_1"
               value={batchInput}
@@ -869,22 +867,22 @@ function CostumesManager() {
           <div key={costume.id} className="p-4 border border-stone-200 rounded-xl bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {editingId === costume.id ? (
               <div className="flex-1 flex gap-2 flex-wrap">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="flex-1 min-w-[120px] p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                   value={editChar}
                   onChange={e => setEditChar(e.target.value)}
                   placeholder="角色名稱"
                 />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="flex-1 min-w-[120px] p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
                   placeholder="服裝名稱"
                 />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="flex-1 min-w-[120px] p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
                   value={editImageName}
                   onChange={e => setEditImageName(e.target.value)}
@@ -895,8 +893,8 @@ function CostumesManager() {
               <div className="flex-1 flex items-center gap-4">
                 {costume.imageName && (
                   <div className="w-[50px] h-[50px] bg-stone-100 rounded-lg overflow-hidden border border-stone-200 flex-shrink-0">
-                    <img 
-                      src={`https://www.souseihaku.com/characters/${costume.imageName}.webp`} 
+                    <img
+                      src={`https://www.souseihaku.com/characters/${costume.imageName}.webp`}
                       alt={costume.name}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
@@ -912,7 +910,7 @@ function CostumesManager() {
                 </div>
               </div>
             )}
-            
+
             <div className="flex items-center gap-2">
               {editingId === costume.id ? (
                 <>
@@ -922,15 +920,15 @@ function CostumesManager() {
               ) : (
                 <>
                   <div className="flex flex-col gap-1 mr-2">
-                    <button 
-                      onClick={() => moveCostume(index, -1)} 
+                    <button
+                      onClick={() => moveCostume(index, -1)}
                       disabled={index === 0}
                       className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded disabled:opacity-30 disabled:hover:bg-transparent"
                     >
                       <ArrowUp className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={() => moveCostume(index, 1)} 
+                    <button
+                      onClick={() => moveCostume(index, 1)}
                       disabled={index === db.costume_definitions.length - 1}
                       className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded disabled:opacity-30 disabled:hover:bg-transparent"
                     >
@@ -950,7 +948,7 @@ function CostumesManager() {
           </div>
         )}
       </div>
-      
+
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -980,7 +978,7 @@ function SettingsManager() {
       setError('兩次輸入的密碼不一致');
       return;
     }
-    
+
     try {
       await updateUserPassword(username, newPassword.trim());
       setEditingUser(null);
@@ -1021,8 +1019,8 @@ function SettingsManager() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-stone-500 mb-1">新密碼</label>
-                  <input 
-                    type="password" 
+                  <input
+                    type="password"
                     className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                     value={newPassword}
                     onChange={e => { setNewPassword(e.target.value); setError(''); }}
@@ -1032,8 +1030,8 @@ function SettingsManager() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-stone-500 mb-1">確認新密碼</label>
-                  <input 
-                    type="password" 
+                  <input
+                    type="password"
                     className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                     value={confirmPassword}
                     onChange={e => { setConfirmPassword(e.target.value); setError(''); }}
@@ -1049,13 +1047,13 @@ function SettingsManager() {
                 )}
 
                 <div className="flex gap-2 pt-1">
-                  <button 
+                  <button
                     onClick={() => handleUpdatePassword(username)}
                     className="flex-1 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 transition-colors text-sm font-medium"
                   >
                     儲存
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setEditingUser(null); setNewPassword(''); setConfirmPassword(''); setError(''); }}
                     className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg hover:bg-stone-300 transition-colors text-sm font-medium"
                   >
@@ -1069,7 +1067,7 @@ function SettingsManager() {
                   <Lock className="w-4 h-4" />
                   <span className="text-sm">密碼: ••••••••</span>
                 </div>
-                <button 
+                <button
                   onClick={() => startEdit(username, user.password)}
                   className="text-amber-600 hover:text-amber-700 text-sm font-medium"
                 >
