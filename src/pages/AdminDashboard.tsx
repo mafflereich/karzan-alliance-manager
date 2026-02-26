@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../store';
-import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User as UserIcon, AlertCircle, Download, Upload, FileText, RefreshCw, Wand2 } from 'lucide-react';
-import { Role, Guild, Member, Costume, User } from '../types';
-import { getTierColor, getTierBorderHoverClass } from '../utils';
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { db as firestore } from '../firebase';
+import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User as UserIcon, AlertCircle, Download, Upload, FileText, RefreshCw, Wand2, GripVertical } from 'lucide-react';
+import { Role, Guild, Member, Costume, User, Character } from '../types';
+import { getTierColor, getTierBorderHoverClass, getImageUrl } from '../utils';
 import ConfirmModal from '../components/ConfirmModal';
+import InputModal from '../components/InputModal';
 import Footer from '../components/Footer';
+import { Reorder } from "motion/react";
 
 export default function AdminDashboard() {
   const { db, setDb, setCurrentView, currentUser, setCurrentUser, fetchAllMembers } = useAppContext();
@@ -38,7 +42,8 @@ export default function AdminDashboard() {
         <div className="mb-4 flex gap-4 text-[10px] text-stone-400 uppercase tracking-widest">
           <span>公會: {Object.keys(db.guilds).length}</span>
           <span>成員: {Object.keys(db.members).length}</span>
-          <span>服裝: {db.costume_definitions.length}</span>
+          <span>角色: {Object.keys(db.characters).length}</span>
+          <span>服裝: {Object.keys(db.costumes).length}</span>
           <span>使用者: {Object.keys(db.users).length}</span>
         </div>
         <div className="flex gap-4 mb-6 border-b border-stone-300 pb-2 overflow-x-auto">
@@ -67,7 +72,7 @@ export default function AdminDashboard() {
 }
 
 function ToolsManager() {
-  const { db, updateCostume, addMember, deleteMember, updateMember, fetchAllMembers } = useAppContext();
+  const { db, addMember, deleteMember, updateMember, fetchAllMembers, restoreData } = useAppContext();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
@@ -79,6 +84,113 @@ function ToolsManager() {
   });
 
   const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
+
+  const handleMigrateDatabase = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '資料庫遷移 (開發用)',
+      message: '確定要將舊資料庫格式遷移到新格式嗎？此動作只應執行一次。它將會：\n1. 根據 costume_definitions 建立新的 characters 集合。\n2. 將 costume_definitions 轉換為新的 costumes 集合。\n3. 將成員的專武資料 (weapon: true) 遷移到新的 exclusiveWeapons 欄位。\n4. 刪除舊的 costume_definitions 集合。',
+      isDanger: true,
+      onConfirm: async () => {
+        setIsProcessing(true);
+        closeConfirmModal();
+
+        try {
+          // 1. Fetch legacy data directly from Firestore
+          // We cannot rely on 'db' state because it might not load legacy fields
+          const appDataRef = doc(firestore, 'appData', 'main');
+          const appDataSnap = await getDoc(appDataRef);
+
+          if (!appDataSnap.exists()) {
+            throw new Error("找不到 appData/main 文件");
+          }
+
+          const appData = appDataSnap.data();
+          const costumeDefinitions = appData.costume_definitions;
+
+          if (!costumeDefinitions || Object.keys(costumeDefinitions).length === 0) {
+            alert("遷移失敗：找不到舊的 'costume_definitions' 資料，可能已經遷移過了。");
+            setIsProcessing(false);
+            return;
+          }
+
+          const newDb = JSON.parse(JSON.stringify(db));
+
+          const characterNames = [...new Set(Object.values(costumeDefinitions).map((c: any) => c.character))];
+          const characterMap: Record<string, string> = {};
+          newDb.characters = newDb.characters || {};
+
+          characterNames.forEach((name, index) => {
+            const existingChar = Object.values(newDb.characters).find((c: any) => c.name === name);
+            if (existingChar) {
+              characterMap[name as string] = (existingChar as any).id;
+            } else {
+              const newCharId = `char_${Date.now()}_${index}`;
+              newDb.characters[newCharId] = {
+                id: newCharId,
+                name: name as string,
+                order: Object.keys(newDb.characters).length + 1
+              };
+              characterMap[name as string] = newCharId;
+            }
+          });
+
+          newDb.costumes = newDb.costumes || {};
+          for (const oldCostumeId in costumeDefinitions) {
+            const oldCostume = costumeDefinitions[oldCostumeId];
+            const characterId = characterMap[oldCostume.character];
+            if (characterId) {
+              const newCostumeId = `costume_${oldCostumeId}`;
+              newDb.costumes[newCostumeId] = {
+                id: newCostumeId,
+                characterId: characterId,
+                name: oldCostume.name,
+                order: oldCostume.order ?? 999, // Default to 999 if order is undefined
+                imageName: oldCostume.imageName,
+                new: oldCostume.new || false,
+              };
+            }
+          }
+
+          for (const memberId in newDb.members) {
+            const member = newDb.members[memberId] as any;
+            if (member.records) {
+              member.exclusiveWeapons = member.exclusiveWeapons || {};
+              for (const oldCostumeId in member.records) {
+                const record = member.records[oldCostumeId];
+                if (record.weapon) {
+                  const oldCostume = costumeDefinitions[oldCostumeId];
+                  if (oldCostume) {
+                    const characterId = characterMap[oldCostume.character];
+                    if (characterId) {
+                      member.exclusiveWeapons[characterId] = true;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // 3. Save new collections
+          await restoreData(newDb);
+
+          // 4. Delete legacy field from Firestore
+          await updateDoc(appDataRef, {
+            costume_definitions: deleteField()
+          });
+
+          alert('資料庫遷移成功！頁面將會重新載入以套用變更。');
+          window.location.reload();
+
+        } catch (error) {
+          console.error("Database migration failed:", error);
+          alert(`資料庫遷移失敗: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+          setIsProcessing(false);
+        }
+      }
+    });
+  };
 
   const handleAutoTransfer = () => {
     setConfirmModal({
@@ -213,16 +325,160 @@ function ToolsManager() {
         closeConfirmModal();
 
         const macroId = `AKfycbyw_0lj4mZjMB9lFE9vwCFiE2S9B84baJj3r4nPqWaYXkHAFHMWyGQtiecuk7eqaShy_w`;
-        // const dressList = (await (await fetch(`https://script.google.com/macros/s/${macroId}/exec`,
-        //   {
-        //     method: "GET",
-        //     mode: "cors",
-        //   })).json()).data;
-        console.log(db.costume_definitions);
-        // for (let costume of Object.values(db.costume_definitions)) {
+        const costumeDefineList = [
+          [
+            "黛安娜",
+            "魔法革新者"
+          ],
+          [
+            "葛拉娜德",
+            "淨化巫女"
+          ],
+          [
+            "葛拉娜德",
+            "葛洛堤女王"
+          ],
+          [
+            "索妮亞",
+            "賣南瓜的少女"
+          ],
+          [
+            "索妮亞",
+            "潛藏的夢"
+          ],
+          [
+            "泰瑞絲",
+            "海邊天使"
+          ],
+          [
+            "泰瑞絲",
+            "保健社"
+          ],
+          [
+            "拉菲娜",
+            "遊戲社"
+          ],
+          [
+            "威廉明娜",
+            "水上樂園女王"
+          ],
+          [
+            "威廉明娜",
+            "鋼鐵君主"
+          ],
+          [
+            "黎維塔",
+            "溫泉管理者"
+          ],
+          [
+            "黎維塔",
+            "暗黑聖女"
+          ],
+          [
+            "拉德爾",
+            "霍爾蒙克斯"
+          ],
+          [
+            "萊維亞",
+            "田徑社社長"
+          ],
+          [
+            "傑尼斯",
+            "羅賓漢"
+          ],
+          [
+            "傑尼斯",
+            "水上守護者"
+          ],
+          [
+            "黛安娜",
+            "未知的探究者"
+          ],
+          [
+            "黛安娜",
+            "反烏托邦"
+          ],
+          [
+            "芮彼泰雅",
+            "貪婪之星"
+          ],
+          [
+            "芮彼泰雅",
+            "純白的祝福"
+          ],
+          [
+            "芮彼泰雅",
+            "水上精靈"
+          ],
+          [
+            "海倫娜",
+            "B級偶像"
+          ],
+          [
+            "海倫娜",
+            "頂尖偶像"
+          ],
+          [
+            "布萊德",
+            "小公主"
+          ],
+          [
+            "賽爾",
+            "新進員工"
+          ],
+          [
+            "賽爾",
+            "B級偶像"
+          ],
+          [
+            "西利亞",
+            "詛咒之星"
+          ],
+          [
+            "西利亞",
+            "大魔女的後裔"
+          ],
+          [
+            "西利亞",
+            "化裝舞會兔女郎"
+          ]
+        ];
 
-        //   await updateCostume(costume.id, { new: false });
-        // }
+        const costumeList = (await (await fetch(`https://script.google.com/macros/s/${macroId}/exec`,
+          {
+            method: "GET",
+            mode: "cors",
+          })).json()).data;
+
+        const costumes = Object.values(db.costumes);
+        const characters = Object.values(db.characters);
+        const result = {};
+        for (let name of Object.keys(costumeList)) {
+
+          let costume = costumeList[name];
+          let p_name = name.replaceAll(/(<.+>)/g, "").match(/^@(.+)/)?.[1].trim();
+
+          costume.forEach((costume_enhanced: string, i: string | number) => {
+            costume_enhanced = costume_enhanced.toString();
+            let char_id = characters.find((character) => character.name == costumeDefineList[i][0]).id;
+            let costume_id = costumes.find((costume) => costume.characterId == char_id && costume.name == costumeDefineList[i][1]).id;
+            if (!result[p_name]) result[p_name] = { records: {}, exclusiveWeapons: {} };
+            result[p_name]["records"][costume_id] = { level: costume_enhanced.split("")[0] ?? -1, };
+            result[p_name]["exclusiveWeapons"][char_id] = Boolean(costume_enhanced.match(/E/));
+
+          });
+        }
+
+        let member_list = Object.values(db.members);
+
+        for (let member of member_list) {
+
+          if (!result[member.name]) {
+            continue;
+          }
+
+          await updateMember(member.id, result[member.name]);
+        }
 
         setIsProcessing(false);
       }
@@ -237,54 +493,74 @@ function ToolsManager() {
         便利小功能
       </h2>
 
-      <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
-        <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
-          <RefreshCw className="w-8 h-8" />
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-purple-100 rounded-full text-purple-600 mb-4">
+            <RefreshCw className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">資料庫遷移 (開發用)</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            將舊的 `costume_definitions` 格式轉換為新的 `characters` 和 `costumes` 格式。
+          </p>
+          <button
+            onClick={handleMigrateDatabase}
+            disabled={isProcessing}
+            className="px-8 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? '遷移中...' : '開始遷移'}
+          </button>
         </div>
-        <h3 className="text-xl font-bold text-stone-800 mb-2">自動搬運</h3>
-        <p className="text-stone-500 mb-6 max-w-md">
-          此功能可用於自動處理成員資料搬運。
-        </p>
-        <button
-          onClick={handleAutoTransfer}
-          className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md"
-        >
-          開始自動搬運
-        </button>
-      </div>
 
-      <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
-        <div className="p-4 bg-red-100 rounded-full text-red-600 mb-4">
-          <Trash2 className="w-8 h-8" />
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
+            <RefreshCw className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">自動搬運</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            此功能可用於自動處理成員資料搬運。
+          </p>
+          <button
+            onClick={handleAutoTransfer}
+            disabled={isProcessing}
+            className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? '處理中...' : '開始自動搬運'}
+          </button>
         </div>
-        <h3 className="text-xl font-bold text-stone-800 mb-2">移除重複成員</h3>
-        <p className="text-stone-500 mb-6 max-w-md">
-          移除所有公會中同名且無服飾資料的成員，或同名且服飾資料完全相同的成員。
-        </p>
-        <button
-          onClick={handleRemoveDuplicates}
-          disabled={isProcessing}
-          className="px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isProcessing ? '處理中...' : '開始移除'}
-        </button>
-      </div>
 
-      <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
-        <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
-          <ArrowUp className="w-8 h-8" />
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-red-100 rounded-full text-red-600 mb-4">
+            <Trash2 className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">移除重複成員</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            移除所有公會中同名且無服飾資料的成員，或同名且服飾資料完全相同的成員。
+          </p>
+          <button
+            onClick={handleRemoveDuplicates}
+            disabled={isProcessing}
+            className="px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? '處理中...' : '開始移除'}
+          </button>
         </div>
-        <h3 className="text-xl font-bold text-stone-800 mb-2">匯入服裝表</h3>
-        <p className="text-stone-500 mb-6 max-w-md">
-          從現有試算表中匯入服裝表。
-        </p>
-        <button
-          onClick={handleImportCostume}
-          disabled={isProcessing}
-          className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isProcessing ? '處理中...' : '開始匯入'}
-        </button>
+
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
+            <ArrowUp className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">匯入服裝表</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            從現有試算表中匯入服裝表。
+          </p>
+          <button
+            onClick={handleImportCostume}
+            disabled={isProcessing}
+            className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? '處理中...' : '開始匯入'}
+          </button>
+        </div>
       </div>
 
       <ConfirmModal
@@ -884,22 +1160,24 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                       {member.role}
                     </span>
                   </td>
-                  <td className="p-3 text-stone-600 text-sm">{member.note || '-'}</td>
-                  <td className="p-3 flex justify-end gap-2">
-                    <button
-                      onClick={() => startEdit(id)}
-                      className="p-2 text-stone-500 hover:text-amber-600 transition-colors"
-                      title="編輯"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteMember(id)}
-                      className="p-2 text-stone-500 hover:text-red-600 transition-colors"
-                      title="刪除"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <td className="p-3 text-stone-500 text-sm">{member.note}</td>
+                  <td className="p-3 text-right">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => startEdit(id)}
+                        className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg transition-colors"
+                        title="編輯"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(id)}
+                        className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg transition-colors"
+                        title="刪除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -907,14 +1185,13 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
             {members.length === 0 && (
               <tr>
                 <td colSpan={4} className="p-8 text-center text-stone-500">
-                  該公會目前沒有成員
+                  此公會目前沒有成員
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -929,18 +1206,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 }
 
 function CostumesManager() {
-  const { db, addCostume, updateCostume, deleteCostume, swapCostumeOrder, resetCostumeOrders } = useAppContext();
-  const [newChar, setNewChar] = useState('');
-  const [newName, setNewName] = useState('');
-  const [newImageName, setNewImageName] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editChar, setEditChar] = useState('');
-  const [editName, setEditName] = useState('');
-  const [editImageName, setEditImageName] = useState('');
-  const [isBatchAdding, setIsBatchAdding] = useState(false);
-  const [batchInput, setBatchInput] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-
+  const { db, addCharacter, updateCharacter, deleteCharacter, addCostume, updateCostume, deleteCostume } = useAppContext();
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [selectedCostumeId, setSelectedCostumeId] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -951,85 +1219,191 @@ function CostumesManager() {
 
   const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
-  const handleAdd = async () => {
-    if (!newChar.trim() || !newName.trim()) return;
-    try {
-      await addCostume(newChar.trim(), newName.trim(), newImageName.trim());
-      setNewChar('');
-      setNewName('');
-      setNewImageName('');
-    } catch (error: any) {
-      console.error("Error adding costume:", error);
-      alert(`新增服裝失敗: ${error.message}`);
+  const characters = useMemo(() =>
+    Object.values(db.characters).sort((a, b) => a.order - b.order),
+    [db.characters]);
+
+  const costumes = useMemo(() =>
+    Object.values(db.costumes)
+      .filter(c => c.characterId === selectedCharacterId)
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999)),
+    [db.costumes, selectedCharacterId]);
+
+  const selectedCharacter = selectedCharacterId ? db.characters[selectedCharacterId] : null;
+  const selectedCostume = selectedCostumeId ? db.costumes[selectedCostumeId] : null;
+
+  // Edit states
+  const [editCharacterName, setEditCharacterName] = useState('');
+  const [editCharacterOrder, setEditCharacterOrder] = useState(0);
+  const [editCostumeName, setEditCostumeName] = useState('');
+  const [editCostumeOrder, setEditCostumeOrder] = useState(0);
+  const [editCostumeImageName, setEditCostumeImageName] = useState('');
+  const [editCostumeIsNew, setEditCostumeIsNew] = useState(false);
+
+  // Reorder & Input Modal State
+  const [isReorderingCharacters, setIsReorderingCharacters] = useState(false);
+  const [orderedCharacters, setOrderedCharacters] = useState<Character[]>([]);
+  const [isReorderingCostumes, setIsReorderingCostumes] = useState(false);
+  const [orderedCostumes, setOrderedCostumes] = useState<Costume[]>([]);
+
+  const [inputModal, setInputModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message?: string;
+    onConfirm: (value: string) => void;
+  }>({ isOpen: false, title: '', onConfirm: () => { } });
+
+  const closeInputModal = () => setInputModal(prev => ({ ...prev, isOpen: false }));
+
+  useEffect(() => {
+    if (!isReorderingCharacters) {
+      setOrderedCharacters(characters);
     }
-  };
+  }, [characters, isReorderingCharacters]);
 
-  const handleBatchAdd = async () => {
-    if (!batchInput.trim()) return;
-    const lines = batchInput.split('\n').map(l => l.trim()).filter(l => l);
-    setIsSaving(true);
+  useEffect(() => {
+    if (!isReorderingCostumes) {
+      setOrderedCostumes(costumes);
+    }
+  }, [costumes, isReorderingCostumes]);
+
+  const handleSaveCharacterOrder = async () => {
     try {
-      // Get current max order
-      let currentMaxOrder = db.costume_definitions.reduce((max, c) => Math.max(max, c.order ?? 0), 0);
-
-      for (const line of lines) {
-        const parts = line.split(/[,，\t]/).map(s => s.trim());
-        const char = parts[0];
-        const name = parts[1] || char;
-        const imageName = parts[2] || '';
-
-        if (char && name) {
-          currentMaxOrder++;
-          await addCostume(char, name, imageName);
+      for (let i = 0; i < orderedCharacters.length; i++) {
+        const char = orderedCharacters[i];
+        if (char.order !== i + 1) {
+          await updateCharacter(char.id, { order: i + 1 });
         }
       }
-      setBatchInput('');
-      setIsBatchAdding(false);
+      setIsReorderingCharacters(false);
+      alert('角色排序已更新');
     } catch (error: any) {
-      console.error("Error batch adding costumes:", error);
-      alert(`批量新增服裝失敗: ${error.message}`);
-    } finally {
-      setIsSaving(false);
+      alert(`更新排序失敗: ${error.message}`);
     }
   };
 
-  const [isResetting, setIsResetting] = useState(false);
+  const handleSaveCostumeOrder = async () => {
+    try {
+      for (let i = 0; i < orderedCostumes.length; i++) {
+        const costume = orderedCostumes[i];
+        if (costume.order !== i + 1) {
+          await updateCostume(costume.id, { order: i + 1 });
+        }
+      }
+      setIsReorderingCostumes(false);
+      alert('服裝排序已更新');
+    } catch (error: any) {
+      alert(`更新排序失敗: ${error.message}`);
+    }
+  };
 
-  const handleResetOrders = async () => {
-    setConfirmModal({
+  useEffect(() => {
+    if (selectedCharacter) {
+      setEditCharacterName(selectedCharacter.name);
+      setEditCharacterOrder(selectedCharacter.order);
+    } else {
+      setSelectedCharacterId(null);
+    }
+  }, [selectedCharacter]);
+
+  useEffect(() => {
+    if (selectedCostume) {
+      setEditCostumeName(selectedCostume.name);
+      setEditCostumeOrder(selectedCostume.order ?? 0);
+      setEditCostumeImageName(selectedCostume.imageName ?? '');
+      setEditCostumeIsNew(selectedCostume.new ?? false);
+    } else {
+      setSelectedCostumeId(null);
+    }
+  }, [selectedCostume]);
+
+  const handleSelectCharacter = (id: string) => {
+    setSelectedCharacterId(id);
+    setSelectedCostumeId(null);
+  };
+
+  const handleAddCharacter = () => {
+    setInputModal({
       isOpen: true,
-      title: '重置排序',
-      message: '確定要重置所有服裝的排序嗎？這將會根據目前的顯示順序重新編號，修復排序錯誤。',
-      isDanger: false,
-      onConfirm: async () => {
-        setIsResetting(true);
+      title: '新增角色',
+      message: '請輸入新角色名稱：',
+      onConfirm: async (name) => {
         try {
-          await resetCostumeOrders();
-          alert('排序已重置完成');
-          closeConfirmModal();
+          await addCharacter(name, characters.length + 1);
+          closeInputModal();
         } catch (error: any) {
-          console.error("Error resetting orders:", error);
-          alert(`重置排序失敗: ${error.message}`);
-          closeConfirmModal();
-        } finally {
-          setIsResetting(false);
+          alert(`新增角色失敗: ${error.message}`);
         }
       }
     });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDeleteCharacter = async () => {
+    if (!selectedCharacterId) return;
+
     setConfirmModal({
       isOpen: true,
-      title: '刪除服裝',
-      message: '確定要刪除此服裝嗎？這可能會影響已登記的成員資料。',
+      title: '刪除角色',
+      message: '確定要刪除此角色嗎？注意：這將會連同刪除該角色底下的所有服裝資料！此動作無法復原。',
       isDanger: true,
       onConfirm: async () => {
         try {
-          await deleteCostume(id);
+          // Cascade delete costumes
+          const characterCostumes = Object.values(db.costumes).filter(c => c.characterId === selectedCharacterId);
+          for (const costume of characterCostumes) {
+            await deleteCostume(costume.id);
+          }
+
+          await deleteCharacter(selectedCharacterId);
+          setSelectedCharacterId(null);
+          setSelectedCostumeId(null);
           closeConfirmModal();
         } catch (error: any) {
-          console.error("Error deleting costume:", error);
+          console.error("Error deleting character:", error);
+          alert(`刪除角色失敗: ${error.message}`);
+          closeConfirmModal();
+        }
+      }
+    });
+  };
+
+  const handleUpdateCharacter = async () => {
+    if (!selectedCharacterId) return;
+    await updateCharacter(selectedCharacterId, { name: editCharacterName, order: editCharacterOrder });
+    alert('角色更新成功');
+  };
+
+  const handleAddCostume = () => {
+    if (!selectedCharacterId) return;
+    setInputModal({
+      isOpen: true,
+      title: '新增服裝',
+      message: '請輸入新服裝名稱：',
+      onConfirm: async (name) => {
+        try {
+          await addCostume(selectedCharacterId, name, costumes.length + 1);
+          closeInputModal();
+        } catch (error: any) {
+          alert(`新增服裝失敗: ${error.message}`);
+        }
+      }
+    });
+  };
+
+  const handleDeleteCostume = async () => {
+    if (!selectedCostumeId) return;
+
+    setConfirmModal({
+      isOpen: true,
+      title: '刪除服裝',
+      message: '確定要刪除此服裝嗎？此動作無法復原。',
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await deleteCostume(selectedCostumeId);
+          setSelectedCostumeId(null);
+          closeConfirmModal();
+        } catch (error: any) {
           alert(`刪除服裝失敗: ${error.message}`);
           closeConfirmModal();
         }
@@ -1037,201 +1411,172 @@ function CostumesManager() {
     });
   };
 
-  const startEdit = (costume: any) => {
-    setEditingId(costume.id);
-    setEditChar(costume.character);
-    setEditName(costume.name);
-    setEditImageName(costume.imageName || '');
-  };
-
-  const saveEdit = async () => {
-    if (!editChar.trim() || !editName.trim() || !editingId) return;
-    try {
-      await updateCostume(editingId, {
-        character: editChar.trim(),
-        name: editName.trim(),
-        imageName: editImageName.trim()
-      });
-      setEditingId(null);
-    } catch (error: any) {
-      console.error("Error updating costume:", error);
-      alert(`更新服裝失敗: ${error.message}`);
-    }
-  };
-
-  const moveCostume = async (index: number, direction: -1 | 1) => {
-    const newDefs = [...db.costume_definitions];
-    if (index + direction < 0 || index + direction >= newDefs.length) return;
-
-    const costume1 = newDefs[index];
-    const costume2 = newDefs[index + direction];
-
-    try {
-      await swapCostumeOrder(costume1.id, costume2.id);
-    } catch (error: any) {
-      console.error("Error moving costume:", error);
-      alert(`移動失敗: ${error.message}`);
-    }
+  const handleUpdateCostume = async () => {
+    if (!selectedCostumeId) return;
+    await updateCostume(selectedCostumeId, {
+      name: editCostumeName,
+      order: editCostumeOrder,
+      imageName: editCostumeImageName,
+      new: editCostumeIsNew
+    });
+    alert('服裝更新成功');
   };
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6 text-stone-800">服裝資料庫</h2>
-
-      <div className="flex gap-2 mb-6 bg-stone-50 p-4 rounded-xl border border-stone-200 items-end flex-wrap">
-        {!isBatchAdding ? (
-          <>
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-stone-600 mb-1">角色名稱</label>
-              <input
-                type="text"
-                placeholder="例如: 悠絲緹亞"
-                className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                value={newChar}
-                onChange={e => setNewChar(e.target.value)}
-              />
-            </div>
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-stone-600 mb-1">服裝名稱</label>
-              <input
-                type="text"
-                placeholder="例如: 劍道社"
-                className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-              />
-            </div>
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-stone-600 mb-1">圖片名稱 (選填)</label>
-              <input
-                type="text"
-                placeholder="例如: Lathel_1"
-                className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                value={newImageName}
-                onChange={e => setNewImageName(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={handleAdd} className="px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 flex items-center gap-2 h-[42px]">
-                <Plus className="w-5 h-5" /> 新增
-              </button>
-              <button onClick={() => setIsBatchAdding(true)} className="px-4 py-2 bg-stone-200 text-stone-800 rounded-lg hover:bg-stone-300 flex items-center gap-2 h-[42px]">
-                批量新增
-              </button>
+      <h2 className="text-2xl font-bold mb-6 text-stone-800">服裝資料庫管理</h2>
+      <div className="grid grid-cols-12 gap-6 h-[600px]">
+        {/* Characters Column */}
+        <div className="col-span-3 bg-stone-50 rounded-xl border border-stone-200 p-4 overflow-y-auto flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">角色</h3>
+            <div className="flex gap-1">
               <button
-                onClick={handleResetOrders}
-                className="px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 flex items-center gap-2 h-[42px] disabled:opacity-50"
-                title="修復排序問題"
-                disabled={isResetting}
+                onClick={() => isReorderingCharacters ? handleSaveCharacterOrder() : setIsReorderingCharacters(true)}
+                className={`p-1.5 rounded-lg transition-colors ${isReorderingCharacters ? 'bg-amber-200 text-amber-800' : 'bg-stone-200 hover:bg-stone-300 text-stone-700'}`}
+                title={isReorderingCharacters ? "儲存排序" : "排序角色"}
               >
-                {isResetting ? '重置中...' : '重置排序'}
+                {isReorderingCharacters ? <Save className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
               </button>
-            </div>
-          </>
-        ) : (
-          <div className="w-full flex flex-col gap-2">
-            <label className="block text-sm font-medium text-stone-600">批量新增服裝 (每行一筆，格式: 角色名稱, 服裝名稱, 圖片名稱)</label>
-            <textarea
-              className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none min-h-[100px]"
-              placeholder="悠絲緹亞, 劍道社, Lathel_1&#10;莎赫拉查德, 代號S, Scheherazade_1"
-              value={batchInput}
-              onChange={e => setBatchInput(e.target.value)}
-            />
-            <div className="flex gap-2 justify-end">
-              <button onClick={handleBatchAdd} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">確認新增</button>
-              <button onClick={() => { setIsBatchAdding(false); setBatchInput(''); }} className="px-4 py-2 bg-stone-300 text-stone-800 rounded-lg hover:bg-stone-400">取消</button>
+              <button onClick={handleAddCharacter} className="p-1.5 bg-stone-200 hover:bg-stone-300 rounded-lg transition-colors" title="新增角色">
+                <Plus className="w-4 h-4 text-stone-700" />
+              </button>
             </div>
           </div>
-        )}
-      </div>
 
-      <div className="flex flex-col gap-3">
-        {db.costume_definitions.map((costume, index) => (
-          <div key={costume.id} className="p-4 border border-stone-200 rounded-xl bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            {editingId === costume.id ? (
-              <div className="flex-1 flex gap-2 flex-wrap">
-                <input
-                  type="text"
-                  className="flex-1 min-w-[120px] p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                  value={editChar}
-                  onChange={e => setEditChar(e.target.value)}
-                  placeholder="角色名稱"
-                />
-                <input
-                  type="text"
-                  className="flex-1 min-w-[120px] p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  placeholder="服裝名稱"
-                />
-                <input
-                  type="text"
-                  className="flex-1 min-w-[120px] p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                  value={editImageName}
-                  onChange={e => setEditImageName(e.target.value)}
-                  placeholder="圖片名稱"
-                />
+          {isReorderingCharacters ? (
+            <div className="flex-1 overflow-y-auto flex flex-col">
+              <Reorder.Group axis="y" values={orderedCharacters} onReorder={setOrderedCharacters} className="space-y-2 flex-1">
+                {orderedCharacters.map(char => (
+                  <Reorder.Item key={char.id} value={char} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
+                    <GripVertical className="w-4 h-4 text-stone-400" />
+                    <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-8 h-8 rounded-md object-cover" />
+                    <span>{char.name}</span>
+                  </Reorder.Item>
+                ))}
+              </Reorder.Group>
+              <div className="mt-4 flex gap-2 sticky bottom-0 bg-stone-50 pt-2">
+                <button onClick={handleSaveCharacterOrder} className="flex-1 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">儲存</button>
+                <button onClick={() => setIsReorderingCharacters(false)} className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg text-sm hover:bg-stone-300">取消</button>
               </div>
-            ) : (
-              <div className="flex-1 flex items-center gap-4">
-                {costume.imageName && (
-                  <div className="w-[50px] h-[50px] bg-stone-100 rounded-lg overflow-hidden border border-stone-200 flex-shrink-0">
-                    <img
-                      src={`https://www.souseihaku.com/characters/${costume.imageName}.webp`}
-                      alt={costume.name}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">{costume.character}</span>
-                  <span className="font-medium text-stone-800">{costume.name}</span>
-                </div>
+            </div>
+          ) : (
+            <div className="space-y-2 flex-1 overflow-y-auto">
+              {characters.map(char => (
+                <button
+                  key={char.id}
+                  onClick={() => handleSelectCharacter(char.id)}
+                  className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCharacterId === char.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
+                  <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-10 h-10 rounded-md object-cover" />
+                  <span>{char.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Costumes Column */}
+        <div className="col-span-4 bg-stone-50 rounded-xl border border-stone-200 p-4 overflow-y-auto flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">{selectedCharacter?.name || '服裝'}</h3>
+            {selectedCharacterId && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => isReorderingCostumes ? handleSaveCostumeOrder() : setIsReorderingCostumes(true)}
+                  className={`p-1.5 rounded-lg transition-colors ${isReorderingCostumes ? 'bg-amber-200 text-amber-800' : 'bg-stone-200 hover:bg-stone-300 text-stone-700'}`}
+                  title={isReorderingCostumes ? "儲存排序" : "排序服裝"}
+                >
+                  {isReorderingCostumes ? <Save className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                </button>
+                <button onClick={handleAddCostume} className="p-1.5 bg-stone-200 hover:bg-stone-300 rounded-lg transition-colors" title="新增服裝">
+                  <Plus className="w-4 h-4 text-stone-700" />
+                </button>
               </div>
             )}
+          </div>
+          {selectedCharacterId && (
+            isReorderingCostumes ? (
+              <div className="flex-1 overflow-y-auto flex flex-col">
+                <Reorder.Group axis="y" values={orderedCostumes} onReorder={setOrderedCostumes} className="space-y-2 flex-1">
+                  {orderedCostumes.map(costume => (
+                    <Reorder.Item key={costume.id} value={costume} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
+                      <GripVertical className="w-4 h-4 text-stone-400" />
+                      <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-8 h-8 rounded-md object-cover" />
+                      <span>{costume.name}</span>
+                    </Reorder.Item>
+                  ))}
+                </Reorder.Group>
+                <div className="mt-4 flex gap-2 sticky bottom-0 bg-stone-50 pt-2">
+                  <button onClick={handleSaveCostumeOrder} className="flex-1 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">儲存</button>
+                  <button onClick={() => setIsReorderingCostumes(false)} className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg text-sm hover:bg-stone-300">取消</button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 flex-1 overflow-y-auto">
+                {costumes.map(costume => (
+                  <button
+                    key={costume.id}
+                    onClick={() => setSelectedCostumeId(costume.id)}
+                    className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCostumeId === costume.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
+                    <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-10 h-10 rounded-md object-cover" />
+                    <span>{costume.name}</span>
+                    {costume.new && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
+                  </button>
+                ))}
+              </div>
+            )
+          )}
+        </div>
 
-            <div className="flex items-center gap-2">
-              {editingId === costume.id ? (
-                <>
-                  <button onClick={saveEdit} className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="儲存"><Save className="w-5 h-5" /></button>
-                  <button onClick={() => setEditingId(null)} className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg transition-colors" title="取消"><X className="w-5 h-5" /></button>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-1 mr-2">
-                    <button
-                      onClick={() => moveCostume(index, -1)}
-                      disabled={index === 0}
-                      className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => moveCostume(index, 1)}
-                      disabled={index === db.costume_definitions.length - 1}
-                      className="p-1 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                      <ArrowDown className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button onClick={() => startEdit(costume)} className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit2 className="w-5 h-5" /></button>
-                  <button onClick={() => handleDelete(costume.id)} className="p-2 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-5 h-5" /></button>
-                </>
-              )}
+        {/* Edit Column */}
+        <div className="col-span-5 bg-stone-50 rounded-xl border border-stone-200 p-4 overflow-y-auto">
+          <h3 className="text-lg font-semibold mb-4">編輯</h3>
+          {selectedCostume && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">服裝名稱</label>
+                <input type="text" value={editCostumeName} onChange={e => setEditCostumeName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">排序</label>
+                <input type="number" value={editCostumeOrder} onChange={e => setEditCostumeOrder(Number(e.target.value))} className="w-full p-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">圖片名稱</label>
+                <input type="text" value={editCostumeImageName} onChange={e => setEditCostumeImageName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div className="flex items-center">
+                <input type="checkbox" id="isNew" checked={editCostumeIsNew} onChange={e => setEditCostumeIsNew(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                <label htmlFor="isNew" className="ml-2 block text-sm text-stone-900">標示為NEW</label>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleUpdateCostume} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">儲存服裝</button>
+                <button onClick={handleDeleteCostume} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200" title="刪除服裝">
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-        {db.costume_definitions.length === 0 && (
-          <div className="p-8 text-center text-stone-500 border border-stone-200 rounded-xl bg-stone-50">
-            目前沒有任何服裝資料
-          </div>
-        )}
+          )}
+          {selectedCharacter && !selectedCostume && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">角色名稱</label>
+                <input type="text" value={editCharacterName} onChange={e => setEditCharacterName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">排序</label>
+                <input type="number" value={editCharacterOrder} onChange={e => setEditCharacterOrder(Number(e.target.value))} className="w-full p-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleUpdateCharacter} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">儲存角色</button>
+                <button onClick={handleDeleteCharacter} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200" title="刪除角色">
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -1239,675 +1584,208 @@ function CostumesManager() {
         onConfirm={confirmModal.onConfirm}
         onCancel={closeConfirmModal}
         isDanger={confirmModal.isDanger}
-        confirmText={confirmModal.isDanger ? "刪除" : "確認"}
+      />
+      <InputModal
+        isOpen={inputModal.isOpen}
+        title={inputModal.title}
+        message={inputModal.message}
+        onConfirm={inputModal.onConfirm}
+        onCancel={closeInputModal}
       />
     </div>
   );
 }
 
 function SettingsManager() {
-  const { db, currentUser, updateUserPassword, updateUserRole, addUser, deleteUser, updateSettings } = useAppContext();
-  const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-
-  // New User state
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [addUsername, setAddUsername] = useState('');
-  const [addPassword, setAddPassword] = useState('');
-  const [addRole, setAddRole] = useState<User['role']>('manager');
-
-  // Site settings state
-  const [sitePassword, setSitePassword] = useState(db.settings.sitePassword || '');
-  const [redirectUrl, setRedirectUrl] = useState(db.settings.redirectUrl || '');
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-
-  const [confirmModal, setConfirmModal] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => { },
-    isDanger: false
-  });
-
-  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
-
-  const currentUserRole = currentUser ? db.users[currentUser]?.role : 'manager';
-
-  const handleSaveSiteSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      await updateSettings({ sitePassword, redirectUrl });
-      alert('系統設定已更新');
-    } catch (error: any) {
-      alert(`更新失敗: ${error.message}`);
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
+  const { db, addUser, deleteUser } = useAppContext();
+  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'manager' as 'admin' | 'manager' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Partial<User>>({});
 
   const handleAddUser = async () => {
-    if (!addUsername.trim() || !addPassword.trim()) {
-      alert('帳號和密碼不能為空');
-      return;
-    }
-    if (db.users[addUsername.trim()]) {
-      alert('帳號已存在');
-      return;
-    }
-
+    if (!newUser.username.trim() || !newUser.password.trim()) return;
     try {
-      await addUser({
-        username: addUsername.trim(),
-        password: addPassword.trim(),
-        role: addRole
-      });
-      setShowAddUser(false);
-      setAddUsername('');
-      setAddPassword('');
-      setAddRole('manager');
-      alert('帳號已新增');
+      await addUser(newUser);
+      setNewUser({ username: '', password: '', role: 'manager' });
     } catch (error: any) {
-      alert(`新增失敗: ${error.message}`);
+      alert(`新增使用者失敗: ${error.message}`);
     }
   };
 
-  const handleDeleteUser = async (username: string) => {
-    if (username === currentUser) {
-      alert('不能刪除自己');
-      return;
-    }
-
-    setConfirmModal({
-      isOpen: true,
-      title: '刪除帳號',
-      message: `確定要刪除帳號 ${username} 嗎？此動作無法復原。`,
-      isDanger: true,
-      onConfirm: async () => {
-        try {
-          await deleteUser(username);
-          closeConfirmModal();
-        } catch (error: any) {
-          alert(`刪除失敗: ${error.message}`);
-          closeConfirmModal();
-        }
-      }
-    });
+  const handleUpdateUser = async () => {
+    if (!editingId) return;
+    // await updateUser(editingId, editData); // This function is removed
+    console.log("Update user functionality is deprecated.");
+    setEditingId(null);
+    setEditData({});
   };
-
-  const handleUpdatePassword = async (username: string) => {
-    if (!newPassword.trim()) {
-      setError('密碼不能為空');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('兩次輸入的密碼不一致');
-      return;
-    }
-
-    try {
-      await updateUserPassword(username, newPassword.trim());
-      setEditingUser(null);
-      setNewPassword('');
-      setConfirmPassword('');
-      setError('');
-      alert(`帳號 ${username} 的密碼已更新`);
-    } catch (error: any) {
-      console.error("Error updating password:", error);
-      setError(`更新失敗: ${error.message}`);
-    }
-  };
-
-  const handleUpdateRole = async (username: string, role: User['role']) => {
-    try {
-      await updateUserRole(username, role);
-      alert(`帳號 ${username} 的權限已更新為 ${role}`);
-    } catch (error: any) {
-      alert(`更新失敗: ${error.message}`);
-    }
-  };
-
-  const startEdit = (username: string, currentPass: string) => {
-    setEditingUser(username);
-    setNewPassword(currentPass);
-    setConfirmPassword(currentPass);
-    setError('');
-  };
-
-  // Filter users based on role
-  const visibleUsers = Object.entries(db.users).filter(([username, user]) => {
-    if (currentUserRole === 'creator') return true;
-    if (currentUserRole === 'admin') {
-      // Admin can see everyone except creator
-      return user.role !== 'creator';
-    }
-    return false;
-  });
 
   return (
-    <div className="space-y-10">
-      {/* Site Settings */}
-      <div>
-        <h2 className="text-2xl font-bold mb-6 text-stone-800 flex items-center gap-2">
-          <Lock className="w-6 h-6 text-amber-600" />
-          進入系統設定
-        </h2>
-        <div className="bg-stone-50 p-6 rounded-xl border border-stone-200 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">進入系統密碼</label>
-              <input
-                type="text"
-                className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                value={sitePassword}
-                onChange={e => setSitePassword(e.target.value)}
-                placeholder="預設為 abc"
-              />
-              <p className="mt-1.5 text-xs text-stone-400">進入網頁時需要輸入的第一層密碼</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-stone-700 mb-2">密碼錯誤跳轉網址</label>
-              <input
-                type="text"
-                className="w-full p-2.5 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                value={redirectUrl}
-                onChange={e => setRedirectUrl(e.target.value)}
-                placeholder="例如: https://www.browndust2.com/"
-              />
-              <p className="mt-1.5 text-xs text-stone-400">當使用者輸入錯誤密碼時，會被傳送到的網址</p>
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <button
-              onClick={handleSaveSiteSettings}
-              disabled={isSavingSettings}
-              className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              <Save className="w-5 h-5" />
-              {isSavingSettings ? '儲存中...' : '儲存系統設定'}
-            </button>
-          </div>
+    <div>
+      <h2 className="text-2xl font-bold mb-6 text-stone-800">使用者帳號設定</h2>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 bg-stone-50 p-4 rounded-xl border border-stone-200">
+        <div className="md:col-span-1">
+          <label className="block text-sm font-medium text-stone-600 mb-1">使用者名稱</label>
+          <input
+            type="text"
+            placeholder="Username"
+            className="w-full p-2 border border-stone-300 rounded-lg"
+            value={newUser.username}
+            onChange={e => setNewUser({ ...newUser, username: e.target.value })}
+          />
         </div>
-      </div>
-
-      {/* User Management */}
-      <div>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-2">
-            <UserIcon className="w-6 h-6 text-stone-600" />
-            帳號權限管理
-          </h2>
-          <button
-            onClick={() => setShowAddUser(!showAddUser)}
-            className="flex items-center gap-2 px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 transition-colors"
+        <div className="md:col-span-1">
+          <label className="block text-sm font-medium text-stone-600 mb-1">密碼</label>
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full p-2 border border-stone-300 rounded-lg"
+            value={newUser.password}
+            onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+          />
+        </div>
+        <div className="md:col-span-1">
+          <label className="block text-sm font-medium text-stone-600 mb-1">權限</label>
+          <select
+            className="w-full p-2 border border-stone-300 rounded-lg"
+            value={newUser.role}
+            onChange={e => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'manager' })}
           >
-            {showAddUser ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-            {showAddUser ? '取消新增' : '新增帳號'}
-          </button>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+          </select>
         </div>
-
-        {showAddUser && (
-          <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-xl space-y-4">
-            <h3 className="font-bold text-amber-900">新增後台帳號</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-amber-700 mb-1">帳號</label>
-                <input
-                  type="text"
-                  className="w-full p-2 border border-amber-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                  value={addUsername}
-                  onChange={e => setAddUsername(e.target.value)}
-                  placeholder="帳號名稱"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-amber-700 mb-1">密碼</label>
-                <input
-                  type="password"
-                  className="w-full p-2 border border-amber-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                  value={addPassword}
-                  onChange={e => setAddPassword(e.target.value)}
-                  placeholder="登入密碼"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-amber-700 mb-1">權限身份</label>
-                <select
-                  className="w-full p-2 border border-amber-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-                  value={addRole}
-                  onChange={e => setAddRole(e.target.value as User['role'])}
-                >
-                  {currentUserRole === 'creator' && <option value="creator">Creator (最高)</option>}
-                  <option value="admin">Admin (管理)</option>
-                  <option value="manager">Manager (執行)</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={handleAddUser}
-                  className="w-full py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
-                >
-                  確認新增
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {visibleUsers.map(([username, user]) => (
-            <div key={username} className="p-6 border border-stone-200 rounded-xl bg-stone-50 flex flex-col gap-4 relative">
-              {username !== currentUser && (
-                <button
-                  onClick={() => handleDeleteUser(username)}
-                  className="absolute top-4 right-4 p-1 text-stone-400 hover:text-red-500 transition-colors"
-                  title="刪除帳號"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              )}
-
-              <div className="flex justify-between items-start pr-8">
-                <div className="flex items-center gap-2">
-                  <UserIcon className="w-5 h-5 text-stone-500" />
-                  <span className="font-bold text-stone-800">{username}</span>
-                  {username === currentUser && <span className="text-[10px] bg-stone-200 px-1.5 py-0.5 rounded text-stone-600">YOU</span>}
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${user.role === 'creator' ? 'bg-purple-100 text-purple-700' : user.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
-                    {user.role.toUpperCase()}
-                  </span>
-                  {editingUser !== username && (
-                    <select
-                      className="text-[10px] bg-transparent border-none text-stone-500 outline-none cursor-pointer hover:text-stone-800"
-                      value={user.role}
-                      onChange={(e) => handleUpdateRole(username, e.target.value as User['role'])}
-                      disabled={user.role === 'creator' && currentUserRole !== 'creator'}
-                    >
-                      {currentUserRole === 'creator' && <option value="creator">變更為 Creator</option>}
-                      <option value="admin">變更為 Admin</option>
-                      <option value="manager">變更為 Manager</option>
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              {editingUser === username ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-stone-500 mb-1">新密碼</label>
-                    <input
-                      type="password"
-                      className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 text-sm"
-                      value={newPassword}
-                      onChange={e => { setNewPassword(e.target.value); setError(''); }}
-                      placeholder="輸入新密碼"
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-stone-500 mb-1">確認新密碼</label>
-                    <input
-                      type="password"
-                      className="w-full p-2 border border-stone-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 text-sm"
-                      value={confirmPassword}
-                      onChange={e => { setConfirmPassword(e.target.value); setError(''); }}
-                      placeholder="再次輸入新密碼"
-                    />
-                  </div>
-
-                  {error && (
-                    <div className="text-red-500 text-xs flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {error}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={() => handleUpdatePassword(username)}
-                      className="flex-1 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 transition-colors text-sm font-medium"
-                    >
-                      儲存
-                    </button>
-                    <button
-                      onClick={() => { setEditingUser(null); setNewPassword(''); setConfirmPassword(''); setError(''); }}
-                      className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg hover:bg-stone-300 transition-colors text-sm font-medium"
-                    >
-                      取消
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex justify-between items-center mt-auto">
-                  <div className="flex items-center gap-2 text-stone-500">
-                    <Lock className="w-4 h-4" />
-                    <span className="text-sm">密碼: ••••••••</span>
-                  </div>
-                  <button
-                    onClick={() => startEdit(username, user.password)}
-                    className="text-amber-600 hover:text-amber-700 text-sm font-medium"
-                  >
-                    修改密碼
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <button onClick={handleAddUser} className="px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 self-end">新增使用者</button>
       </div>
 
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        onConfirm={confirmModal.onConfirm}
-        onCancel={closeConfirmModal}
-        isDanger={confirmModal.isDanger}
-      />
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b-2 border-stone-200 text-stone-600">
+              <th className="p-3 font-semibold">使用者名稱</th>
+              <th className="p-3 font-semibold">權限</th>
+              <th className="p-3 font-semibold text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(db.users).map(([id, user]) => (
+              <tr key={id} className="border-b border-stone-100 hover:bg-stone-50">
+                <td className="p-3 font-medium text-stone-800">{user.username}</td>
+                <td className="p-3">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-stone-200 text-stone-700'}`}>
+                    {user.role}
+                  </span>
+                </td>
+                <td className="p-3 text-right">
+                  <button onClick={() => deleteUser(id)} className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg transition-colors" title="刪除">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function BackupManager() {
-  const { db, restoreData, fetchAllMembers } = useAppContext();
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importStatus, setImportStatus] = useState('');
+  const { db, setDb } = useAppContext();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const guildsFileRef = useRef<HTMLInputElement>(null);
-  const membersFileRef = useRef<HTMLInputElement>(null);
-  const costumesFileRef = useRef<HTMLInputElement>(null);
-
-  const [confirmModal, setConfirmModal] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => { },
-    isDanger: false
-  });
-
-  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
-
-  const downloadCSV = (filename: string, content: string) => {
-    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleExport = async () => {
-    setIsExporting(true);
+  const handleBackup = () => {
     try {
-      // Ensure all members are loaded before exporting
-      await fetchAllMembers();
-
-      // 1. Export Guilds
-      const guildsHeader = 'id,name,tier,order\n';
-      const guildsRows = Object.values(db.guilds).map((g: any) =>
-        `${g.id},${g.name},${g.tier || 1},${g.order || 99}`
-      ).join('\n');
-      downloadCSV(`guilds_${new Date().toISOString().slice(0, 10)}.csv`, guildsHeader + guildsRows);
-
-      // 2. Export Costumes
-      const costumesHeader = 'id,character,name,imageName,order\n';
-      const costumesRows = db.costume_definitions.map(c =>
-        `${c.id},${c.character},${c.name},${c.imageName || ''},${c.order || ''}`
-      ).join('\n');
-      downloadCSV(`costumes_${new Date().toISOString().slice(0, 10)}.csv`, costumesHeader + costumesRows);
-
-      // 3. Export Members
-      // Note: records are complex objects. We'll JSON stringify them, but escape quotes.
-      const membersHeader = 'id,guildId,name,role,note,records\n';
-      const membersRows = Object.values(db.members).map((m: any) => {
-        // Escape double quotes in JSON string by doubling them for CSV standard
-        const recordsJson = JSON.stringify(m.records).replace(/"/g, '""');
-        return `${m.id},${m.guildId},${m.name},${m.role},${m.note || ''},"${recordsJson}"`;
-      }).join('\n');
-      downloadCSV(`members_${new Date().toISOString().slice(0, 10)}.csv`, membersHeader + membersRows);
-
-      alert('已開始下載 3 個 CSV 檔案 (公會, 成員, 服裝)');
-    } catch (error: any) {
-      console.error("Export error:", error);
-      alert(`匯出失敗: ${error.message}`);
-    } finally {
-      setIsExporting(false);
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+        JSON.stringify(db, null, 2)
+      )}`;
+      const link = document.createElement("a");
+      link.href = jsonString;
+      link.download = `kazran_backup_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+    } catch (error) {
+      console.error("Backup failed:", error);
+      alert("備份失敗，請檢查 console log 獲取更多資訊。");
     }
   };
 
-  const parseCSV = (text: string): any[] => {
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-    if (lines.length < 2) return [];
+  const handleRestore = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    const headers = lines[0].split(',').map(h => h.trim());
-    const result = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      // Handle quoted values (like our JSON records)
-      const values: string[] = [];
-      let inQuote = false;
-      let currentValue = '';
-
-      for (let j = 0; j < line.length; j++) {
-        const char = line[j];
-        if (char === '"') {
-          if (inQuote && line[j + 1] === '"') {
-            currentValue += '"'; // Escaped quote
-            j++;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text === 'string') {
+          const restoredDb = JSON.parse(text);
+          // Basic validation
+          if (restoredDb.guilds && restoredDb.members && restoredDb.costumes) {
+            setDb(restoredDb);
+            alert("資料已成功還原！");
           } else {
-            inQuote = !inQuote;
+            alert("無效的備份檔案格式。");
           }
-        } else if (char === ',' && !inQuote) {
-          values.push(currentValue);
-          currentValue = '';
-        } else {
-          currentValue += char;
         }
+      } catch (error) {
+        console.error("Restore failed:", error);
+        alert("還原失敗，請確保檔案格式正確。");
       }
-      values.push(currentValue);
-
-      const obj: any = {};
-      headers.forEach((h, idx) => {
-        obj[h] = values[idx];
-      });
-      result.push(obj);
-    }
-    return result;
-  };
-
-  const handleImport = async () => {
-    const guildsFile = guildsFileRef.current?.files?.[0];
-    const membersFile = membersFileRef.current?.files?.[0];
-    const costumesFile = costumesFileRef.current?.files?.[0];
-
-    if (!guildsFile && !membersFile && !costumesFile) {
-      alert('請至少選擇一個檔案進行匯入');
-      return;
-    }
-
-    setConfirmModal({
-      isOpen: true,
-      title: '確認還原資料',
-      message: '確定要匯入選定的 CSV 檔案嗎？這將會更新或新增資料。現有的資料若ID相同將被覆蓋。',
-      isDanger: true,
-      onConfirm: async () => {
-        closeConfirmModal();
-        setIsImporting(true);
-        setImportStatus('讀取檔案中...');
-
-        try {
-          const guilds: Guild[] = [];
-          const members: Member[] = [];
-          const costumes: Costume[] = [];
-
-          if (guildsFile) {
-            const text = await guildsFile.text();
-            const data = parseCSV(text);
-            data.forEach(row => {
-              if (row.id && row.name) {
-                guilds.push({
-                  id: row.id,
-                  name: row.name,
-                  tier: row.tier ? Number(row.tier) : 1,
-                  order: row.order ? Number(row.order) : 99
-                });
-              }
-            });
-          }
-
-          if (costumesFile) {
-            const text = await costumesFile.text();
-            const data = parseCSV(text);
-            data.forEach(row => {
-              if (row.id && row.character && row.name) {
-                costumes.push({
-                  id: row.id,
-                  character: row.character,
-                  name: row.name,
-                  imageName: row.imageName,
-                  order: row.order ? Number(row.order) : undefined
-                });
-              }
-            });
-          }
-
-          if (membersFile) {
-            const text = await membersFile.text();
-            const data = parseCSV(text);
-            data.forEach(row => {
-              if (row.id && row.guildId && row.name) {
-                let records = {};
-                try {
-                  if (row.records) {
-                    records = JSON.parse(row.records);
-                  }
-                } catch (e) {
-                  console.warn(`Failed to parse records for member ${row.id}`, e);
-                }
-
-                members.push({
-                  id: row.id,
-                  guildId: row.guildId,
-                  name: row.name,
-                  role: row.role as Role,
-                  note: row.note,
-                  records: records,
-                  updatedAt: Date.now()
-                });
-              }
-            });
-          }
-
-          setImportStatus(`準備匯入: ${guilds.length} 公會, ${costumes.length} 服裝, ${members.length} 成員...`);
-          await restoreData(guilds, members, costumes);
-
-          alert('匯入成功！資料已更新。');
-          setImportStatus('');
-          // Clear inputs
-          if (guildsFileRef.current) guildsFileRef.current.value = '';
-          if (membersFileRef.current) membersFileRef.current.value = '';
-          if (costumesFileRef.current) costumesFileRef.current.value = '';
-
-        } catch (error: any) {
-          console.error("Import error:", error);
-          alert(`匯入失敗: ${error.message}`);
-          setImportStatus('匯入失敗');
-        } finally {
-          setIsImporting(false);
-        }
-      }
-    });
+    };
+    reader.readAsText(file);
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-6 text-stone-800">備份與還原</h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Export Section */}
-        <div className="bg-stone-50 p-6 rounded-xl border border-stone-200">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-green-100 rounded-full text-green-600">
-              <Download className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-bold text-stone-800">匯出備份</h3>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold mb-6 text-stone-800 flex items-center gap-2">
+        <Save className="w-6 h-6 text-amber-600" />
+        備份與還原
+      </h2>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-blue-100 rounded-full text-blue-600 mb-4">
+            <Download className="w-8 h-8" />
           </div>
-          <div className="text-stone-600 mb-6">
-            將目前的資料庫匯出為 CSV 檔案。系統將會產生 3 個檔案：
-            <ul className="list-disc list-inside mt-2 ml-2 text-sm">
-              <li>guilds_date.csv (公會資料)</li>
-              <li>costumes_date.csv (服裝列表)</li>
-              <li>members_date.csv (成員及裝備紀錄)</li>
-            </ul>
-          </div>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">下載備份</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            將目前的完整資料庫下載為 JSON 檔案。請妥善保管此檔案。
+          </p>
           <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="w-full py-3 bg-stone-800 text-white rounded-lg hover:bg-stone-700 flex items-center justify-center gap-2 disabled:opacity-50"
+            onClick={handleBackup}
+            className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-md"
           >
-            {isExporting ? '匯出中...' : '匯出所有資料 (CSV)'}
+            下載備份檔
           </button>
         </div>
 
-        {/* Import Section */}
-        <div className="bg-stone-50 p-6 rounded-xl border border-stone-200">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-blue-100 rounded-full text-blue-600">
-              <Upload className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-bold text-stone-800">還原資料</h3>
+        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+          <div className="p-4 bg-green-100 rounded-full text-green-600 mb-4">
+            <Upload className="w-8 h-8" />
           </div>
-          <div className="text-stone-600 mb-6">
-            選擇對應的 CSV 檔案進行匯入。您可以只選擇其中一個檔案進行部分更新。
-            <br />
-            <span className="text-amber-600 text-sm font-bold flex items-center gap-1 mt-1">
-              <AlertCircle className="w-4 h-4" /> 注意：ID 相同的資料將被覆蓋
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-stone-600 mb-1">公會資料 (guilds.csv)</label>
-              <input ref={guildsFileRef} type="file" accept=".csv" className="w-full text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-stone-600 mb-1">服裝列表 (costumes.csv)</label>
-              <input ref={costumesFileRef} type="file" accept=".csv" className="w-full text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-stone-600 mb-1">成員資料 (members.csv)</label>
-              <input ref={membersFileRef} type="file" accept=".csv" className="w-full text-sm text-stone-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300" />
-            </div>
-          </div>
-
-          {importStatus && <p className="text-sm text-blue-600 mb-2 text-center">{importStatus}</p>}
-
+          <h3 className="text-xl font-bold text-stone-800 mb-2">從檔案還原</h3>
+          <p className="text-stone-500 mb-6 max-w-md">
+            從之前下載的 JSON 備份檔還原資料。注意：此操作將會覆寫所有現有資料。
+          </p>
+          <input type="file" accept=".json" onChange={handleRestore} ref={fileInputRef} className="hidden" />
           <button
-            onClick={handleImport}
-            disabled={isImporting}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all active:scale-95 shadow-md"
           >
-            {isImporting ? '匯入中...' : '開始還原'}
+            選擇檔案並還原
           </button>
         </div>
       </div>
-
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        onConfirm={confirmModal.onConfirm}
-        onCancel={closeConfirmModal}
-        isDanger={confirmModal.isDanger}
-        confirmText={confirmModal.isDanger ? "確認還原" : "確認"}
-      />
+      <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
+        <div className="flex">
+          <div className="py-1"><AlertCircle className="h-5 w-5 text-amber-500 mr-3" /></div>
+          <div>
+            <p className="font-bold text-amber-800">重要提示</p>
+            <p className="text-sm text-amber-700">
+              還原操作是不可逆的。在還原之前，強烈建議您先下載目前的資料作為備份。
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

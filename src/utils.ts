@@ -73,3 +73,10 @@ export const truncateName = (name: string, maxLength: number = 14) => {
   }
   return name;
 };
+
+export const getImageUrl = (imageName: string | undefined | null) => {
+  if (!imageName) return '/costumes/default.png';
+  // Strip extension if present, then append .webp
+  const baseName = imageName.replace(/\.[^/.]+$/, "");
+  return `https://image-bd2db.souseha.com/characters/${baseName}.webp`;
+};
