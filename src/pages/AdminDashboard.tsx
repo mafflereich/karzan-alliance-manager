@@ -12,10 +12,6 @@ export default function AdminDashboard() {
 
   const userRole = currentUser ? db.users[currentUser]?.role : 'manager';
 
-  useEffect(() => {
-    fetchAllMembers();
-  }, []);
-
   const handleLogout = () => {
     setCurrentUser(null);
     setCurrentView(null);
@@ -240,6 +236,10 @@ function GuildsManager() {
   const [editGuildName, setEditGuildName] = useState('');
   const [editGuildTier, setEditGuildTier] = useState<number>(1);
   const [editGuildOrder, setEditGuildOrder] = useState<number>(1);
+
+  useEffect(() => {
+    fetchAllMembers();
+  }, []);
 
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
