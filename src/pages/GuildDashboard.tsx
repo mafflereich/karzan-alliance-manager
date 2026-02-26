@@ -4,7 +4,7 @@ import { ChevronLeft, Edit2, Menu, X, Shield, Swords, MoveHorizontal } from 'luc
 import MemberEditModal from '../components/MemberEditModal';
 import Footer from '../components/Footer';
 import { Role } from '../types';
-import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass, truncateName } from '../utils';
+import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass, truncateName, getImageUrl } from '../utils';
 
 export default function GuildDashboard({ guildId }: { guildId: string }) {
   const { db, setCurrentView } = useAppContext();
@@ -52,7 +52,27 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
       }
       return a[1].name.localeCompare(b[1].name);
     });
-  const costumes = db.costume_definitions;
+  const costumes = Object.values(db.costumes).sort((a, b) => {
+    const charA = db.characters[a.characterId];
+    const charB = db.characters[b.characterId];
+
+    // Handle cases where a character might not exist for a costume
+    if (!charA && !charB) return 0; // Both are orphaned, treat as equal
+    if (!charA) return 1; // Orphaned 'a' goes to the end
+    if (!charB) return -1; // Orphaned 'b' goes to the end
+
+    // 1. Prioritize 'new' costumes
+    if (a.new && !b.new) return -1;
+    if (!a.new && b.new) return 1;
+
+    // 2. Sort by character order
+    if (charA.order !== charB.order) {
+      return charA.order - charB.order;
+    }
+
+    // 3. Sort by costume order
+    return (a.order ?? 999) - (b.order ?? 999);
+  });
 
   if (!guild) return <div>Guild not found</div>;
 
@@ -185,7 +205,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                             {c.imageName && (
                               <div className="w-[50px] h-[50px] mx-auto mb-2 bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
                                 <img 
-                                  src={`https://www.souseihaku.com/characters/${c.imageName}.webp`} 
+                                  src={getImageUrl(c.imageName)} 
                                   alt={c.name}
                                   className="w-full h-full object-cover"
                                   referrerPolicy="no-referrer"
@@ -196,7 +216,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                               </div>
                             )}
                             <div className="truncate w-20 mx-auto" title={c.name}>{c.name}</div>
-                            <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={c.character}>{c.character}</div>
+                            <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={db.characters[c.characterId]?.name}>{db.characters[c.characterId]?.name}</div>
                           </th>
                         ))}
                         <th className="p-3 font-semibold text-center sticky right-0 bg-stone-50 z-10 border-l border-stone-200 shadow-[-1px_0_0_0_#e7e5e4]">操作</th>

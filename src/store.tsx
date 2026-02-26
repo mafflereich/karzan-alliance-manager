@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Database, Guild, Member, Costume, Role, User } from './types';
+import { Database, Guild, Member, Costume, Role, User, Character } from './types';
 import { db as firestore } from './firebase';
 import { 
   collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, query, where, getDocs, writeBatch
@@ -9,10 +9,8 @@ const defaultData: Database = {
   guilds: {},
   guildOrder: [],
   members: {},
-  costume_definitions: [
-    { id: "costume_001", name: "優斯緹亞 (劍道社)", character: "Justia" },
-    { id: "costume_002", name: "莎赫拉查德 (代號S)", character: "Schera" }
-  ],
+  characters: {},
+  costumes: {},
   users: {
     "creator": { username: "creator", password: "123", role: "creator" },
     "admin": { username: "admin", password: "123", role: "admin" },
@@ -33,30 +31,40 @@ interface AppContextType {
   setCurrentView: React.Dispatch<React.SetStateAction<ViewState>>;
   currentUser: string | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<string | null>>;
-  
-  // New functions
+
+  // Member functions
   fetchMembers: (guildId: string) => void;
   fetchAllMembers: () => Promise<void>;
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
-  updateMemberCostume: (memberId: string, costumeId: string, level: number, weapon: boolean) => Promise<void>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
+  deleteMember: (memberId: string) => Promise<void>;
+  updateMemberCostumeLevel: (memberId: string, costumeId: string, level: number) => Promise<void>;
+  updateMemberExclusiveWeapon: (memberId: string, characterId: string, hasWeapon: boolean) => Promise<void>;
+
+  // Guild functions
   addGuild: (name: string) => Promise<void>;
   updateGuild: (guildId: string, data: Partial<Guild>) => Promise<void>;
   deleteGuild: (guildId: string) => Promise<void>;
-  deleteMember: (memberId: string) => Promise<void>;
-  
-  // Costume & User functions
-  addCostume: (character: string, name: string, imageName?: string) => Promise<void>;
-  updateCostume: (id: string, data: Partial<Costume>) => Promise<void>;
-  deleteCostume: (id: string) => Promise<void>;
-  swapCostumeOrder: (id1: string, id2: string) => Promise<void>;
-  resetCostumeOrders: () => Promise<void>;
-  restoreData: (guilds: Guild[], members: Member[], costumes: Costume[]) => Promise<void>;
+
+  // Character functions
+  addCharacter: (name: string, order: number) => Promise<void>;
+  updateCharacter: (characterId: string, data: Partial<Character>) => Promise<void>;
+  deleteCharacter: (characterId: string) => Promise<void>;
+
+  // Costume functions
+  addCostume: (characterId: string, name: string, order: number) => Promise<void>;
+  updateCostume: (costumeId: string, data: Partial<Costume>) => Promise<void>;
+  deleteCostume: (costumeId: string) => Promise<void>;
+
+  // User and settings functions
   updateUserPassword: (username: string, password: string) => Promise<void>;
   updateUserRole: (username: string, role: User['role']) => Promise<void>;
   addUser: (user: User) => Promise<void>;
   deleteUser: (username: string) => Promise<void>;
   updateSettings: (data: Partial<Database['settings']>) => Promise<void>;
+
+  // Data management
+  restoreData: (data: Partial<Database>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -69,10 +77,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     global: false,
     guilds: false,
     costumes: false,
+    characters: false,
     users: false
   });
 
-  const isLoaded = loadedStates.global && loadedStates.guilds && loadedStates.costumes && loadedStates.users;
+  const isLoaded = loadedStates.global && loadedStates.guilds && loadedStates.costumes && loadedStates.users && loadedStates.characters;
 
   const [isOffline, setIsOffline] = useState(false);
 
@@ -115,36 +124,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLoadedStates(prev => ({ ...prev, guilds: true }));
     });
 
+    // Characters collection
+    const unsubCharacters = onSnapshot(collection(firestore, 'characters'), (snap) => {
+      const characters: Record<string, Character> = {};
+      snap.forEach(doc => {
+        characters[doc.id] = { ...doc.data() as Character, id: doc.id };
+      });
+      setDbState(prev => ({ ...prev, characters }));
+      setLoadedStates(prev => ({ ...prev, characters: true }));
+    }, (error) => {
+      console.error("Error fetching characters:", error);
+      if (error.code === 'permission-denied') setIsOffline(true);
+      setLoadedStates(prev => ({ ...prev, characters: true }));
+    });
+
     // Costumes collection
     const unsubCostumes = onSnapshot(collection(firestore, 'costumes'), (snap) => {
-      if (snap.empty && !isOffline) {
-        // Seed default costumes if empty
-        defaultData.costume_definitions.forEach((costume, index) => {
-          setDoc(doc(firestore, 'costumes', costume.id), { ...costume, order: index }).catch(console.error);
-        });
-        setLoadedStates(prev => ({ ...prev, costumes: true }));
-        return;
-      }
-
-      const costumes: Costume[] = [];
+      const costumes: Record<string, Costume> = {};
       snap.forEach(doc => {
-        costumes.push({ ...doc.data() as Costume, id: doc.id });
+        costumes[doc.id] = { ...doc.data() as Costume, id: doc.id };
       });
-      // Sort by order first, then character then name
-      costumes.sort((a, b) => {
-        const orderA = a.order ?? 9999;
-        const orderB = b.order ?? 9999;
-        if (orderA !== orderB) return orderA - orderB;
-        return a.character.localeCompare(b.character) || a.name.localeCompare(b.name);
-      });
-      
-      setDbState(prev => ({ ...prev, costume_definitions: costumes }));
+      setDbState(prev => ({ ...prev, costumes }));
       setLoadedStates(prev => ({ ...prev, costumes: true }));
     }, (error) => {
       console.error("Error fetching costumes:", error);
-      if (error.code === 'permission-denied') {
-        setIsOffline(true);
-      }
+      if (error.code === 'permission-denied') setIsOffline(true);
       setLoadedStates(prev => ({ ...prev, costumes: true }));
     });
 
@@ -182,6 +186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubGuilds();
       unsubCostumes();
       unsubUsers();
+      unsubCharacters();
     };
   }, []);
 
@@ -264,19 +269,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentView?.type, (currentView as any)?.guildId]);
 
   // Helper to update local state (deprecated, but kept for compatibility)
+  // This function is now primarily for local state updates and might be simplified or removed.
   const setDb = (value: React.SetStateAction<Database>) => {
-    setDbState(prev => {
-      const next = typeof value === 'function' ? value(prev) : value;
-      // Only sync global data to 'appData/main'
-      const globalData = {
-        costume_definitions: next.costume_definitions,
-        users: next.users,
-        guildOrder: next.guildOrder,
-        settings: next.settings
-      };
-      setDoc(doc(firestore, 'appData', 'main'), globalData, { merge: true }).catch(console.error);
-      return next;
-    });
+    setDbState(value);
   };
 
   const addMember = async (guildId: string, name: string, role: Role = '成員', note: string = '') => {
@@ -301,7 +296,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await addDoc(collection(firestore, 'members'), newMember);
   };
 
-  const updateMemberCostume = async (memberId: string, costumeId: string, level: number, weapon: boolean) => {
+  const updateMemberCostumeLevel = async (memberId: string, costumeId: string, level: number) => {
     if (isOffline) {
       setDbState(prev => ({
         ...prev,
@@ -311,7 +306,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ...prev.members[memberId],
             records: {
               ...prev.members[memberId].records,
-              [costumeId]: { level, weapon }
+              [costumeId]: { level }
             },
             updatedAt: Date.now()
           }
@@ -322,7 +317,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const memberRef = doc(firestore, 'members', memberId);
     await updateDoc(memberRef, {
-      [`records.${costumeId}`]: { level, weapon },
+      [`records.${costumeId}`]: { level },
       updatedAt: Date.now()
     });
   };
@@ -394,174 +389,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await deleteDoc(doc(firestore, 'members', memberId));
   };
 
-  const addCostume = async (character: string, name: string, imageName: string = '', manualOrder?: number) => {
-    // Determine new order
-    let newOrder = manualOrder;
-    if (newOrder === undefined) {
-      const maxOrder = db.costume_definitions.reduce((max, c) => Math.max(max, c.order ?? 0), 0);
-      newOrder = maxOrder + 1;
-    }
-
-    if (isOffline) {
-      const newId = `local_costume_${Date.now()}`;
-      setDbState(prev => ({
-        ...prev,
-        costume_definitions: [
-          ...prev.costume_definitions,
-          { id: newId, character, name, imageName, order: newOrder }
-        ]
-      }));
-      return;
-    }
-    await addDoc(collection(firestore, 'costumes'), { character, name, imageName, order: newOrder });
-  };
-
-  const resetCostumeOrders = async () => {
-    const costumes = [...db.costume_definitions];
-    // Sort by current display order (which handles collisions by name)
-    costumes.sort((a, b) => {
-      const orderA = a.order ?? 9999;
-      const orderB = b.order ?? 9999;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.character.localeCompare(b.character) || a.name.localeCompare(b.name);
-    });
-
+  const updateMemberExclusiveWeapon = async (memberId: string, characterId: string, hasWeapon: boolean) => {
     if (isOffline) {
       setDbState(prev => ({
         ...prev,
-        costume_definitions: costumes.map((c, idx) => ({ ...c, order: idx + 1 }))
-      }));
-      return;
-    }
-
-    // Batch update for Firestore
-    // Note: Firestore batch limit is 500. If more, need to chunk.
-    // Assuming < 500 for now.
-    const batch = writeBatch(firestore);
-    costumes.forEach((c, idx) => {
-      const ref = doc(firestore, 'costumes', c.id);
-      batch.update(ref, { order: idx + 1 });
-    });
-    await batch.commit();
-  };
-
-  const updateCostume = async (id: string, data: Partial<Costume>) => {
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        costume_definitions: prev.costume_definitions.map(c => c.id === id ? { ...c, ...data } : c)
-      }));
-      return;
-    }
-    await updateDoc(doc(firestore, 'costumes', id), data);
-  };
-
-  const deleteCostume = async (id: string) => {
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        costume_definitions: prev.costume_definitions.filter(c => c.id !== id)
-      }));
-      return;
-    }
-    await deleteDoc(doc(firestore, 'costumes', id));
-  };
-
-  const swapCostumeOrder = async (id1: string, id2: string) => {
-    const costume1 = db.costume_definitions.find(c => c.id === id1);
-    const costume2 = db.costume_definitions.find(c => c.id === id2);
-    
-    if (!costume1 || !costume2) return;
-
-    // If orders are missing, assign defaults based on current index
-    let order1 = costume1.order;
-    let order2 = costume2.order;
-
-    if (order1 === undefined || order2 === undefined) {
-      // Fallback: update all costumes with index-based order to ensure consistency
-      // This is a heavy operation but necessary if data is legacy
-      const updates = db.costume_definitions.map((c, idx) => ({ id: c.id, order: idx }));
-      
-      if (isOffline) {
-        setDbState(prev => ({
-          ...prev,
-          costume_definitions: prev.costume_definitions.map((c, idx) => {
-             // Swap logic here if we are re-indexing anyway? 
-             // No, just re-index first, then swap.
-             // But simpler: just swap the indices of the two target items in the new array.
-             if (c.id === id1) return { ...c, order: db.costume_definitions.findIndex(x => x.id === id2) };
-             if (c.id === id2) return { ...c, order: db.costume_definitions.findIndex(x => x.id === id1) };
-             return { ...c, order: idx };
-          })
-        }));
-        return;
-      }
-
-      // Online: update all. 
-      // To avoid too many writes, maybe just update these two if possible?
-      // If order is undefined, we assume 9999. 
-      // Let's just assign them the index values of where they currently are.
-      const idx1 = db.costume_definitions.findIndex(c => c.id === id1);
-      const idx2 = db.costume_definitions.findIndex(c => c.id === id2);
-      order1 = idx1;
-      order2 = idx2;
-      
-      // We need to update DB for these two with new orders
-      await updateDoc(doc(firestore, 'costumes', id1), { order: order2 });
-      await updateDoc(doc(firestore, 'costumes', id2), { order: order1 });
-      return;
-    }
-
-    // Normal swap
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        costume_definitions: prev.costume_definitions.map(c => {
-          if (c.id === id1) return { ...c, order: order2 };
-          if (c.id === id2) return { ...c, order: order1 };
-          return c;
-        })
-      }));
-      return;
-    }
-
-    await updateDoc(doc(firestore, 'costumes', id1), { order: order2 });
-    await updateDoc(doc(firestore, 'costumes', id2), { order: order1 });
-  };
-
-  const restoreData = async (guilds: Guild[], members: Member[], costumes: Costume[]) => {
-    if (isOffline) {
-      // Offline mode: update local state directly
-      setDbState(prev => {
-        const newGuilds = { ...prev.guilds };
-        guilds.forEach(g => { if (g.id) newGuilds[g.id] = g; });
-
-        const newMembers = { ...prev.members };
-        members.forEach(m => { if (m.id) newMembers[m.id] = m; });
-
-        // Merge costumes by ID
-        const newCostumes = [...prev.costume_definitions];
-        costumes.forEach(c => {
-          const idx = newCostumes.findIndex(existing => existing.id === c.id);
-          if (idx >= 0) {
-            newCostumes[idx] = c;
-          } else {
-            newCostumes.push(c);
+        members: {
+          ...prev.members,
+          [memberId]: {
+            ...prev.members[memberId],
+            exclusiveWeapons: {
+              ...prev.members[memberId].exclusiveWeapons,
+              [characterId]: hasWeapon
+            },
+            updatedAt: Date.now()
           }
-        });
+        }
+      }));
+      return;
+    }
+    const memberRef = doc(firestore, 'members', memberId);
+    await updateDoc(memberRef, {
+      [`exclusiveWeapons.${characterId}`]: hasWeapon,
+      updatedAt: Date.now()
+    });
+  };
 
-        return {
-          ...prev,
-          guilds: newGuilds,
-          members: newMembers,
-          costume_definitions: newCostumes
-        };
-      });
+  const addCharacter = async (name: string, order: number) => {
+    await addDoc(collection(firestore, 'characters'), { name, order });
+  };
+
+  const updateCharacter = async (characterId: string, data: Partial<Character>) => {
+    await updateDoc(doc(firestore, 'characters', characterId), data);
+  };
+
+  const deleteCharacter = async (characterId: string) => {
+    // Note: This doesn't delete associated costumes. A more robust solution would handle this.
+    await deleteDoc(doc(firestore, 'characters', characterId));
+  };
+
+  const addCostume = async (characterId: string, name: string, order: number) => {
+    await addDoc(collection(firestore, 'costumes'), { characterId, name, order, new: false });
+  };
+
+  const updateCostume = async (costumeId: string, data: Partial<Costume>) => {
+    await updateDoc(doc(firestore, 'costumes', costumeId), data);
+  };
+
+  const deleteCostume = async (costumeId: string) => {
+    await deleteDoc(doc(firestore, 'costumes', costumeId));
+  };
+
+
+
+
+
+
+
+
+
+
+  const restoreData = async (data: Partial<Database>) => {
+    if (isOffline) {
+      setDbState(prev => ({ ...prev, ...data }));
       return;
     }
 
-    // Firestore batch updates
-    // We use a helper to process in chunks of 450 to stay under the 500 limit
     const BATCH_SIZE = 450;
     let batch = writeBatch(firestore);
     let count = 0;
@@ -575,30 +467,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     try {
-      for (const g of guilds) {
-        if (!g.id) continue;
-        const ref = doc(firestore, 'guilds', g.id);
-        batch.set(ref, g, { merge: true });
-        count++;
-        if (count >= BATCH_SIZE) await commitBatch();
+      if (data.guilds) {
+        for (const g of Object.values(data.guilds)) {
+          if (!g.id) continue;
+          batch.set(doc(firestore, 'guilds', g.id), g, { merge: true });
+          if (++count >= BATCH_SIZE) await commitBatch();
+        }
       }
-
-      for (const m of members) {
-        if (!m.id) continue;
-        const ref = doc(firestore, 'members', m.id);
-        batch.set(ref, m, { merge: true });
-        count++;
-        if (count >= BATCH_SIZE) await commitBatch();
+      if (data.members) {
+        for (const m of Object.values(data.members)) {
+          if (!m.id) continue;
+          batch.set(doc(firestore, 'members', m.id), m, { merge: true });
+          if (++count >= BATCH_SIZE) await commitBatch();
+        }
       }
-
-      for (const c of costumes) {
-        const ref = doc(firestore, 'costumes', c.id);
-        batch.set(ref, c, { merge: true });
-        count++;
-        if (count >= BATCH_SIZE) await commitBatch();
+      if (data.characters) {
+        for (const char of Object.values(data.characters)) {
+          batch.set(doc(firestore, 'characters', char.id), char, { merge: true });
+          if (++count >= BATCH_SIZE) await commitBatch();
+        }
       }
-
-      // Commit any remaining operations
+      if (data.costumes) {
+        for (const c of Object.values(data.costumes)) {
+          batch.set(doc(firestore, 'costumes', c.id), c, { merge: true });
+          if (++count >= BATCH_SIZE) await commitBatch();
+        }
+      }
       await commitBatch();
     } catch (error) {
       console.error("Error restoring data:", error);
@@ -677,8 +571,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{ 
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser,
-      fetchMembers, fetchAllMembers, addMember, updateMemberCostume, updateMember, addGuild, updateGuild, deleteGuild, deleteMember,
-      addCostume, updateCostume, deleteCostume, swapCostumeOrder, resetCostumeOrders, restoreData, updateUserPassword, updateUserRole, addUser, deleteUser, updateSettings
+      fetchMembers, fetchAllMembers, addMember, updateMember, deleteMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon,
+      addGuild, updateGuild, deleteGuild,
+      addCharacter, updateCharacter, deleteCharacter,
+      addCostume, updateCostume, deleteCostume,
+      updateUserPassword, updateUserRole, addUser, deleteUser, updateSettings,
+      restoreData
     }}>
       {children}
     </AppContext.Provider>

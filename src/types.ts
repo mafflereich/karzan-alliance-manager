@@ -9,7 +9,6 @@ export interface Guild {
 
 export interface CostumeRecord {
   level: number; // -1 for Not Owned, 0-5 for +0 to +5
-  weapon: boolean;
   cValue?: number; // 6-24
 }
 
@@ -19,16 +18,25 @@ export interface Member {
   guildId: string;
   role: Role;
   records: Record<string, CostumeRecord>;
+  exclusiveWeapons?: Record<string, boolean>; // characterId: boolean
   note?: string;
   updatedAt?: number;
+}
+
+export interface Character {
+  id: string;
+  name: string;
+  order: number;
+  imageName?: string;
 }
 
 export interface Costume {
   id: string;
   name: string;
-  character: string;
+  characterId: string;
   imageName?: string;
   order?: number;
+  new?: boolean;
 }
 
 export interface User {
@@ -41,7 +49,8 @@ export interface Database {
   guilds: Record<string, Guild>;
   guildOrder?: string[];
   members: Record<string, Member>;
-  costume_definitions: Costume[];
+  characters: Record<string, Character>;
+  costumes: Record<string, Costume>;
   users: Record<string, User>;
   settings: {
     sitePassword?: string;
