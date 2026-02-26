@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Database, Guild, Member, Costume, Role, User, Character } from './types';
-import { db as firestore } from './firebase';
-import {
-  collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, query, where, getDocs, writeBatch
-} from 'firebase/firestore';
+import { supabase } from './supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 const defaultData: Database = {
   guilds: {},
@@ -17,8 +15,8 @@ const defaultData: Database = {
     "manager": { username: "manager", password: "123", role: "manager" }
   },
   settings: {
-    sitePassword: "abc",
-    redirectUrl: "https://www.browndust2.com/"
+    site_password: "bd2",
+    redirect_url: "https://www.browndust2.com/"
   }
 };
 
@@ -98,163 +96,85 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Subscribe to global data (costumes, users) and guilds
   useEffect(() => {
-    // Global data (legacy fallback or other settings)
-    const unsubGlobal = onSnapshot(doc(firestore, 'appData', 'main'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
+    const fetchInitialData = async () => {
+      try {
+        const [guildsRes, charactersRes, costumesRes, usersRes, settingsRes] = await Promise.all([
+          supabase.from('guilds').select('*'),
+          supabase.from('characters').select('*'),
+          supabase.from('costumes').select('*'),
+          supabase.from('admin_users').select('*'),
+          supabase.from('settings').select('*').limit(1).single(),
+        ]);
+
+        if (guildsRes.error) throw guildsRes.error;
+        if (charactersRes.error) throw charactersRes.error;
+        if (costumesRes.error) throw costumesRes.error;
+        if (usersRes.error) throw usersRes.error;
+        if (settingsRes.error) throw settingsRes.error;
+
+        const guilds = guildsRes.data.reduce((acc, guild) => ({ ...acc, [guild.id]: guild }), {});
+        const characters = charactersRes.data.reduce((acc, char) => ({ ...acc, [char.id]: char }), {});
+        const costumes = costumesRes.data.reduce((acc, costume) => ({ ...acc, [costume.id]: costume }), {});
+        const users = usersRes.data.reduce((acc, user) => ({ ...acc, [user.username]: user }), {});
+        
         setDbState(prev => ({
           ...prev,
-          guildOrder: data.guildOrder || defaultData.guildOrder,
-          settings: data.settings || defaultData.settings
+          guilds,
+          characters,
+          costumes,
+          users,
+          settings: settingsRes.data ? { site_password: settingsRes.data.site_password, redirect_url: settingsRes.data.redirect_url } : defaultData.settings,
         }));
-      } else {
-        setDoc(doc(firestore, 'appData', 'main'), defaultData).catch(console.error);
-      }
-      setLoadedStates(prev => ({ ...prev, global: true }));
-    }, (error) => {
-      console.error("Error fetching global data:", error);
-      if (error.code === 'permission-denied') {
+
+        setLoadedStates({ global: true, guilds: true, costumes: true, characters: true, users: true });
+
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
         setIsOffline(true);
+        setLoadedStates({ global: true, guilds: true, costumes: true, characters: true, users: true });
       }
-      setLoadedStates(prev => ({ ...prev, global: true }));
-    });
-
-    // Guilds collection
-    const unsubGuilds = onSnapshot(collection(firestore, 'guilds'), (snap) => {
-      const guilds: Record<string, Guild> = {};
-      snap.forEach(doc => {
-        guilds[doc.id] = { ...doc.data() as Guild, id: doc.id };
-      });
-      setDbState(prev => ({ ...prev, guilds }));
-      setLoadedStates(prev => ({ ...prev, guilds: true }));
-    }, (error) => {
-      console.error("Error fetching guilds:", error);
-      if (error.code === 'permission-denied') {
-        setIsOffline(true);
-      }
-      setLoadedStates(prev => ({ ...prev, guilds: true }));
-    });
-
-    // Characters collection
-    const unsubCharacters = onSnapshot(collection(firestore, 'characters'), (snap) => {
-      const characters: Record<string, Character> = {};
-      snap.forEach(doc => {
-        characters[doc.id] = { ...doc.data() as Character, id: doc.id };
-      });
-      setDbState(prev => ({ ...prev, characters }));
-      setLoadedStates(prev => ({ ...prev, characters: true }));
-    }, (error) => {
-      console.error("Error fetching characters:", error);
-      if (error.code === 'permission-denied') setIsOffline(true);
-      setLoadedStates(prev => ({ ...prev, characters: true }));
-    });
-
-    // Costumes collection
-    const unsubCostumes = onSnapshot(collection(firestore, 'costumes'), (snap) => {
-      const costumes: Record<string, Costume> = {};
-      snap.forEach(doc => {
-        costumes[doc.id] = { ...doc.data() as Costume, id: doc.id };
-      });
-      setDbState(prev => ({ ...prev, costumes }));
-      setLoadedStates(prev => ({ ...prev, costumes: true }));
-    }, (error) => {
-      console.error("Error fetching costumes:", error);
-      if (error.code === 'permission-denied') setIsOffline(true);
-      setLoadedStates(prev => ({ ...prev, costumes: true }));
-    });
-
-    // Users collection
-    const unsubUsers = onSnapshot(collection(firestore, 'users'), (snap) => {
-      const users: Record<string, any> = {};
-      snap.forEach(doc => {
-        users[doc.id] = { ...doc.data(), username: doc.id };
-      });
-
-      if (!isOffline) {
-        // Ensure default users exist (especially the new 'creator' role)
-        let needsSeeding = false;
-        Object.entries(defaultData.users).forEach(([username, user]) => {
-          if (!users[username]) {
-            setDoc(doc(firestore, 'users', username), user).catch(console.error);
-            needsSeeding = true;
-          }
-        });
-        if (needsSeeding) return; // Wait for next snapshot
-      }
-
-      setDbState(prev => ({ ...prev, users }));
-      setLoadedStates(prev => ({ ...prev, users: true }));
-    }, (error) => {
-      console.error("Error fetching users:", error);
-      if (error.code === 'permission-denied') {
-        setIsOffline(true);
-      }
-      setLoadedStates(prev => ({ ...prev, users: true }));
-    });
-
-    return () => {
-      unsubGlobal();
-      unsubGuilds();
-      unsubCostumes();
-      unsubUsers();
-      unsubCharacters();
     };
+
+    fetchInitialData();
+
+    // Supabase real-time subscriptions can be added here if needed
+
   }, []);
 
   // Keep track of member subscription
   const [memberUnsub, setMemberUnsub] = useState<(() => void) | null>(null);
 
   // Function to fetch members for a specific guild
-  const fetchMembers = (guildId: string) => {
-    if (memberUnsub) {
-      memberUnsub();
-    }
+  const fetchMembers = async (guild_id: string) => {
+    if (isOffline) return;
 
-    if (isOffline) {
-      // In offline mode, members are already in db.members from defaultData or local updates
-      // But we need to filter them if we want to simulate the query?
-      // Actually, defaultData has all members in one object.
-      // But wait, defaultData.members is structured as Record<string, Member>.
-      // If we are offline, we just rely on local state.
+    const { data, error } = await supabase
+      .from('members')
+      .select('*')
+      .eq('guild_id', guild_id);
+
+    if (error) {
+      console.error("Error fetching members:", error);
+      setIsOffline(true);
+      alert("讀取成員列表失敗：權限不足。將切換至離線模式。");
       return;
     }
 
-    const q = query(collection(firestore, 'members'), where('guildId', '==', guildId));
-    const unsub = onSnapshot(q, (snap) => {
-      const members: Record<string, Member> = {};
-      snap.forEach(doc => {
-        const data = doc.data();
-        members[doc.id] = {
-          id: doc.id,
-          name: data.name,
-          role: data.role,
-          note: data.note,
-          guildId: data.guildId,
-          records: data.records, // Temporarily keep records to avoid breaking changes
-          exclusiveWeapons: data.exclusiveWeapons,
-          updatedAt: data.updatedAt,
-        } as Member;
-      });
-      setDbState(prev => ({ ...prev, members }));
-    }, (error) => {
-      console.error("Error fetching members:", error);
-      if (error.code === 'permission-denied') {
-        setIsOffline(true);
-        alert("讀取成員列表失敗：權限不足。將切換至離線模式。");
-      }
-    });
-
-    setMemberUnsub(() => unsub);
+    const members = data.reduce((acc, member) => ({ ...acc, [member.id]: member }), {});
+    setDbState(prev => ({ ...prev, members }));
   };
 
   const fetchAllMembers = async () => {
     if (isOffline) return;
 
-    const querySnapshot = await getDocs(collection(firestore, 'members'));
-    const allMembers: Record<string, Member> = {};
-    querySnapshot.forEach((doc) => {
-      allMembers[doc.id] = { ...doc.data() as Member, id: doc.id };
-    });
+    const { data, error } = await supabase.from('members').select('*');
+
+    if (error) {
+      console.error("Error fetching all members:", error);
+      return;
+    }
+
+    const allMembers: Record<string, Member> = data.reduce((acc, member) => ({ ...acc, [member.id]: member }), {});
     setDbState(prev => ({ ...prev, members: allMembers }));
   };
 
@@ -286,173 +206,164 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDbState(value);
   };
 
-  const addMember = async (guildId: string, name: string, role: Role = '成員', note: string = '') => {
-    const newMember: Member = {
+  const addMember = async (guild_id: string, name: string, role: Role = '成員', note: string = '') => {
+    const newMember = {
+      id: uuidv4(),
       name,
-      guildId,
+      guild_id,
       role,
       note,
       records: {},
-      updatedAt: Date.now()
+      updated_at: Date.now()
     };
 
-    if (isOffline) {
-      const newId = `local_u${Date.now()}`;
-      setDbState(prev => ({
-        ...prev,
-        members: { ...prev.members, [newId]: { ...newMember, id: newId } }
-      }));
+    const { data, error } = await supabase.from('members').insert(newMember).select();
+
+    if (error) {
+      console.error('Error adding member:', error);
       return;
     }
-
-    await addDoc(collection(firestore, 'members'), newMember);
+    if (data) {
+      const addedMember = data[0];
+      setDbState(prev => ({
+        ...prev,
+        members: { ...prev.members, [addedMember.id]: addedMember }
+      }));
+    }
   };
 
   const updateMemberCostumeLevel = async (memberId: string, costumeId: string, level: number) => {
-    if (isOffline) {
+    const currentRecords = db.members[memberId]?.records || {};
+    const updatedRecords = {
+      ...currentRecords,
+      [costumeId]: { level }
+    };
+
+    const { error } = await supabase
+      .from('members')
+      .update({ records: updatedRecords, updated_at: Date.now() })
+      .eq('id', memberId);
+
+    if (error) {
+      console.error('Error updating member costume level:', error);
+    } else {
       setDbState(prev => ({
         ...prev,
         members: {
           ...prev.members,
-          [memberId]: {
-            ...prev.members[memberId],
-            records: {
-              ...prev.members[memberId].records,
-              [costumeId]: { level }
-            },
-            updatedAt: Date.now()
-          }
+          [memberId]: { ...prev.members[memberId], records: updatedRecords }
         }
       }));
-      return;
     }
-
-    const memberRef = doc(firestore, 'members', memberId);
-    await setDoc(memberRef, {
-      records: {
-        [costumeId]: { level }
-      },
-      updatedAt: Date.now()
-    }, { merge: true });
   };
 
   const updateMember = async (memberId: string, data: Partial<Member>) => {
-    if (isOffline) {
+    const { error } = await supabase
+      .from('members')
+      .update({ ...data, updated_at: Date.now() })
+      .eq('id', memberId);
+
+    if (error) {
+      console.error('Error updating member:', error);
+    } else {
       setDbState(prev => ({
         ...prev,
-        members: {
-          ...prev.members,
-          [memberId]: { ...prev.members[memberId], ...data, updatedAt: Date.now() }
-        }
+        members: { ...prev.members, [memberId]: { ...prev.members[memberId], ...data } }
       }));
-      return;
     }
-
-    await updateDoc(doc(firestore, 'members', memberId), {
-      ...data,
-      updatedAt: Date.now()
-    });
   };
 
   const addGuild = async (name: string) => {
-    if (isOffline) {
-      const newId = `local_g${Date.now()}`;
-      setDbState(prev => ({
-        ...prev,
-        guilds: { ...prev.guilds, [newId]: { name, tier: 1, order: 99, id: newId } }
-      }));
-      return;
+    const newGuild = { id: uuidv4(), name, tier: 1, order_num: 99 };
+    const { data, error } = await supabase.from('guilds').insert(newGuild).select();
+    if (error) {
+      console.error('Error adding guild:', error);
+    } else if (data) {
+      const addedGuild = data[0];
+      setDbState(prev => ({ ...prev, guilds: { ...prev.guilds, [addedGuild.id]: addedGuild } }));
     }
-    await addDoc(collection(firestore, 'guilds'), { name, tier: 1, order: 99 });
   };
 
   const updateGuild = async (guildId: string, data: Partial<Guild>) => {
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        guilds: {
-          ...prev.guilds,
-          [guildId]: { ...prev.guilds[guildId], ...data }
-        }
-      }));
-      return;
+    const { error } = await supabase.from('guilds').update(data).eq('id', guildId);
+    if (error) {
+      console.error('Error updating guild:', error);
+    } else {
+      setDbState(prev => ({ ...prev, guilds: { ...prev.guilds, [guildId]: { ...prev.guilds[guildId], ...data } } }));
     }
-    await updateDoc(doc(firestore, 'guilds', guildId), data);
   };
 
   const deleteGuild = async (guildId: string) => {
-    if (isOffline) {
+    const { error } = await supabase.from('guilds').delete().eq('id', guildId);
+    if (error) {
+      console.error('Error deleting guild:', error);
+    } else {
       setDbState(prev => {
         const { [guildId]: _, ...rest } = prev.guilds;
         return { ...prev, guilds: rest };
       });
-      return;
     }
-    await deleteDoc(doc(firestore, 'guilds', guildId));
-    // Optionally delete members? For now, keep them or let them be orphaned.
   };
 
   const deleteMember = async (memberId: string) => {
-    if (isOffline) {
+    const { error } = await supabase.from('members').delete().eq('id', memberId);
+    if (error) {
+      console.error('Error deleting member:', error);
+    } else {
       setDbState(prev => {
         const { [memberId]: _, ...rest } = prev.members;
         return { ...prev, members: rest };
       });
-      return;
     }
-    await deleteDoc(doc(firestore, 'members', memberId));
   };
 
   const updateMemberExclusiveWeapon = async (memberId: string, characterId: string, hasWeapon: boolean) => {
-    if (isOffline) {
+    const currentWeapons = db.members[memberId]?.exclusive_weapons || {};
+    const updatedWeapons = {
+      ...currentWeapons,
+      [characterId]: hasWeapon
+    };
+
+    const { error } = await supabase
+      .from('members')
+      .update({ exclusive_weapons: updatedWeapons, updated_at: Date.now() })
+      .eq('id', memberId);
+
+    if (error) {
+      console.error('Error updating exclusive weapon:', error);
+    } else {
       setDbState(prev => ({
         ...prev,
         members: {
           ...prev.members,
-          [memberId]: {
-            ...prev.members[memberId],
-            exclusiveWeapons: {
-              ...prev.members[memberId].exclusiveWeapons,
-              [characterId]: hasWeapon
-            },
-            updatedAt: Date.now()
-          }
+          [memberId]: { ...prev.members[memberId], exclusive_weapons: updatedWeapons }
         }
       }));
-      return;
     }
-    const memberRef = doc(firestore, 'members', memberId);
-    await setDoc(memberRef, {
-      exclusiveWeapons: {
-        [characterId]: hasWeapon
-      },
-      updatedAt: Date.now()
-    }, { merge: true });
   };
 
   const addCharacter = async (name: string, order: number) => {
-    await addDoc(collection(firestore, 'characters'), { name, order });
+    await supabase.from('characters').insert({ id: uuidv4(), name, order_num: order });
   };
 
   const updateCharacter = async (characterId: string, data: Partial<Character>) => {
-    await updateDoc(doc(firestore, 'characters', characterId), data);
+    await supabase.from('characters').update(data).eq('id', characterId);
   };
 
   const deleteCharacter = async (characterId: string) => {
-    // Note: This doesn't delete associated costumes. A more robust solution would handle this.
-    await deleteDoc(doc(firestore, 'characters', characterId));
+    await supabase.from('characters').delete().eq('id', characterId);
   };
 
   const addCostume = async (characterId: string, name: string, order: number) => {
-    await addDoc(collection(firestore, 'costumes'), { characterId, name, order, new: false });
+    await supabase.from('costumes').insert({ id: uuidv4(), character_id: characterId, name, order_num: order, is_new: false });
   };
 
   const updateCostume = async (costumeId: string, data: Partial<Costume>) => {
-    await updateDoc(doc(firestore, 'costumes', costumeId), data);
+    await supabase.from('costumes').update(data).eq('id', costumeId);
   };
 
   const deleteCostume = async (costumeId: string) => {
-    await deleteDoc(doc(firestore, 'costumes', costumeId));
+    await supabase.from('costumes').delete().eq('id', costumeId);
   };
 
 
@@ -465,119 +376,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   const restoreData = async (data: Partial<Database>) => {
-    if (isOffline) {
-      setDbState(prev => ({ ...prev, ...data }));
-      return;
-    }
-
-    const BATCH_SIZE = 450;
-    let batch = writeBatch(firestore);
-    let count = 0;
-
-    const commitBatch = async () => {
-      if (count > 0) {
-        await batch.commit();
-        batch = writeBatch(firestore);
-        count = 0;
-      }
-    };
-
-    try {
-      if (data.guilds) {
-        for (const g of Object.values(data.guilds)) {
-          if (!g.id) continue;
-          batch.set(doc(firestore, 'guilds', g.id), g, { merge: true });
-          if (++count >= BATCH_SIZE) await commitBatch();
-        }
-      }
-      if (data.members) {
-        for (const m of Object.values(data.members)) {
-          if (!m.id) continue;
-          batch.set(doc(firestore, 'members', m.id), m, { merge: true });
-          if (++count >= BATCH_SIZE) await commitBatch();
-        }
-      }
-      if (data.characters) {
-        for (const char of Object.values(data.characters)) {
-          batch.set(doc(firestore, 'characters', char.id), char, { merge: true });
-          if (++count >= BATCH_SIZE) await commitBatch();
-        }
-      }
-      if (data.costumes) {
-        for (const c of Object.values(data.costumes)) {
-          batch.set(doc(firestore, 'costumes', c.id), c, { merge: true });
-          if (++count >= BATCH_SIZE) await commitBatch();
-        }
-      }
-      await commitBatch();
-    } catch (error) {
-      console.error("Error restoring data:", error);
-      throw error;
-    }
+    // This function needs a complete rewrite for Supabase.
+    // It might involve bulk inserts and upserts.
+    // For now, it's a placeholder.
+    console.warn('restoreData function is not implemented for Supabase yet.');
   };
 
   const updateUserPassword = async (username: string, password: string) => {
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        users: {
-          ...prev.users,
-          [username]: { ...prev.users[username], password }
-        }
-      }));
-      return;
-    }
-    // Assuming 'username' is the document ID for users collection
-    await updateDoc(doc(firestore, 'users', username), { password });
+    await supabase.from('admin_users').update({ password }).eq('username', username);
   };
 
   const updateUserRole = async (username: string, role: User['role']) => {
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        users: {
-          ...prev.users,
-          [username]: { ...prev.users[username], role }
-        }
-      }));
-      return;
-    }
-    await updateDoc(doc(firestore, 'users', username), { role });
+    await supabase.from('admin_users').update({ role }).eq('username', username);
   };
 
   const addUser = async (user: User) => {
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        users: { ...prev.users, [user.username]: user }
-      }));
-      return;
-    }
-    await setDoc(doc(firestore, 'users', user.username), user);
+    await supabase.from('admin_users').insert(user);
   };
 
   const deleteUser = async (username: string) => {
-    if (isOffline) {
-      setDbState(prev => {
-        const { [username]: _, ...rest } = prev.users;
-        return { ...prev, users: rest };
-      });
-      return;
-    }
-    await deleteDoc(doc(firestore, 'users', username));
+    await supabase.from('admin_users').delete().eq('username', username);
   };
 
   const updateSettings = async (data: Partial<Database['settings']>) => {
-    if (isOffline) {
-      setDbState(prev => ({
-        ...prev,
-        settings: { ...prev.settings, ...data }
-      }));
+    const { data: currentSettings, error } = await supabase.from('settings').select('*').limit(1).single();
+    if (error && error.code !== 'PGRST116') { // Ignore 'not found' error
+      console.error('Error fetching settings:', error);
       return;
     }
-    await updateDoc(doc(firestore, 'appData', 'main'), {
-      settings: { ...db.settings, ...data }
-    });
+    
+    // Map incoming data to snake_case if needed, but here we assume the caller passes the correct keys
+    // or we map them here. Since we updated the type definition, 'data' should already have snake_case keys.
+    const newSettings = { ...currentSettings, ...data };
+    await supabase.from('settings').upsert(newSettings);
   };
 
   if (!isLoaded) {

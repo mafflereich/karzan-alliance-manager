@@ -38,7 +38,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
 
   const guild = db.guilds[guildId];
   const members = Object.entries(db.members)
-    .filter(([_, m]: [string, any]) => m.guildId === guildId)
+    .filter(([_, m]: [string, any]) => m.guild_id === guildId)
     .sort((a: [string, any], b: [string, any]) => {
       const roleOrder: Record<string, number> = { 
         '會長': 1, 'Master': 1,
@@ -54,25 +54,25 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
       return a[1].name.localeCompare(b[1].name);
     });
   const costumes = Object.values(db.costumes).sort((a, b) => {
-    const charA = db.characters[a.characterId];
-    const charB = db.characters[b.characterId];
+    const charA = db.characters[a.character_id];
+    const charB = db.characters[b.character_id];
 
     // Handle cases where a character might not exist for a costume
     if (!charA && !charB) return 0; // Both are orphaned, treat as equal
     if (!charA) return 1; // Orphaned 'a' goes to the end
     if (!charB) return -1; // Orphaned 'b' goes to the end
 
-    // 1. Prioritize 'new' costumes
-    if (a.new && !b.new) return -1;
-    if (!a.new && b.new) return 1;
+    // 1. Prioritize 'is_new' costumes
+    if (a.is_new && !b.is_new) return -1;
+    if (!a.is_new && b.is_new) return 1;
 
     // 2. Sort by character order
-    if (charA.order !== charB.order) {
-      return charA.order - charB.order;
+    if (charA.order_num !== charB.order_num) {
+      return charA.order_num - charB.order_num;
     }
 
     // 3. Sort by costume order
-    return (a.order ?? 999) - (b.order ?? 999);
+    return (a.order_num ?? 999) - (b.order_num ?? 999);
   });
 
   if (!guild) return <div>Guild not found</div>;
@@ -89,8 +89,8 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order || 99;
-    const orderB = b[1].order || 99;
+    const orderA = a[1].order_num || 99;
+    const orderB = b[1].order_num || 99;
     return orderA - orderB;
   });
 
@@ -196,10 +196,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                         <th className="p-3 font-semibold sticky top-0 left-0 bg-stone-50 z-30 border-r border-b-2 border-stone-200 shadow-[1px_0_0_0_#e7e5e4]">成員</th>
                         {costumes.map(c => (
                           <th key={c.id} className="p-3 font-semibold text-center text-xs w-24 border-r border-b-2 border-stone-200 last:border-r-0 sticky top-0 bg-stone-50 z-20">
-                            {c.imageName && (
+                            {c.image_name && (
                               <div className="w-[50px] h-[50px] mx-auto mb-2 bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
                                 <img 
-                                  src={getImageUrl(c.imageName)} 
+                                  src={getImageUrl(c.image_name)} 
                                   alt={c.name}
                                   className="w-full h-full object-cover"
                                   referrerPolicy="no-referrer"
@@ -210,7 +210,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                               </div>
                             )}
                             <div className="truncate w-20 mx-auto" title={c.name}>{c.name}</div>
-                            <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={db.characters[c.characterId]?.name}>{db.characters[c.characterId]?.name}</div>
+                            <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={db.characters[c.character_id]?.name}>{db.characters[c.character_id]?.name}</div>
                           </th>
                         ))}
                         <th className="p-3 font-semibold text-center sticky top-0 right-0 bg-stone-50 z-30 border-l border-b-2 border-stone-200 shadow-[-1px_0_0_0_#e7e5e4]">操作</th>
@@ -229,9 +229,9 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                                   'bg-stone-200 text-stone-700'
                                 }`}>{member.role}</span>
                               </div>
-                              {member.updatedAt && (
+                              {member.updated_at && (
                                 <span className="text-[10px] text-stone-400 mt-0.5">
-                                  {formatDate(member.updatedAt)}
+                                  {formatDate(member.updated_at)}
                                 </span>
                               )}
                             </div>
@@ -239,7 +239,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                           {costumes.map(c => {
                             const record = member.records[c.id];
                             const hasCostume = record && record.level >= 0;
-                            const hasExclusiveWeapon = member.exclusiveWeapons?.[c.characterId] ?? false;
+                            const hasExclusiveWeapon = member.exclusive_weapons?.[c.character_id] ?? false;
                             
                             let levelColorClass = "bg-orange-400 text-white"; // default for +5
                             if (hasCostume) {

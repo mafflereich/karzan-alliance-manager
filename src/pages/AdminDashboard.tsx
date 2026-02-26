@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../store';
-import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
-import { db as firestore } from '../firebase';
 import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User as UserIcon, AlertCircle, Download, Upload, FileText, RefreshCw, Wand2, GripVertical, Check } from 'lucide-react';
 import { Role, Guild, Member, Costume, User, Character } from '../types';
 import { getTierColor, getTierBorderHoverClass, getImageUrl } from '../utils';
@@ -113,9 +111,9 @@ function ToolsManager() {
               continue;
             }
 
-            if (member && guildId != member?.guildId) {
-              console.log(`moving ${member.name} from ${guildListInDB.find((guild) => guild.id == member.guildId)?.name} to ${guildListInDB.find((guild) => guild.id == guildId)?.name}`)
-              await updateMember(member.id, { guildId, role });
+            if (member && guildId != member?.guild_id) {
+              console.log(`moving ${member.name} from ${guildListInDB.find((guild) => guild.id == member.guild_id)?.name} to ${guildListInDB.find((guild) => guild.id == guildId)?.name}`)
+              await updateMember(member.id, { guild_id: guildId, role });
             }
 
           };
@@ -139,10 +137,10 @@ function ToolsManager() {
         const membersByGuild: Record<string, any[]> = {};
         for (const memberId in db.members) {
           const member = db.members[memberId];
-          if (!membersByGuild[member.guildId]) {
-            membersByGuild[member.guildId] = [];
+          if (!membersByGuild[member.guild_id]) {
+            membersByGuild[member.guild_id] = [];
           }
-          membersByGuild[member.guildId].push({ id: memberId, ...member });
+          membersByGuild[member.guild_id].push({ id: memberId, ...member });
         }
 
         for (const guildId in membersByGuild) {
@@ -342,10 +340,10 @@ function ToolsManager() {
           costume.forEach((costume_enhanced: string, i: string | number) => {
             costume_enhanced = costume_enhanced.toString();
             let char_id = characters.find((character) => character.name == costumeDefineList[i][0]).id;
-            let costume_id = costumes.find((costume) => costume.characterId == char_id && costume.name == costumeDefineList[i][1]).id;
-            if (!result[p_name]) result[p_name] = { records: {}, exclusiveWeapons: {} };
+            let costume_id = costumes.find((costume) => costume.character_id == char_id && costume.name == costumeDefineList[i][1]).id;
+            if (!result[p_name]) result[p_name] = { records: {}, exclusive_weapons: {} };
             result[p_name]["records"][costume_id] = { level: costume_enhanced.split("")[0] ?? -1, };
-            result[p_name]["exclusiveWeapons"][char_id] = Boolean(costume_enhanced.match(/E/));
+            result[p_name]["exclusive_weapons"][char_id] = Boolean(costume_enhanced.match(/E/));
 
           });
         }
@@ -491,7 +489,7 @@ function GuildsManager() {
   };
 
   const getMemberCount = (guildId: string) => {
-    return Object.values(db.members).filter((m: any) => m.guildId === guildId).length;
+    return Object.values(db.members).filter((m: any) => m.guild_id === guildId).length;
   };
 
   const startEdit = (e: React.MouseEvent, id: string, guild: any) => {
@@ -499,7 +497,7 @@ function GuildsManager() {
     setEditingGuildId(id);
     setEditGuildName(guild.name);
     setEditGuildTier(guild.tier || 1);
-    setEditGuildOrder(guild.order || 1);
+    setEditGuildOrder(guild.order_num || 1);
   };
 
   const saveEdit = async (e: React.MouseEvent) => {
@@ -509,7 +507,7 @@ function GuildsManager() {
       await updateGuild(editingGuildId, {
         name: editGuildName.trim(),
         tier: editGuildTier,
-        order: editGuildOrder
+        order_num: editGuildOrder
       });
       setEditingGuildId(null);
     } catch (error: any) {
@@ -542,8 +540,8 @@ function GuildsManager() {
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order || 99;
-    const orderB = b[1].order || 99;
+    const orderA = a[1].order_num || 99;
+    const orderB = b[1].order_num || 99;
     return orderA - orderB;
   });
 
@@ -637,7 +635,7 @@ function GuildsManager() {
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs font-bold rounded">順序 {guild.order || 1}</span>
+                          <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs font-bold rounded">順序 {guild.order_num || 1}</span>
                         </div>
                         <h3 className="font-bold text-lg text-stone-800 group-hover:text-amber-700 transition-colors">{guild.name}</h3>
                         <p className={`text-sm font-medium ${getMemberCount(id) > 30 ? 'text-red-500 bg-red-50 px-1 py-0.5 rounded inline-block' : 'text-stone-500'}`}>
@@ -700,14 +698,14 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order || 99;
-    const orderB = b[1].order || 99;
+    const orderA = a[1].order_num || 99;
+    const orderB = b[1].order_num || 99;
     return orderA - orderB;
   });
 
   const guild = db.guilds[guildId];
   const members = Object.entries(db.members)
-    .filter(([_, m]: [string, any]) => m.guildId === guildId)
+    .filter(([_, m]: [string, any]) => m.guild_id === guildId)
     .sort((a: [string, any], b: [string, any]) => {
       const roleOrder: Record<string, number> = {
         '會長': 1, 'Master': 1,
@@ -723,9 +721,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       return a[1].name.localeCompare(b[1].name);
     });
 
-  const getMemberCount = (gId: string) => Object.values(db.members).filter((m: any) => m.guildId === gId).length;
-  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '會長');
-  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '副會長');
+  const getMemberCount = (gId: string) => Object.values(db.members).filter((m: any) => m.guild_id === gId).length;
+  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guild_id === gId && m.role === '會長');
+  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guild_id === gId && m.role === '副會長');
 
   const validateMoveOrAdd = (targetGId: string, role: Role, excludeMemberId?: string) => {
     if (!targetGId) return "請選擇公會";
@@ -757,7 +755,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           name: formData.name,
           role: formData.role,
           note: formData.note,
-          guildId: formData.targetGuildId
+          guild_id: formData.targetGuildId
         });
         setEditingId(null);
       } else {
@@ -798,7 +796,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       name: db.members[id].name,
       role: db.members[id].role,
       note: db.members[id].note || '',
-      targetGuildId: db.members[id].guildId
+      targetGuildId: db.members[id].guild_id
     });
   };
 
@@ -1084,13 +1082,13 @@ function CostumesManager() {
   const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
   const characters = useMemo(() =>
-    Object.values(db.characters).sort((a, b) => a.order - b.order),
+    Object.values(db.characters).sort((a, b) => a.order_num - b.order_num),
     [db.characters]);
 
   const costumes = useMemo(() =>
     Object.values(db.costumes)
-      .filter(c => c.characterId === selectedCharacterId)
-      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999)),
+      .filter(c => c.character_id === selectedCharacterId)
+      .sort((a, b) => (a.order_num ?? 999) - (b.order_num ?? 999)),
     [db.costumes, selectedCharacterId]);
 
   const selectedCharacter = selectedCharacterId ? db.characters[selectedCharacterId] : null;
@@ -1136,8 +1134,8 @@ function CostumesManager() {
     try {
       for (let i = 0; i < orderedCharacters.length; i++) {
         const char = orderedCharacters[i];
-        if (char.order !== i + 1) {
-          await updateCharacter(char.id, { order: i + 1 });
+        if (char.order_num !== i + 1) {
+          await updateCharacter(char.id, { order_num: i + 1 });
         }
       }
       setIsReorderingCharacters(false);
@@ -1152,8 +1150,8 @@ function CostumesManager() {
     try {
       for (let i = 0; i < orderedCostumes.length; i++) {
         const costume = orderedCostumes[i];
-        if (costume.order !== i + 1) {
-          await updateCostume(costume.id, { order: i + 1 });
+        if (costume.order_num !== i + 1) {
+          await updateCostume(costume.id, { order_num: i + 1 });
         }
       }
       setIsReorderingCostumes(false);
@@ -1167,7 +1165,7 @@ function CostumesManager() {
   useEffect(() => {
     if (selectedCharacter) {
       setEditCharacterName(selectedCharacter.name);
-      setEditCharacterOrder(selectedCharacter.order);
+      setEditCharacterOrder(selectedCharacter.order_num);
     } else {
       setSelectedCharacterId(null);
     }
@@ -1176,9 +1174,9 @@ function CostumesManager() {
   useEffect(() => {
     if (selectedCostume) {
       setEditCostumeName(selectedCostume.name);
-      setEditCostumeOrder(selectedCostume.order ?? 0);
-      setEditCostumeImageName(selectedCostume.imageName ?? '');
-      setEditCostumeIsNew(selectedCostume.new ?? false);
+      setEditCostumeOrder(selectedCostume.order_num ?? 0);
+      setEditCostumeImageName(selectedCostume.image_name ?? '');
+      setEditCostumeIsNew(selectedCostume.is_new ?? false);
     } else {
       setSelectedCostumeId(null);
     }
@@ -1216,7 +1214,7 @@ function CostumesManager() {
       onConfirm: async () => {
         try {
           // Cascade delete costumes
-          const characterCostumes = Object.values(db.costumes).filter(c => c.characterId === selectedCharacterId);
+          const characterCostumes = Object.values(db.costumes).filter(c => c.character_id === selectedCharacterId);
           for (const costume of characterCostumes) {
             await deleteCostume(costume.id);
           }
@@ -1236,7 +1234,7 @@ function CostumesManager() {
 
   const handleUpdateCharacter = async () => {
     if (!selectedCharacterId) return;
-    await updateCharacter(selectedCharacterId, { name: editCharacterName, order: editCharacterOrder });
+    await updateCharacter(selectedCharacterId, { name: editCharacterName, order_num: editCharacterOrder });
     alert('角色更新成功');
   };
 
@@ -1282,9 +1280,9 @@ function CostumesManager() {
     if (!selectedCostumeId) return;
     await updateCostume(selectedCostumeId, {
       name: editCostumeName,
-      order: editCostumeOrder,
-      imageName: editCostumeImageName,
-      new: editCostumeIsNew
+      order_num: editCostumeOrder,
+      image_name: editCostumeImageName,
+      is_new: editCostumeIsNew
     });
     alert('服裝更新成功');
   };
@@ -1322,7 +1320,7 @@ function CostumesManager() {
                 {orderedCharacters.map(char => (
                   <Reorder.Item key={char.id} value={char} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
                     <GripVertical className="w-4 h-4 text-stone-400" />
-                    <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-8 h-8 rounded-md object-cover" />
+                    <img src={getImageUrl(Object.values(db.costumes).find(c => c.character_id === char.id)?.image_name)} alt={char.name} className="w-8 h-8 rounded-md object-cover" />
                     <span>{char.name}</span>
                   </Reorder.Item>
                 ))}
@@ -1339,7 +1337,7 @@ function CostumesManager() {
                   key={char.id}
                   onClick={() => handleSelectCharacter(char.id)}
                   className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCharacterId === char.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
-                  <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-10 h-10 rounded-md object-cover" />
+                  <img src={getImageUrl(Object.values(db.costumes).find(c => c.character_id === char.id)?.image_name)} alt={char.name} className="w-10 h-10 rounded-md object-cover" />
                   <span>{char.name}</span>
                 </button>
               ))}
@@ -1378,7 +1376,7 @@ function CostumesManager() {
                   {orderedCostumes.map(costume => (
                     <Reorder.Item key={costume.id} value={costume} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
                       <GripVertical className="w-4 h-4 text-stone-400" />
-                      <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-8 h-8 rounded-md object-cover" />
+                      <img src={getImageUrl(costume.image_name)} alt={costume.name} className="w-8 h-8 rounded-md object-cover" />
                       <span>{costume.name}</span>
                     </Reorder.Item>
                   ))}
@@ -1395,9 +1393,9 @@ function CostumesManager() {
                     key={costume.id}
                     onClick={() => setSelectedCostumeId(costume.id)}
                     className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCostumeId === costume.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
-                    <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-10 h-10 rounded-md object-cover" />
+                    <img src={getImageUrl(costume.image_name)} alt={costume.name} className="w-10 h-10 rounded-md object-cover" />
                     <span>{costume.name}</span>
-                    {costume.new && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
+                    {costume.is_new && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
                   </button>
                 ))}
               </div>

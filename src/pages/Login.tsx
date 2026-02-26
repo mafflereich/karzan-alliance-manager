@@ -23,12 +23,12 @@ export default function Login() {
 
   const handleSiteUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (sitePasswordInput === db.settings.sitePassword) {
+    if (sitePasswordInput === db.settings.site_password) {
       localStorage.setItem('siteUnlockTimestamp', Date.now().toString());
       setIsSiteUnlocked(true);
       setError('');
     } else {
-      const redirectUrl = db.settings.redirectUrl || 'https://www.browndust2.com/';
+      const redirectUrl = db.settings.redirect_url || 'https://www.browndust2.com/';
       window.location.href = redirectUrl;
     }
   };
@@ -41,8 +41,8 @@ export default function Login() {
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order || 99;
-    const orderB = b[1].order || 99;
+    const orderA = a[1].order_num || 99;
+    const orderB = b[1].order_num || 99;
     return orderA - orderB;
   });
 

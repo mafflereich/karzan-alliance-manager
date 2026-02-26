@@ -100,8 +100,8 @@ export default function Header() {
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order || 99;
-    const orderB = b[1].order || 99;
+    const orderA = a[1].order_num || 99;
+    const orderB = b[1].order_num || 99;
     return orderA - orderB;
   });
 
