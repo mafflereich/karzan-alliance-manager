@@ -72,7 +72,18 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [db, setDbState] = useState<Database>(defaultData);
   const [currentView, setCurrentView] = useState<ViewState>(null);
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [currentUser, setCurrentUserState] = useState<string | null>(() => {
+    return sessionStorage.getItem('currentUser');
+  });
+
+  const setCurrentUser = (user: string | null) => {
+    setCurrentUserState(user);
+    if (user) {
+      sessionStorage.setItem('currentUser', user);
+    } else {
+      sessionStorage.removeItem('currentUser');
+    }
+  };
   const [loadedStates, setLoadedStates] = useState({
     global: false,
     guilds: false,

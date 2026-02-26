@@ -3,6 +3,7 @@ import { useAppContext } from '../store';
 import { ChevronLeft, Edit2, Menu, X, Shield, Swords, MoveHorizontal } from 'lucide-react';
 import MemberEditModal from '../components/MemberEditModal';
 import Footer from '../components/Footer';
+import Header from '../components/Header';
 import { Role } from '../types';
 import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass, truncateName, getImageUrl } from '../utils';
 
@@ -94,25 +95,26 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
   });
 
   return (
-    <div className="h-screen bg-stone-100 flex overflow-hidden">
-      {/* Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-stone-900/50 z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+    <div className="h-screen bg-stone-100 flex flex-col overflow-hidden">
+      <Header />
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-stone-900/50 z-40 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed lg:sticky top-0 left-0 h-screen w-64 bg-stone-900 text-stone-300 z-50
-        transform transition-transform duration-300 ease-in-out
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        flex flex-col
-      `}>
+        {/* Sidebar */}
+        <aside className={`
+          fixed lg:sticky top-0 left-0 h-full w-64 bg-stone-900 text-stone-300 z-50
+          transform transition-transform duration-300 ease-in-out
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          flex flex-col
+        `}>
         <div className="p-4 flex items-center justify-between border-b border-stone-800">
           <h2 className="font-bold text-white flex items-center gap-2">
-            <Shield className="w-5 h-5 text-amber-500" />
             公會列表
           </h2>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 hover:bg-stone-800 rounded">
@@ -151,18 +153,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
             })}
           </div>
         </div>
-        <div className="p-4 border-t border-stone-800">
-          <button 
-            onClick={() => setCurrentView(null)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-700 text-white rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" /> 返回首頁
-          </button>
-        </div>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
         <header className="bg-white p-4 shadow-sm sticky top-0 z-20 flex items-center gap-4">
           <button 
             onClick={() => setIsSidebarOpen(true)} 
@@ -178,19 +172,19 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-4">
-          <div className="max-w-full mx-auto min-h-full flex flex-col">
-            <div className="flex-1">
-              <div className="mb-2 flex items-center justify-between">
+        <main className="flex-1 overflow-hidden p-4 flex flex-col">
+          <div className="max-w-full mx-auto w-full min-h-full flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="mb-2 flex items-center justify-between shrink-0">
                 <div className="text-xs text-stone-400 flex items-center gap-1">
                   <MoveHorizontal className="w-3 h-3" />
                   <span>可左右拖曳或捲動查看完整表格</span>
                 </div>
               </div>
-              <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex-1 flex flex-col min-h-0">
                 <div 
                   ref={scrollRef}
-                  className={`overflow-x-auto cursor-grab ${isDragging ? 'cursor-grabbing select-none' : ''}`}
+                  className={`overflow-auto flex-1 cursor-grab overflow-x-auto overflow-y-auto [&::-webkit-scrollbar:horizontal]:hidden ${isDragging ? 'cursor-grabbing select-none' : ''}`}
                   onMouseDown={handleMouseDown}
                   onMouseLeave={handleMouseLeave}
                   onMouseUp={handleMouseUp}
@@ -198,10 +192,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                 >
                   <table className="w-full text-left border-collapse min-w-max">
                     <thead>
-                      <tr className="bg-stone-50 border-b-2 border-stone-200 text-stone-600">
-                        <th className="p-3 font-semibold sticky left-0 bg-stone-50 z-10 border-r border-stone-200 shadow-[1px_0_0_0_#e7e5e4]">成員</th>
+                      <tr className="bg-stone-50 text-stone-600">
+                        <th className="p-3 font-semibold sticky top-0 left-0 bg-stone-50 z-30 border-r border-b-2 border-stone-200 shadow-[1px_0_0_0_#e7e5e4]">成員</th>
                         {costumes.map(c => (
-                          <th key={c.id} className="p-3 font-semibold text-center text-xs w-24 border-r border-stone-100 last:border-r-0">
+                          <th key={c.id} className="p-3 font-semibold text-center text-xs w-24 border-r border-b-2 border-stone-200 last:border-r-0 sticky top-0 bg-stone-50 z-20">
                             {c.imageName && (
                               <div className="w-[50px] h-[50px] mx-auto mb-2 bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
                                 <img 
@@ -219,7 +213,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                             <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={db.characters[c.characterId]?.name}>{db.characters[c.characterId]?.name}</div>
                           </th>
                         ))}
-                        <th className="p-3 font-semibold text-center sticky right-0 bg-stone-50 z-10 border-l border-stone-200 shadow-[-1px_0_0_0_#e7e5e4]">操作</th>
+                        <th className="p-3 font-semibold text-center sticky top-0 right-0 bg-stone-50 z-30 border-l border-b-2 border-stone-200 shadow-[-1px_0_0_0_#e7e5e4]">操作</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -297,8 +291,9 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
           </div>
         </main>
       </div>
+    </div>
 
-      {editingMemberId && (
+    {editingMemberId && (
         <MemberEditModal 
           memberId={editingMemberId} 
           onClose={() => setEditingMemberId(null)} 

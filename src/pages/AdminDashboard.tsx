@@ -8,6 +8,7 @@ import { getTierColor, getTierBorderHoverClass, getImageUrl } from '../utils';
 import ConfirmModal from '../components/ConfirmModal';
 import InputModal from '../components/InputModal';
 import Footer from '../components/Footer';
+import Header from '../components/Header';
 import { Reorder } from "motion/react";
 
 export default function AdminDashboard() {
@@ -22,23 +23,10 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-100">
-      <header className="bg-stone-900 text-white p-4 shadow-md">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Shield className="w-6 h-6 text-amber-500" />
-            Kazran 聯盟管理後台
-            <span className="text-xs font-normal bg-stone-800 px-2 py-0.5 rounded text-stone-400">
-              Logged in as: {currentUser} ({userRole})
-            </span>
-          </h1>
-          <button onClick={handleLogout} className="flex items-center gap-2 hover:text-amber-400 transition-colors">
-            <LogOut className="w-5 h-5" /> 登出
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-stone-100 flex flex-col">
+      <Header />
 
-      <main className="max-w-6xl mx-auto p-6">
+      <main className="max-w-6xl mx-auto p-6 flex-1 w-full">
         <div className="mb-4 flex gap-4 text-[10px] text-stone-400 uppercase tracking-widest">
           <span>公會: {Object.keys(db.guilds).length}</span>
           <span>成員: {Object.keys(db.members).length}</span>
@@ -84,113 +72,6 @@ function ToolsManager() {
   });
 
   const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
-
-  const handleMigrateDatabase = () => {
-    setConfirmModal({
-      isOpen: true,
-      title: '資料庫遷移 (開發用)',
-      message: '確定要將舊資料庫格式遷移到新格式嗎？此動作只應執行一次。它將會：\n1. 根據 costume_definitions 建立新的 characters 集合。\n2. 將 costume_definitions 轉換為新的 costumes 集合。\n3. 將成員的專武資料 (weapon: true) 遷移到新的 exclusiveWeapons 欄位。\n4. 刪除舊的 costume_definitions 集合。',
-      isDanger: true,
-      onConfirm: async () => {
-        setIsProcessing(true);
-        closeConfirmModal();
-
-        try {
-          // 1. Fetch legacy data directly from Firestore
-          // We cannot rely on 'db' state because it might not load legacy fields
-          const appDataRef = doc(firestore, 'appData', 'main');
-          const appDataSnap = await getDoc(appDataRef);
-
-          if (!appDataSnap.exists()) {
-            throw new Error("找不到 appData/main 文件");
-          }
-
-          const appData = appDataSnap.data();
-          const costumeDefinitions = appData.costume_definitions;
-
-          if (!costumeDefinitions || Object.keys(costumeDefinitions).length === 0) {
-            alert("遷移失敗：找不到舊的 'costume_definitions' 資料，可能已經遷移過了。");
-            setIsProcessing(false);
-            return;
-          }
-
-          const newDb = JSON.parse(JSON.stringify(db));
-
-          const characterNames = [...new Set(Object.values(costumeDefinitions).map((c: any) => c.character))];
-          const characterMap: Record<string, string> = {};
-          newDb.characters = newDb.characters || {};
-
-          characterNames.forEach((name, index) => {
-            const existingChar = Object.values(newDb.characters).find((c: any) => c.name === name);
-            if (existingChar) {
-              characterMap[name as string] = (existingChar as any).id;
-            } else {
-              const newCharId = `char_${Date.now()}_${index}`;
-              newDb.characters[newCharId] = {
-                id: newCharId,
-                name: name as string,
-                order: Object.keys(newDb.characters).length + 1
-              };
-              characterMap[name as string] = newCharId;
-            }
-          });
-
-          newDb.costumes = newDb.costumes || {};
-          for (const oldCostumeId in costumeDefinitions) {
-            const oldCostume = costumeDefinitions[oldCostumeId];
-            const characterId = characterMap[oldCostume.character];
-            if (characterId) {
-              const newCostumeId = `costume_${oldCostumeId}`;
-              newDb.costumes[newCostumeId] = {
-                id: newCostumeId,
-                characterId: characterId,
-                name: oldCostume.name,
-                order: oldCostume.order ?? 999, // Default to 999 if order is undefined
-                imageName: oldCostume.imageName,
-                new: oldCostume.new || false,
-              };
-            }
-          }
-
-          for (const memberId in newDb.members) {
-            const member = newDb.members[memberId] as any;
-            if (member.records) {
-              member.exclusiveWeapons = member.exclusiveWeapons || {};
-              for (const oldCostumeId in member.records) {
-                const record = member.records[oldCostumeId];
-                if (record.weapon) {
-                  const oldCostume = costumeDefinitions[oldCostumeId];
-                  if (oldCostume) {
-                    const characterId = characterMap[oldCostume.character];
-                    if (characterId) {
-                      member.exclusiveWeapons[characterId] = true;
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          // 3. Save new collections
-          await restoreData(newDb);
-
-          // 4. Delete legacy field from Firestore
-          await updateDoc(appDataRef, {
-            costume_definitions: deleteField()
-          });
-
-          alert('資料庫遷移成功！頁面將會重新載入以套用變更。');
-          window.location.reload();
-
-        } catch (error) {
-          console.error("Database migration failed:", error);
-          alert(`資料庫遷移失敗: ${error instanceof Error ? error.message : String(error)}`);
-        } finally {
-          setIsProcessing(false);
-        }
-      }
-    });
-  };
 
   const handleAutoTransfer = () => {
     setConfirmModal({
@@ -494,23 +375,6 @@ function ToolsManager() {
       </h2>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
-          <div className="p-4 bg-purple-100 rounded-full text-purple-600 mb-4">
-            <RefreshCw className="w-8 h-8" />
-          </div>
-          <h3 className="text-xl font-bold text-stone-800 mb-2">資料庫遷移 (開發用)</h3>
-          <p className="text-stone-500 mb-6 max-w-md">
-            將舊的 `costume_definitions` 格式轉換為新的 `characters` 和 `costumes` 格式。
-          </p>
-          <button
-            onClick={handleMigrateDatabase}
-            disabled={isProcessing}
-            className="px-8 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? '遷移中...' : '開始遷移'}
-          </button>
-        </div>
-
         <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
           <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
             <RefreshCw className="w-8 h-8" />
