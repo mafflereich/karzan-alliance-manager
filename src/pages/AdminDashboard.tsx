@@ -67,7 +67,7 @@ export default function AdminDashboard() {
 }
 
 function ToolsManager() {
-  const { db, addMember, deleteMember, updateMember, fetchAllMembers } = useAppContext();
+  const { db, updateCostume, addMember, deleteMember, updateMember, fetchAllMembers } = useAppContext();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
@@ -87,6 +87,8 @@ function ToolsManager() {
       message: '確定要執行自動搬運嗎？',
       isDanger: false,
       onConfirm: async () => {
+        setIsProcessing(true);
+        closeConfirmModal();
 
         await fetchAllMembers();
 
@@ -127,7 +129,7 @@ function ToolsManager() {
 
         };
 
-        closeConfirmModal();
+        setIsProcessing(false);
       }
     });
   };
@@ -200,6 +202,34 @@ function ToolsManager() {
     });
   };
 
+  const handleImportCostume = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: '匯入服裝表',
+      message: '確定要匯入服裝表嗎？',
+      isDanger: false,
+      onConfirm: async () => {
+        setIsProcessing(true);
+        closeConfirmModal();
+
+        const macroId = `AKfycbyw_0lj4mZjMB9lFE9vwCFiE2S9B84baJj3r4nPqWaYXkHAFHMWyGQtiecuk7eqaShy_w`;
+        // const dressList = (await (await fetch(`https://script.google.com/macros/s/${macroId}/exec`,
+        //   {
+        //     method: "GET",
+        //     mode: "cors",
+        //   })).json()).data;
+        console.log(db.costume_definitions);
+        // for (let costume of Object.values(db.costume_definitions)) {
+
+        //   await updateCostume(costume.id, { new: false });
+        // }
+
+        setIsProcessing(false);
+      }
+    });
+
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold mb-6 text-stone-800 flex items-center gap-2">
@@ -213,13 +243,47 @@ function ToolsManager() {
         </div>
         <h3 className="text-xl font-bold text-stone-800 mb-2">自動搬運</h3>
         <p className="text-stone-500 mb-6 max-w-md">
-          此功能可用於自動處理成員資料搬運，目前僅供介面展示。
+          此功能可用於自動處理成員資料搬運。
         </p>
         <button
           onClick={handleAutoTransfer}
           className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md"
         >
           開始自動搬運
+        </button>
+      </div>
+
+      <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+        <div className="p-4 bg-red-100 rounded-full text-red-600 mb-4">
+          <Trash2 className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-stone-800 mb-2">移除重複成員</h3>
+        <p className="text-stone-500 mb-6 max-w-md">
+          移除所有公會中同名且無服飾資料的成員，或同名且服飾資料完全相同的成員。
+        </p>
+        <button
+          onClick={handleRemoveDuplicates}
+          disabled={isProcessing}
+          className="px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isProcessing ? '處理中...' : '開始移除'}
+        </button>
+      </div>
+
+      <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
+        <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
+          <ArrowUp className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-stone-800 mb-2">匯入服裝表</h3>
+        <p className="text-stone-500 mb-6 max-w-md">
+          從現有試算表中匯入服裝表。
+        </p>
+        <button
+          onClick={handleImportCostume}
+          disabled={isProcessing}
+          className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isProcessing ? '處理中...' : '開始匯入'}
         </button>
       </div>
 
