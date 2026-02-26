@@ -71,6 +71,8 @@ export default function AdminDashboard() {
 }
 
 function ToolsManager() {
+  const { db, addMember, updateMember, fetchAllMembers } = useAppContext();
+
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -85,9 +87,49 @@ function ToolsManager() {
     setConfirmModal({
       isOpen: true,
       title: '自動搬運',
-      message: '確定要執行自動搬運嗎？此動作目前不會執行任何實際操作。',
+      message: '確定要執行自動搬運嗎？',
       isDanger: false,
-      onConfirm: () => {
+      onConfirm: async () => {
+
+        await fetchAllMembers();
+
+        const macroId = `AKfycbyy8z1gVgBVcOcwz5B_MLAa0J80pMMBjtC6MFL-CJ4qkOHjDTunCB4ikajcAHMN2u4BcA`;
+        const { guildList, guildLeaderList } = (await (await fetch(`https://script.google.com/macros/s/${macroId}/exec`,
+          {
+            method: "GET",
+            mode: "cors",
+          })).json()).data;
+
+        const dressList = Object.values(db.members);
+        const guildNameList = Object.keys(guildList);
+        const guildListInDB = Object.values(db.guilds);
+
+        for (const guildName of guildNameList) {
+          const memberNames = guildList[guildName];
+
+          for (let memberName of memberNames) {
+            memberName = memberName.replace(/@/, "");
+
+            const member = dressList.find((member) => member.name == memberName);
+
+            const guildId = guildListInDB.find((guild) => guild.name == guildName)?.id;
+            const role = guildLeaderList[`@${memberName}`]?.replaceAll(/<|>/g, "") ?? "成員";
+
+            if (!member && !memberName.match(/Vacancy/) && memberName) {
+              console.log(`member ${memberName} not found, adding to DB`);
+              await addMember(guildId, memberName, role, "");
+              continue;
+            }
+
+            if (member && guildId != member?.guildId) {
+              console.log(`moving ${member.name} from ${guildListInDB.find((guild) => guild.id == member.guildId)?.name} to ${guildListInDB.find((guild) => guild.id == guildId)?.name}`)
+              await updateMember(member.id, { guildId, role });
+            }
+
+          };
+
+        };
+
         closeConfirmModal();
       }
     });
@@ -99,14 +141,14 @@ function ToolsManager() {
         <Wand2 className="w-6 h-6 text-amber-600" />
         便利小功能
       </h2>
-      
+
       <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
         <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
           <RefreshCw className="w-8 h-8" />
         </div>
         <h3 className="text-xl font-bold text-stone-800 mb-2">自動搬運</h3>
         <p className="text-stone-500 mb-6 max-w-md">
-          此功能可用於自動處理成員資料搬運，目前僅供介面展示。
+          此功能可用於自動處理成員資料搬運。
         </p>
         <button
           onClick={handleAutoTransfer}
