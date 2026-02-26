@@ -408,10 +408,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     const memberRef = doc(firestore, 'members', memberId);
-    await updateDoc(memberRef, {
-      [`exclusiveWeapons.${characterId}`]: hasWeapon,
+    await setDoc(memberRef, {
+      exclusiveWeapons: {
+        [characterId]: hasWeapon
+      },
       updatedAt: Date.now()
-    });
+    }, { merge: true });
   };
 
   const addCharacter = async (name: string, order: number) => {
