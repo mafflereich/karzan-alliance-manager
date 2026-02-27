@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Database, Guild, Member, Costume, Role, User, Character } from './types';
-import { supabase } from './supabase';
+import { supabase, supabaseInsert, supabaseUpdate, supabaseUpsert, toCamel } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 const defaultData: Database = {
@@ -15,8 +15,8 @@ const defaultData: Database = {
     "manager": { username: "manager", password: "123", role: "manager" }
   },
   settings: {
-    site_password: "bd2",
-    redirect_url: "https://www.browndust2.com/"
+    sitePassword: "bd2",
+    redirectUrl: "https://www.browndust2.com/"
   }
 };
 
@@ -112,18 +112,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (usersRes.error) throw usersRes.error;
         if (settingsRes.error) throw settingsRes.error;
 
-        const guilds = guildsRes.data.reduce((acc, guild) => ({ ...acc, [guild.id]: guild }), {});
-        const characters = charactersRes.data.reduce((acc, char) => ({ ...acc, [char.id]: char }), {});
-        const costumes = costumesRes.data.reduce((acc, costume) => ({ ...acc, [costume.id]: costume }), {});
-        const users = usersRes.data.reduce((acc, user) => ({ ...acc, [user.username]: user }), {});
-        
+        const guilds = guildsRes.data.reduce((acc, guild) => ({ ...acc, [guild.id]: toCamel(guild) }), {});
+        const characters = charactersRes.data.reduce((acc, char) => ({ ...acc, [char.id]: toCamel(char) }), {});
+        const costumes = costumesRes.data.reduce((acc, costume) => ({ ...acc, [costume.id]: toCamel(costume) }), {});
+        const users = usersRes.data.reduce((acc, user) => ({ ...acc, [user.username]: toCamel(user) }), {});
+
         setDbState(prev => ({
           ...prev,
           guilds,
           characters,
           costumes,
           users,
-          settings: settingsRes.data ? { site_password: settingsRes.data.site_password, redirect_url: settingsRes.data.redirect_url } : defaultData.settings,
+          settings: settingsRes.data ? { sitePassword: settingsRes.data.sitePassword, redirectUrl: settingsRes.data.redirectUrl } : defaultData.settings,
         }));
 
         setLoadedStates({ global: true, guilds: true, costumes: true, characters: true, users: true });
@@ -145,13 +145,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [memberUnsub, setMemberUnsub] = useState<(() => void) | null>(null);
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guild_id: string) => {
+  const fetchMembers = async (guildId: string) => {
     if (isOffline) return;
 
     const { data, error } = await supabase
       .from('members')
       .select('*')
-      .eq('guild_id', guild_id);
+      .eq('guild_id', guildId);
 
     if (error) {
       console.error("Error fetching members:", error);
@@ -160,7 +160,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const members = data.reduce((acc, member) => ({ ...acc, [member.id]: member }), {});
+    const members = data.reduce((acc, member) => ({ ...acc, [member.id]: toCamel(member) }), {});
+
     setDbState(prev => ({ ...prev, members }));
   };
 
@@ -174,7 +175,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const allMembers: Record<string, Member> = data.reduce((acc, member) => ({ ...acc, [member.id]: member }), {});
+    const allMembers: Record<string, Member> = data.reduce((acc, member) => ({ ...acc, [member.id]: toCamel(member) }), {});
     setDbState(prev => ({ ...prev, members: allMembers }));
   };
 
@@ -206,18 +207,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDbState(value);
   };
 
-  const addMember = async (guild_id: string, name: string, role: Role = '成員', note: string = '') => {
+  const addMember = async (guildId: string, name: string, role: Role = '成員', note: string = '') => {
     const newMember = {
       id: uuidv4(),
       name,
-      guild_id,
+      guildId,
       role,
       note,
       records: {},
-      updated_at: Date.now()
+      updatedAt: Date.now()
     };
 
-    const { data, error } = await supabase.from('members').insert(newMember).select();
+    const { data, error } = await supabaseInsert('members', newMember);
 
     if (error) {
       console.error('Error adding member:', error);
@@ -239,10 +240,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       [costumeId]: { level }
     };
 
-    const { error } = await supabase
-      .from('members')
-      .update({ records: updatedRecords, updated_at: Date.now() })
-      .eq('id', memberId);
+    const { error } = await supabaseUpdate('members',
+      {
+        records: updatedRecords,
+        updatedAt: Date.now()
+      },
+      {
+        id: memberId
+      });
 
     if (error) {
       console.error('Error updating member costume level:', error);
@@ -258,10 +263,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateMember = async (memberId: string, data: Partial<Member>) => {
-    const { error } = await supabase
-      .from('members')
-      .update({ ...data, updated_at: Date.now() })
-      .eq('id', memberId);
+
+    const { error } = await supabaseUpdate('members', { ...data, updatedAt: Date.now() }, { id: memberId });
 
     if (error) {
       console.error('Error updating member:', error);
@@ -274,8 +277,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addGuild = async (name: string) => {
-    const newGuild = { id: uuidv4(), name, tier: 1, order_num: 99 };
-    const { data, error } = await supabase.from('guilds').insert(newGuild).select();
+    const newGuild = { id: uuidv4(), name, tier: 1, orderNum: 99 };
+    const { data, error } = await supabaseInsert('guilds', newGuild);
     if (error) {
       console.error('Error adding guild:', error);
     } else if (data) {
@@ -285,7 +288,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateGuild = async (guildId: string, data: Partial<Guild>) => {
-    const { error } = await supabase.from('guilds').update(data).eq('id', guildId);
+    const { error } = await supabaseUpdate('guilds', data, { id: guildId });
     if (error) {
       console.error('Error updating guild:', error);
     } else {
@@ -318,16 +321,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateMemberExclusiveWeapon = async (memberId: string, characterId: string, hasWeapon: boolean) => {
-    const currentWeapons = db.members[memberId]?.exclusive_weapons || {};
+    const currentWeapons = db.members[memberId]?.exclusiveWeapons || {};
     const updatedWeapons = {
       ...currentWeapons,
       [characterId]: hasWeapon
     };
 
-    const { error } = await supabase
-      .from('members')
-      .update({ exclusive_weapons: updatedWeapons, updated_at: Date.now() })
-      .eq('id', memberId);
+    const { error } = await supabaseUpdate('members',
+      {
+        exclusiveWeapons: updatedWeapons, updatedAt: Date.now()
+      },
+      {
+        id: memberId
+      });
+
 
     if (error) {
       console.error('Error updating exclusive weapon:', error);
@@ -336,18 +343,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...prev,
         members: {
           ...prev.members,
-          [memberId]: { ...prev.members[memberId], exclusive_weapons: updatedWeapons }
+          [memberId]: { ...prev.members[memberId], exclusiveWeapons: updatedWeapons }
         }
       }));
     }
   };
 
   const addCharacter = async (name: string, order: number) => {
-    await supabase.from('characters').insert({ id: uuidv4(), name, order_num: order });
+    await supabaseInsert('characters', { id: uuidv4(), name, orderNum: order });
   };
 
   const updateCharacter = async (characterId: string, data: Partial<Character>) => {
-    await supabase.from('characters').update(data).eq('id', characterId);
+    await supabaseUpdate('characters', data, { id: characterId });
   };
 
   const deleteCharacter = async (characterId: string) => {
@@ -355,11 +362,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addCostume = async (characterId: string, name: string, order: number) => {
-    await supabase.from('costumes').insert({ id: uuidv4(), character_id: characterId, name, order_num: order, is_new: false });
+    await supabaseInsert('costumes', { id: uuidv4(), characterId: characterId, name, orderNum: order, isNew: false });
   };
 
   const updateCostume = async (costumeId: string, data: Partial<Costume>) => {
-    await supabase.from('costumes').update(data).eq('id', costumeId);
+    await supabaseUpdate('costumes', data, { id: costumeId });
   };
 
   const deleteCostume = async (costumeId: string) => {
@@ -383,15 +390,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserPassword = async (username: string, password: string) => {
-    await supabase.from('admin_users').update({ password }).eq('username', username);
+    await supabaseUpdate('admin_users', { password }, { username: username });
   };
 
   const updateUserRole = async (username: string, role: User['role']) => {
-    await supabase.from('admin_users').update({ role }).eq('username', username);
+    await supabaseUpdate('admin_users', { role }, { username: username });
   };
 
   const addUser = async (user: User) => {
-    await supabase.from('admin_users').insert(user);
+    await supabaseInsert('admin_users', user);
   };
 
   const deleteUser = async (username: string) => {
@@ -404,11 +411,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error fetching settings:', error);
       return;
     }
-    
+
     // Map incoming data to snake_case if needed, but here we assume the caller passes the correct keys
     // or we map them here. Since we updated the type definition, 'data' should already have snake_case keys.
     const newSettings = { ...currentSettings, ...data };
-    await supabase.from('settings').upsert(newSettings);
+    await supabaseUpsert('settings', newSettings);
   };
 
   if (!isLoaded) {

@@ -4,7 +4,7 @@ export interface Guild {
   id?: string;
   name: string;
   tier?: number;
-  order_num?: number;
+  orderNum?: number;
 }
 
 export interface CostumeRecord {
@@ -15,28 +15,28 @@ export interface CostumeRecord {
 export interface Member {
   id?: string;
   name: string;
-  guild_id: string;
+  guildId: string;
   role: Role;
   records: Record<string, CostumeRecord>;
-  exclusive_weapons?: Record<string, boolean>; // characterId: boolean
+  exclusiveWeapons?: Record<string, boolean>; // characterId: boolean
   note?: string;
-  updated_at?: number;
+  updatedAt?: number;
 }
 
 export interface Character {
   id: string;
   name: string;
-  order_num: number;
-  image_name?: string;
+  orderNum: number;
+  imageName?: string;
 }
 
 export interface Costume {
   id: string;
   name: string;
-  character_id: string;
-  image_name?: string;
-  order_num?: number;
-  is_new?: boolean;
+  characterId: string;
+  imageName?: string;
+  orderNum?: number;
+  isNew?: boolean;
 }
 
 export interface User {
@@ -53,7 +53,7 @@ export interface Database {
   costumes: Record<string, Costume>;
   users: Record<string, User>;
   settings: {
-    site_password?: string;
-    redirect_url?: string;
+    sitePassword?: string;
+    redirectUrl?: string;
   };
 }

@@ -13,7 +13,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
   if (!member) return null;
 
   const [records, setRecords] = useState(member.records ?? {});
-  const [exclusiveWeapons, setExclusiveWeapons] = useState(member.exclusive_weapons ?? {});
+  const [exclusiveWeapons, setExclusiveWeapons] = useState(member.exclusiveWeapons ?? {});
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -21,7 +21,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
       // The context now handles updates directly, so we just need to close.
       setShowSuccess(true);
 
-      await updateMember(memberId, { records, exclusive_weapons: exclusiveWeapons });
+      await updateMember(memberId, { records, exclusiveWeapons: exclusiveWeapons });
 
       setTimeout(() => {
         setShowSuccess(false);
@@ -36,13 +36,13 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
   };
 
   const characters = Object.values(db.characters).sort((a, b) => {
-    const aHasNew = Object.values(db.costumes).some(c => c.character_id === a.id && c.is_new);
-    const bHasNew = Object.values(db.costumes).some(c => c.character_id === b.id && c.is_new);
+    const aHasNew = Object.values(db.costumes).some(c => c.characterId === a.id && c.isNew);
+    const bHasNew = Object.values(db.costumes).some(c => c.characterId === b.id && c.isNew);
 
     if (aHasNew && !bHasNew) return -1;
     if (!aHasNew && bHasNew) return 1;
 
-    return a.order_num - b.order_num;
+    return a.orderNum - b.orderNum;
   });
 
   return (
@@ -62,7 +62,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
           {characters.map(character => {
             const hasExclusiveWeapon = exclusiveWeapons[character.id] ?? false;
 
-            const characterCostumes = Object.values(db.costumes).filter(c => c.character_id === character.id).sort((a, b) => (a.order_num ?? 999) - (b.order_num ?? 999));
+            const characterCostumes = Object.values(db.costumes).filter(c => c.characterId === character.id).sort((a, b) => (a.orderNum ?? 999) - (b.orderNum ?? 999));
             return (
               <div key={character.id} className={`bg-white rounded-xl shadow-sm border ${hasExclusiveWeapon ? 'border-orange-400' : 'border-stone-200'} overflow-hidden`}>
                 <div className="bg-stone-50 px-5 py-3 border-b border-stone-200 flex justify-between items-center">
@@ -89,10 +89,10 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
                     return (
                       <div key={costume.id} className="p-4 flex flex-col gap-3 hover:bg-stone-50/50 transition-colors">
                         <div className="flex items-center gap-3">
-                          {costume.image_name && (
+                          {costume.imageName && (
                             <div className="w-[40px] h-[40px] bg-stone-100 rounded-lg overflow-hidden border border-stone-200 flex-shrink-0">
                               <img
-                                src={getImageUrl(costume.image_name)}
+                                src={getImageUrl(costume.imageName)}
                                 alt={costume.name}
                                 className="w-full h-full object-cover"
                                 referrerPolicy="no-referrer"

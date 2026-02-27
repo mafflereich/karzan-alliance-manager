@@ -90,8 +90,9 @@ function ToolsManager() {
             mode: "cors",
           })).json()).data;
 
-        const dressList = Object.values(db.members);
         const guildNameList = Object.keys(guildList);
+
+        const costumeList = Object.values(db.members);
         const guildListInDB = Object.values(db.guilds);
 
         for (const guildName of guildNameList) {
@@ -100,20 +101,16 @@ function ToolsManager() {
           for (let memberName of memberNames) {
             memberName = memberName.replace(/@/, "");
 
-            const member = dressList.find((member) => member.name == memberName);
+            const member = costumeList.find((member) => member.name == memberName);
 
             const guildId = guildListInDB.find((guild) => guild.name == guildName)?.id;
             const role = guildLeaderList[`@${memberName}`]?.replaceAll(/<|>/g, "") ?? "成員";
 
             if (!member && !memberName.match(/Vacancy/) && memberName) {
-              console.log(`member ${memberName} not found, adding to DB`);
               await addMember(guildId, memberName, role, "");
-              continue;
             }
-
-            if (member && guildId != member?.guild_id) {
-              console.log(`moving ${member.name} from ${guildListInDB.find((guild) => guild.id == member.guild_id)?.name} to ${guildListInDB.find((guild) => guild.id == guildId)?.name}`)
-              await updateMember(member.id, { guild_id: guildId, role });
+            else if (member && guildId != member?.guildId) {
+              await updateMember(member.id, { guildId, role });
             }
 
           };
@@ -137,10 +134,10 @@ function ToolsManager() {
         const membersByGuild: Record<string, any[]> = {};
         for (const memberId in db.members) {
           const member = db.members[memberId];
-          if (!membersByGuild[member.guild_id]) {
-            membersByGuild[member.guild_id] = [];
+          if (!membersByGuild[member.guildId]) {
+            membersByGuild[member.guildId] = [];
           }
-          membersByGuild[member.guild_id].push({ id: memberId, ...member });
+          membersByGuild[member.guildId].push({ id: memberId, ...member });
         }
 
         for (const guildId in membersByGuild) {
@@ -204,124 +201,7 @@ function ToolsManager() {
         closeConfirmModal();
 
         const macroId = `AKfycbyw_0lj4mZjMB9lFE9vwCFiE2S9B84baJj3r4nPqWaYXkHAFHMWyGQtiecuk7eqaShy_w`;
-        const costumeDefineList = [
-          [
-            "黛安娜",
-            "魔法革新者"
-          ],
-          [
-            "葛拉娜德",
-            "淨化巫女"
-          ],
-          [
-            "葛拉娜德",
-            "葛洛堤女王"
-          ],
-          [
-            "索妮亞",
-            "賣南瓜的少女"
-          ],
-          [
-            "索妮亞",
-            "潛藏的夢"
-          ],
-          [
-            "泰瑞絲",
-            "海邊天使"
-          ],
-          [
-            "泰瑞絲",
-            "保健社"
-          ],
-          [
-            "拉菲娜",
-            "遊戲社"
-          ],
-          [
-            "威廉明娜",
-            "水上樂園女王"
-          ],
-          [
-            "威廉明娜",
-            "鋼鐵君主"
-          ],
-          [
-            "黎維塔",
-            "溫泉管理者"
-          ],
-          [
-            "黎維塔",
-            "暗黑聖女"
-          ],
-          [
-            "拉德爾",
-            "霍爾蒙克斯"
-          ],
-          [
-            "萊維亞",
-            "田徑社社長"
-          ],
-          [
-            "傑尼斯",
-            "羅賓漢"
-          ],
-          [
-            "傑尼斯",
-            "水上守護者"
-          ],
-          [
-            "黛安娜",
-            "未知的探究者"
-          ],
-          [
-            "黛安娜",
-            "反烏托邦"
-          ],
-          [
-            "芮彼泰雅",
-            "貪婪之星"
-          ],
-          [
-            "芮彼泰雅",
-            "純白的祝福"
-          ],
-          [
-            "芮彼泰雅",
-            "水上精靈"
-          ],
-          [
-            "海倫娜",
-            "B級偶像"
-          ],
-          [
-            "海倫娜",
-            "頂尖偶像"
-          ],
-          [
-            "布萊德",
-            "小公主"
-          ],
-          [
-            "賽爾",
-            "新進員工"
-          ],
-          [
-            "賽爾",
-            "B級偶像"
-          ],
-          [
-            "西利亞",
-            "詛咒之星"
-          ],
-          [
-            "西利亞",
-            "大魔女的後裔"
-          ],
-          [
-            "西利亞",
-            "化裝舞會兔女郎"
-          ]
-        ];
+
 
         const costumeList = (await (await fetch(`https://script.google.com/macros/s/${macroId}/exec`,
           {
@@ -331,26 +211,32 @@ function ToolsManager() {
 
         const costumes = Object.values(db.costumes);
         const characters = Object.values(db.characters);
+
+        const costumeDefineList = costumes.map((costume) => [
+          characters.find((character) => character.id == costume.characterId).name,
+          costume.name
+        ]);
+
         const result = {};
         for (let name of Object.keys(costumeList)) {
 
-          let costume = costumeList[name];
-          let p_name = name.replaceAll(/(<.+>)/g, "").match(/^@(.+)/)?.[1].trim();
+          let costume = costumeList[name].slice(0, costumeDefineList.length);
+          let pName = name.replaceAll(/(<.+>)/g, "").match(/^@(.+)/)?.[1].trim();
 
-          costume.forEach((costume_enhanced: string, i: string | number) => {
-            costume_enhanced = costume_enhanced.toString();
-            let char_id = characters.find((character) => character.name == costumeDefineList[i][0]).id;
-            let costume_id = costumes.find((costume) => costume.character_id == char_id && costume.name == costumeDefineList[i][1]).id;
-            if (!result[p_name]) result[p_name] = { records: {}, exclusive_weapons: {} };
-            result[p_name]["records"][costume_id] = { level: costume_enhanced.split("")[0] ?? -1, };
-            result[p_name]["exclusive_weapons"][char_id] = Boolean(costume_enhanced.match(/E/));
+          costume.forEach((costumeEnhanced: string, i: string | number) => {
+            costumeEnhanced = costumeEnhanced.toString();
+            const charId = characters.find((character) => costumeDefineList.find((costumeDefine) => costumeDefine[0] == character.name)).id;
+            const costumeId = costumes.find((costume) => costume.characterId == charId && costumeDefineList.find((costumeDefine) => costumeDefine[1] == costume.name)).id;
+            if (!result[pName]) result[pName] = { records: {}, exclusiveWeapons: {} };
+            result[pName]["records"][costumeId] = { level: costumeEnhanced.split("")[0] ?? -1, };
+            result[pName]["exclusiveWeapons"][charId] = Boolean(costumeEnhanced.match(/E/));
 
           });
         }
 
-        let member_list = Object.values(db.members);
+        const memberList = Object.values(db.members);
 
-        for (let member of member_list) {
+        for (let member of memberList) {
 
           if (!result[member.name]) {
             continue;
@@ -489,7 +375,7 @@ function GuildsManager() {
   };
 
   const getMemberCount = (guildId: string) => {
-    return Object.values(db.members).filter((m: any) => m.guild_id === guildId).length;
+    return Object.values(db.members).filter((m: any) => m.guildId === guildId).length;
   };
 
   const startEdit = (e: React.MouseEvent, id: string, guild: any) => {
@@ -497,7 +383,7 @@ function GuildsManager() {
     setEditingGuildId(id);
     setEditGuildName(guild.name);
     setEditGuildTier(guild.tier || 1);
-    setEditGuildOrder(guild.order_num || 1);
+    setEditGuildOrder(guild.orderNum || 1);
   };
 
   const saveEdit = async (e: React.MouseEvent) => {
@@ -507,7 +393,7 @@ function GuildsManager() {
       await updateGuild(editingGuildId, {
         name: editGuildName.trim(),
         tier: editGuildTier,
-        order_num: editGuildOrder
+        orderNum: editGuildOrder
       });
       setEditingGuildId(null);
     } catch (error: any) {
@@ -540,8 +426,8 @@ function GuildsManager() {
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order_num || 99;
-    const orderB = b[1].order_num || 99;
+    const orderA = a[1].orderNum || 99;
+    const orderB = b[1].orderNum || 99;
     return orderA - orderB;
   });
 
@@ -635,7 +521,7 @@ function GuildsManager() {
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs font-bold rounded">順序 {guild.order_num || 1}</span>
+                          <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs font-bold rounded">順序 {guild.orderNum || 1}</span>
                         </div>
                         <h3 className="font-bold text-lg text-stone-800 group-hover:text-amber-700 transition-colors">{guild.name}</h3>
                         <p className={`text-sm font-medium ${getMemberCount(id) > 30 ? 'text-red-500 bg-red-50 px-1 py-0.5 rounded inline-block' : 'text-stone-500'}`}>
@@ -698,14 +584,14 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order_num || 99;
-    const orderB = b[1].order_num || 99;
+    const orderA = a[1].orderNum || 99;
+    const orderB = b[1].orderNum || 99;
     return orderA - orderB;
   });
 
   const guild = db.guilds[guildId];
   const members = Object.entries(db.members)
-    .filter(([_, m]: [string, any]) => m.guild_id === guildId)
+    .filter(([_, m]: [string, any]) => m.guildId === guildId)
     .sort((a: [string, any], b: [string, any]) => {
       const roleOrder: Record<string, number> = {
         '會長': 1, 'Master': 1,
@@ -721,9 +607,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       return a[1].name.localeCompare(b[1].name);
     });
 
-  const getMemberCount = (gId: string) => Object.values(db.members).filter((m: any) => m.guild_id === gId).length;
-  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guild_id === gId && m.role === '會長');
-  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guild_id === gId && m.role === '副會長');
+  const getMemberCount = (gId: string) => Object.values(db.members).filter((m: any) => m.guildId === gId).length;
+  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '會長');
+  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '副會長');
 
   const validateMoveOrAdd = (targetGId: string, role: Role, excludeMemberId?: string) => {
     if (!targetGId) return "請選擇公會";
@@ -755,7 +641,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           name: formData.name,
           role: formData.role,
           note: formData.note,
-          guild_id: formData.targetGuildId
+          guildId: formData.targetGuildId
         });
         setEditingId(null);
       } else {
@@ -796,7 +682,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       name: db.members[id].name,
       role: db.members[id].role,
       note: db.members[id].note || '',
-      targetGuildId: db.members[id].guild_id
+      targetGuildId: db.members[id].guildId
     });
   };
 
@@ -1082,13 +968,13 @@ function CostumesManager() {
   const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
   const characters = useMemo(() =>
-    Object.values(db.characters).sort((a, b) => a.order_num - b.order_num),
+    Object.values(db.characters).sort((a, b) => a.orderNum - b.orderNum),
     [db.characters]);
 
   const costumes = useMemo(() =>
     Object.values(db.costumes)
-      .filter(c => c.character_id === selectedCharacterId)
-      .sort((a, b) => (a.order_num ?? 999) - (b.order_num ?? 999)),
+      .filter(c => c.characterId === selectedCharacterId)
+      .sort((a, b) => (a.orderNum ?? 999) - (b.orderNum ?? 999)),
     [db.costumes, selectedCharacterId]);
 
   const selectedCharacter = selectedCharacterId ? db.characters[selectedCharacterId] : null;
@@ -1134,8 +1020,8 @@ function CostumesManager() {
     try {
       for (let i = 0; i < orderedCharacters.length; i++) {
         const char = orderedCharacters[i];
-        if (char.order_num !== i + 1) {
-          await updateCharacter(char.id, { order_num: i + 1 });
+        if (char.orderNum !== i + 1) {
+          await updateCharacter(char.id, { orderNum: i + 1 });
         }
       }
       setIsReorderingCharacters(false);
@@ -1150,8 +1036,8 @@ function CostumesManager() {
     try {
       for (let i = 0; i < orderedCostumes.length; i++) {
         const costume = orderedCostumes[i];
-        if (costume.order_num !== i + 1) {
-          await updateCostume(costume.id, { order_num: i + 1 });
+        if (costume.orderNum !== i + 1) {
+          await updateCostume(costume.id, { orderNum: i + 1 });
         }
       }
       setIsReorderingCostumes(false);
@@ -1165,7 +1051,7 @@ function CostumesManager() {
   useEffect(() => {
     if (selectedCharacter) {
       setEditCharacterName(selectedCharacter.name);
-      setEditCharacterOrder(selectedCharacter.order_num);
+      setEditCharacterOrder(selectedCharacter.orderNum);
     } else {
       setSelectedCharacterId(null);
     }
@@ -1174,9 +1060,9 @@ function CostumesManager() {
   useEffect(() => {
     if (selectedCostume) {
       setEditCostumeName(selectedCostume.name);
-      setEditCostumeOrder(selectedCostume.order_num ?? 0);
-      setEditCostumeImageName(selectedCostume.image_name ?? '');
-      setEditCostumeIsNew(selectedCostume.is_new ?? false);
+      setEditCostumeOrder(selectedCostume.orderNum ?? 0);
+      setEditCostumeImageName(selectedCostume.imageName ?? '');
+      setEditCostumeIsNew(selectedCostume.isNew ?? false);
     } else {
       setSelectedCostumeId(null);
     }
@@ -1214,7 +1100,7 @@ function CostumesManager() {
       onConfirm: async () => {
         try {
           // Cascade delete costumes
-          const characterCostumes = Object.values(db.costumes).filter(c => c.character_id === selectedCharacterId);
+          const characterCostumes = Object.values(db.costumes).filter(c => c.characterId === selectedCharacterId);
           for (const costume of characterCostumes) {
             await deleteCostume(costume.id);
           }
@@ -1234,7 +1120,7 @@ function CostumesManager() {
 
   const handleUpdateCharacter = async () => {
     if (!selectedCharacterId) return;
-    await updateCharacter(selectedCharacterId, { name: editCharacterName, order_num: editCharacterOrder });
+    await updateCharacter(selectedCharacterId, { name: editCharacterName, orderNum: editCharacterOrder });
     alert('角色更新成功');
   };
 
@@ -1280,9 +1166,9 @@ function CostumesManager() {
     if (!selectedCostumeId) return;
     await updateCostume(selectedCostumeId, {
       name: editCostumeName,
-      order_num: editCostumeOrder,
-      image_name: editCostumeImageName,
-      is_new: editCostumeIsNew
+      orderNum: editCostumeOrder,
+      imageName: editCostumeImageName,
+      isNew: editCostumeIsNew
     });
     alert('服裝更新成功');
   };
@@ -1320,7 +1206,7 @@ function CostumesManager() {
                 {orderedCharacters.map(char => (
                   <Reorder.Item key={char.id} value={char} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
                     <GripVertical className="w-4 h-4 text-stone-400" />
-                    <img src={getImageUrl(Object.values(db.costumes).find(c => c.character_id === char.id)?.image_name)} alt={char.name} className="w-8 h-8 rounded-md object-cover" />
+                    <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-8 h-8 rounded-md object-cover" />
                     <span>{char.name}</span>
                   </Reorder.Item>
                 ))}
@@ -1337,7 +1223,7 @@ function CostumesManager() {
                   key={char.id}
                   onClick={() => handleSelectCharacter(char.id)}
                   className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCharacterId === char.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
-                  <img src={getImageUrl(Object.values(db.costumes).find(c => c.character_id === char.id)?.image_name)} alt={char.name} className="w-10 h-10 rounded-md object-cover" />
+                  <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-10 h-10 rounded-md object-cover" />
                   <span>{char.name}</span>
                 </button>
               ))}
@@ -1376,7 +1262,7 @@ function CostumesManager() {
                   {orderedCostumes.map(costume => (
                     <Reorder.Item key={costume.id} value={costume} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
                       <GripVertical className="w-4 h-4 text-stone-400" />
-                      <img src={getImageUrl(costume.image_name)} alt={costume.name} className="w-8 h-8 rounded-md object-cover" />
+                      <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-8 h-8 rounded-md object-cover" />
                       <span>{costume.name}</span>
                     </Reorder.Item>
                   ))}
@@ -1393,9 +1279,9 @@ function CostumesManager() {
                     key={costume.id}
                     onClick={() => setSelectedCostumeId(costume.id)}
                     className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCostumeId === costume.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
-                    <img src={getImageUrl(costume.image_name)} alt={costume.name} className="w-10 h-10 rounded-md object-cover" />
+                    <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-10 h-10 rounded-md object-cover" />
                     <span>{costume.name}</span>
-                    {costume.is_new && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
+                    {costume.isNew && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
                   </button>
                 ))}
               </div>

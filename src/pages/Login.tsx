@@ -23,12 +23,12 @@ export default function Login() {
 
   const handleSiteUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (sitePasswordInput === db.settings.site_password) {
+    if (sitePasswordInput === db.settings.sitePassword) {
       localStorage.setItem('siteUnlockTimestamp', Date.now().toString());
       setIsSiteUnlocked(true);
       setError('');
     } else {
-      const redirectUrl = db.settings.redirect_url || 'https://www.browndust2.com/';
+      const redirectUrl = db.settings.redirectUrl || 'https://www.browndust2.com/';
       window.location.href = redirectUrl;
     }
   };
@@ -41,8 +41,8 @@ export default function Login() {
     const tierA = a[1].tier || 99;
     const tierB = b[1].tier || 99;
     if (tierA !== tierB) return tierA - tierB;
-    const orderA = a[1].order_num || 99;
-    const orderB = b[1].order_num || 99;
+    const orderA = a[1].orderNum || 99;
+    const orderB = b[1].orderNum || 99;
     return orderA - orderB;
   });
 
@@ -56,8 +56,8 @@ export default function Login() {
             <form onSubmit={handleSiteUnlock} className="space-y-4">
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   required
                   className="w-full pl-10 pr-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white"
                   value={sitePasswordInput}
@@ -66,7 +66,7 @@ export default function Login() {
                   autoFocus
                 />
               </div>
-              <button 
+              <button
                 type="submit"
                 className="w-full py-2 bg-stone-800 text-white hover:bg-stone-700 rounded-lg font-medium transition-colors"
               >
@@ -77,13 +77,13 @@ export default function Login() {
         ) : (
           <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-5xl transition-all duration-300">
             <h1 className="text-3xl font-bold text-center mb-8 text-stone-800">Kazran 聯盟系統</h1>
-            
+
             <div className="space-y-8">
               <div className="p-6 border border-stone-200 rounded-xl bg-stone-50">
                 <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
                   <Users className="w-5 h-5" /> 選擇公會
                 </h2>
-                
+
                 {Object.keys(db.guilds).length === 0 ? (
                   <div className="text-center text-stone-500 py-8">
                     目前沒有任何公會
