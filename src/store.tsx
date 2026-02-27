@@ -123,7 +123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           characters,
           costumes,
           users,
-          settings: settingsRes.data ? { sitePassword: settingsRes.data.sitePassword, redirectUrl: settingsRes.data.redirectUrl } : defaultData.settings,
+          settings: settingsRes.data ? toCamel(settingsRes.data) : defaultData.settings,
         }));
 
         setLoadedStates({ global: true, guilds: true, costumes: true, characters: true, users: true });

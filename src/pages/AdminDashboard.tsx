@@ -212,23 +212,29 @@ function ToolsManager() {
         const costumes = Object.values(db.costumes);
         const characters = Object.values(db.characters);
 
-        const costumeDefineList = costumes.map((costume) => [
-          characters.find((character) => character.id == costume.characterId).name,
-          costume.name
-        ]);
+        const findChar = (costume: { characterId: string; }) => characters.find((character) => character.id == costume.characterId);
+
+        const costumeDefineList = costumes
+          .sort((a, b) => 0 - +a.isNew || findChar(a).orderNum - findChar(b).orderNum || a.orderNum - b.orderNum)
+          .map((costume) => [
+            findChar(costume).name,
+            costume.name,
+          ]);
+
 
         const result = {};
-        for (let name of Object.keys(costumeList)) {
+        for (const name of Object.keys(costumeList)) {
 
-          let costume = costumeList[name].slice(0, costumeDefineList.length);
-          let pName = name.replaceAll(/(<.+>)/g, "").match(/^@(.+)/)?.[1].trim();
+          const costume = costumeList[name].slice(0, costumeDefineList.length);
+          const pName = name.replaceAll(/(<.+>)/g, "").match(/^@(.+)/)?.[1].trim();
 
           costume.forEach((costumeEnhanced: string, i: string | number) => {
             costumeEnhanced = costumeEnhanced.toString();
-            const charId = characters.find((character) => costumeDefineList.find((costumeDefine) => costumeDefine[0] == character.name)).id;
-            const costumeId = costumes.find((costume) => costume.characterId == charId && costumeDefineList.find((costumeDefine) => costumeDefine[1] == costume.name)).id;
+            const charId = characters.find((character) => costumeDefineList[i][0] == character.name).id;
+            const costumeId = costumes.find((costume) => costume.characterId == charId && costumeDefineList[i][1] == costume.name).id;
+
             if (!result[pName]) result[pName] = { records: {}, exclusiveWeapons: {} };
-            result[pName]["records"][costumeId] = { level: costumeEnhanced.split("")[0] ?? -1, };
+            result[pName]["records"][costumeId] = { level: costumeEnhanced.split("")[0] ?? -1 };
             result[pName]["exclusiveWeapons"][charId] = Boolean(costumeEnhanced.match(/E/));
 
           });
@@ -238,9 +244,12 @@ function ToolsManager() {
 
         for (let member of memberList) {
 
-          if (!result[member.name]) {
-            continue;
-          }
+          if (!result[member.name]) continue;
+
+          const needUpdateRecord = Object.values(result[member.name].records).some((resultRecord, i) => resultRecord['level'] != Object.values(member.records)?.[i]?.level);
+          const needUpdateExclusiveWeapon = Object.values(result[member.name].exclusiveWeapons).some((resultExclusiveWeapon, i) => resultExclusiveWeapon != Object.values(member.exclusiveWeapons)?.[i]);
+
+          if (!needUpdateRecord && !needUpdateExclusiveWeapon) continue;
 
           await updateMember(member.id, result[member.name]);
         }
