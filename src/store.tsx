@@ -43,6 +43,7 @@ interface AppContextType {
   addGuild: (name: string) => Promise<void>;
   updateGuild: (guildId: string, data: Partial<Guild>) => Promise<void>;
   deleteGuild: (guildId: string) => Promise<void>;
+  verifyGuildPassword: (guildId: string, password: string) => Promise<boolean>;
 
   // Character functions
   addCharacter: (name: string, order: number) => Promise<void>;
@@ -312,6 +313,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const { [guildId]: _, ...rest } = prev.guilds;
         return { ...prev, guilds: rest };
       });
+    }
+  };
+
+  const verifyGuildPassword = async (guildId: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('guild_users')
+        .select('password')
+        .eq('guild_id', guildId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error verifying guild password:', error);
+        return false;
+      }
+
+      // If no record exists, the password is ""
+      if (!data) {
+        return password === "";
+      }
+
+      return data.password === password;
+    } catch (error) {
+      console.error('Error verifying guild password:', error);
+      return false;
     }
   };
 
@@ -625,7 +651,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser,
       fetchMembers, fetchAllMembers, addMember, updateMember, deleteMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon,
-      addGuild, updateGuild, deleteGuild,
+      addGuild, updateGuild, deleteGuild, verifyGuildPassword,
       addCharacter, updateCharacter, deleteCharacter, updateCharactersOrder,
       addCostume, updateCostume, deleteCostume, updateCostumesOrder,
       updateUserPassword, updateUserRole, addUser, deleteUser, updateSettings,

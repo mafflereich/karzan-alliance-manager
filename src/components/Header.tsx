@@ -1,21 +1,41 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Shield, LogOut, Settings, List, User, Lock, AlertCircle, X } from 'lucide-react';
+import { supabase } from '../supabase';
+
+const DOMAIN_SUFFIX = '@kazran.com';
 
 function LoginModal({ onClose }: { onClose: () => void }) {
   const { db, setCurrentUser } = useAppContext();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = db.users[username];
-    if (user && user.password === password) {
+    setLoading(true);
+    setError('');
+
+    try {
+      const formattedEmail = `${username}${DOMAIN_SUFFIX}`;
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: formattedEmail,
+        password: password,
+      });
+
+      if (authError) {
+        throw new Error('帳號或密碼錯誤！');
+      }
+
       setCurrentUser(username);
       onClose();
-    } else {
-      setError('帳號或密碼錯誤');
+    } catch (error: any) {
+      setError(error.message);
+      console.error('登入失敗:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -73,9 +93,10 @@ function LoginModal({ onClose }: { onClose: () => void }) {
             <div className="pt-4">
               <button
                 type="submit"
-                className="w-full py-2 bg-stone-800 text-white hover:bg-stone-700 rounded-lg font-medium transition-colors"
+                disabled={loading}
+                className="w-full py-2 bg-stone-800 text-white hover:bg-stone-700 rounded-lg font-medium transition-colors disabled:opacity-50"
               >
-                登入
+                {loading ? '登入中...' : '登入'}
               </button>
             </div>
           </form>
@@ -89,11 +110,10 @@ export default function Header() {
   const { db, currentUser, setCurrentUser, currentView, setCurrentView } = useAppContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
-    if (window.location.pathname !== '/') {
-      setCurrentView(null);
-    }
+    setCurrentView(null);
   };
 
   const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
@@ -109,6 +129,8 @@ export default function Header() {
 
   const isCostumeListActive = currentView?.type === 'guild';
   const isAdminActive = currentView?.type === 'admin';
+
+  const userRole = currentUser ? db.users[currentUser]?.role : null;
 
   return (
     <>
@@ -133,13 +155,15 @@ export default function Header() {
 
             {currentUser ? (
               <>
-                <button
-                  onClick={() => setCurrentView({ type: 'admin' })}
-                  disabled={isAdminActive}
-                  className={`flex items-center gap-2 transition-colors ${isAdminActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400'}`}
-                >
-                  <Settings className="w-4 h-4" /> 後台設定
-                </button>
+                {userRole !== 'manager' && (
+                  <button
+                    onClick={() => setCurrentView({ type: 'admin' })}
+                    disabled={isAdminActive}
+                    className={`flex items-center gap-2 transition-colors ${isAdminActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400'}`}
+                  >
+                    <Settings className="w-4 h-4" /> 後台設定
+                  </button>
+                )}
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 hover:text-amber-400 transition-colors"
