@@ -70,20 +70,55 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
   const [db, setDbState] = useState<Database>(defaultData);
   const [currentView, setCurrentView] = useState<ViewState>(null);
   const [currentUser, setCurrentUserState] = useState<string | null>(() => {
-    return sessionStorage.getItem('currentUser');
+    const user = sessionStorage.getItem('currentUser');
+    const loginTime = sessionStorage.getItem('loginTimestamp');
+    
+    if (user && loginTime) {
+      const now = Date.now();
+      if (now - parseInt(loginTime, 10) > SESSION_TIMEOUT) {
+        sessionStorage.removeItem('currentUser');
+        sessionStorage.removeItem('loginTimestamp');
+        return null;
+      }
+      return user;
+    }
+    return null;
   });
 
   const setCurrentUser = (user: string | null) => {
     setCurrentUserState(user);
     if (user) {
       sessionStorage.setItem('currentUser', user);
+      sessionStorage.setItem('loginTimestamp', Date.now().toString());
     } else {
       sessionStorage.removeItem('currentUser');
+      sessionStorage.removeItem('loginTimestamp');
     }
   };
+
+  useEffect(() => {
+    const checkSession = () => {
+      if (currentUser) {
+        const loginTime = sessionStorage.getItem('loginTimestamp');
+        if (loginTime) {
+          const now = Date.now();
+          if (now - parseInt(loginTime, 10) > SESSION_TIMEOUT) {
+            setCurrentUser(null);
+            setCurrentView(null);
+            alert('登入已超過 24 小時，請重新登入。');
+          }
+        }
+      }
+    };
+
+    const interval = setInterval(checkSession, 3600000); // Check every hour
+    return () => clearInterval(interval);
+  }, [currentUser]);
   const [loadedStates, setLoadedStates] = useState({
     global: false,
     guilds: false,
