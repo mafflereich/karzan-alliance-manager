@@ -297,6 +297,11 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                                     {formatDate(member.updatedAt)}
                                   </span>
                                 )}
+                                {((userRole === 'manager' || userRole === 'admin' || userRole === 'creator') && member.archiveRemark) && (
+                                  <span className="text-[10px] text-amber-600 mt-0.5">
+                                    {member.archiveRemark}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             {costumes.map(c => {

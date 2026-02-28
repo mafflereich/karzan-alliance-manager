@@ -36,6 +36,8 @@ interface AppContextType {
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
   deleteMember: (memberId: string) => Promise<void>;
+  archiveMember: (memberId: string, fromGuildId: string, reason: string) => Promise<void>;
+  unarchiveMember: (memberId: string, targetGuildId: string, remark: string) => Promise<void>;
   updateMemberCostumeLevel: (memberId: string, costumeId: string, level: number) => Promise<void>;
   updateMemberExclusiveWeapon: (memberId: string, characterId: string, hasWeapon: boolean) => Promise<void>;
 
@@ -187,7 +189,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const selectQuery = includeNote
       ? '*'
-      : 'id, name, guild_id, role, records, exclusive_weapons, updated_at';
+      : 'id, name, guild_id, role, records, exclusive_weapons, updated_at, status, archive_remark';
 
     const { data, error } = await supabase
       .from('members')
@@ -365,6 +367,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ...prev, members: rest };
       });
     }
+  };
+
+  const archiveMember = async (memberId: string, fromGuildId: string, reason: string) => {
+    if (isOffline) {
+      alert("離線模式無法執行此操作");
+      return;
+    }
+
+    // Step 1: Insert history
+    const { error: historyError } = await supabase
+      .from('members_archive_history')
+      .insert({
+        member_id: memberId,
+        from_guild_id: fromGuildId,
+        archive_reason: reason
+      });
+
+    if (historyError) throw historyError;
+
+    // Step 2: Update member status
+    const { error: memberError } = await supabase
+      .from('members')
+      .update({ status: 'archived', guild_id: null })
+      .eq('id', memberId);
+
+    if (memberError) throw memberError;
+
+    // Update local state: Remove member from the current list
+    setDbState(prev => {
+      const newMembers = { ...prev.members };
+      delete newMembers[memberId];
+      return { ...prev, members: newMembers };
+    });
+  };
+
+  const unarchiveMember = async (memberId: string, targetGuildId: string, remark: string) => {
+    if (isOffline) {
+      alert("離線模式無法執行此操作");
+      return;
+    }
+
+    const { error } = await supabase
+      .from('members')
+      .update({ status: 'active', guild_id: targetGuildId, archive_remark: remark })
+      .eq('id', memberId);
+
+    if (error) throw error;
   };
 
   const updateMemberExclusiveWeapon = async (memberId: string, characterId: string, hasWeapon: boolean) => {
@@ -664,7 +713,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser,
-      fetchMembers, fetchAllMembers, addMember, updateMember, deleteMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon,
+      fetchMembers, fetchAllMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon,
       addGuild, updateGuild, deleteGuild,
       addCharacter, updateCharacter, deleteCharacter, updateCharactersOrder,
       addCostume, updateCostume, deleteCostume, updateCostumesOrder,

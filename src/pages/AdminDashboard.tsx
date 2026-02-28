@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppContext } from '../store';
-import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User as UserIcon, AlertCircle, Download, Upload, FileText, RefreshCw, Wand2, GripVertical, Check, Key } from 'lucide-react';
+import { LogOut, Users, Shield, Sword, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Save, X, ChevronLeft, Lock, User as UserIcon, AlertCircle, Download, Upload, FileText, RefreshCw, Wand2, GripVertical, Check, Key, Archive } from 'lucide-react';
 import { Role, Guild, Member, Costume, User, Character } from '../types';
 import { getTierColor, getTierBorderHoverClass, getImageUrl } from '../utils';
 import ConfirmModal from '../components/ConfirmModal';
@@ -9,11 +9,12 @@ import Footer from '../components/Footer';
 import Header from '../components/Header';
 import SinglePasswordUpdate from '../components/SinglePasswordUpdate';
 import BulkPasswordUpdate from '../components/BulkPasswordUpdate';
+import ArchivedMembersManager from '../components/ArchivedMembersManager';
 import { Reorder } from "motion/react";
 
 export default function AdminDashboard() {
   const { db, setDb, setCurrentView, currentUser, setCurrentUser, fetchAllMembers } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords'>('guilds');
+  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived'>('guilds');
 
   const userRole = currentUser ? db.users[currentUser]?.role : null;
 
@@ -29,7 +30,7 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto p-6 flex-1 w-full">
         <div className="mb-4 flex gap-4 text-[10px] text-stone-400 uppercase tracking-widest">
           <span>公會: {Object.keys(db.guilds).length}</span>
-          <span>成員: {Object.keys(db.members).length}</span>
+          <span>成員: {Object.values(db.members).filter(m => m.status === 'active').length}</span>
           <span>角色: {Object.keys(db.characters).length}</span>
           <span>服裝: {Object.keys(db.costumes).length}</span>
           <span>使用者: {Object.keys(db.users).length}</span>
@@ -37,6 +38,7 @@ export default function AdminDashboard() {
         <div className="flex gap-4 mb-6 border-b border-stone-300 pb-2 overflow-x-auto">
           <TabButton active={activeTab === 'guilds'} onClick={() => setActiveTab('guilds')} icon={<Shield />} label="公會管理" />
           <TabButton active={activeTab === 'costumes'} onClick={() => setActiveTab('costumes')} icon={<Sword />} label="服裝資料庫" />
+          <TabButton active={activeTab === 'archived'} onClick={() => setActiveTab('archived')} icon={<Archive />} label="封存成員" />
           {userRole !== 'manager' && (
             <>
               <TabButton active={activeTab === 'passwords'} onClick={() => setActiveTab('passwords')} icon={<Key />} label="修改密碼" />
@@ -49,6 +51,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6">
           {activeTab === 'guilds' && <GuildsManager />}
           {activeTab === 'costumes' && <CostumesManager />}
+          {activeTab === 'archived' && <ArchivedMembersManager />}
           {activeTab === 'passwords' && userRole !== 'manager' && (
             <div className="space-y-12">
               <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg">
@@ -605,35 +608,53 @@ function GuildsManager() {
 }
 
 function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () => void }) {
-  const { db, fetchMembers, addMember, updateMember, deleteMember } = useAppContext();
+  const { db, addMember, deleteMember, updateMember, fetchMembers, archiveMember } = useAppContext();
+  const [selectedGuildId, setSelectedGuildId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isBatchAdding, setIsBatchAdding] = useState(false);
+  const [batchInput, setBatchInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: React.ReactNode;
-    onConfirm: () => void;
-    isDanger: boolean;
-  }>({
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<{ name: string, role: Role, note: string, targetGuildId: string }>({
+    name: '',
+    role: '成員',
+    note: '',
+    targetGuildId: ''
+  });
+  const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
     message: '',
     onConfirm: () => { },
     isDanger: false
   });
+  const [archiveModal, setArchiveModal] = useState<{
+    isOpen: boolean;
+    memberId: string;
+    memberName: string;
+    guildName: string;
+    reason: string;
+  }>({
+    isOpen: false,
+    memberId: '',
+    memberName: '',
+    guildName: '',
+    reason: ''
+  });
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [toast, setToast] = useState<{ show: boolean, message: string }>({ show: false, message: '' });
 
   const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  const closeArchiveModal = () => setArchiveModal(prev => ({ ...prev, isOpen: false }));
+
+  const showToast = (message: string) => {
+    setToast({ show: true, message });
+    setTimeout(() => setToast({ show: false, message: '' }), 3000);
+  };
 
   useEffect(() => {
     fetchMembers(guildId, true);
   }, [guildId]);
-
-  const [isBatchAdding, setIsBatchAdding] = useState(false);
-  const [batchInput, setBatchInput] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({ name: '', role: '成員' as Role, note: '', targetGuildId: guildId });
 
   const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {
     const tierA = a[1].tier || 99;
@@ -712,11 +733,38 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     }
   };
 
+  const handleArchiveClick = (memberId: string, memberName: string) => {
+    const guildName = db.guilds[guildId]?.name || '未知公會';
+    setArchiveModal({
+      isOpen: true,
+      memberId,
+      memberName,
+      guildName,
+      reason: ''
+    });
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!archiveModal.memberId) return;
+    
+    setIsArchiving(true);
+    try {
+      await archiveMember(archiveModal.memberId, guildId, archiveModal.reason);
+      showToast(`已成功封存成員 ${archiveModal.memberName}`);
+      closeArchiveModal();
+    } catch (error: any) {
+      console.error("Archive failed:", error);
+      alert(`封存失敗: ${error.message}`);
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
   const handleDeleteMember = (id: string) => {
     setConfirmModal({
       isOpen: true,
       title: '刪除成員',
-      message: '確定要刪除此成員嗎？此動作無法復原。',
+      message: '確定要刪除此成員嗎？注意：這將會連同刪除該成員的所有服裝練度資料！此動作無法復原。',
       isDanger: true,
       onConfirm: async () => {
         try {
@@ -780,6 +828,12 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 
   return (
     <div>
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 bg-stone-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-bottom-5 z-50">
+          <Check className="w-5 h-5 text-green-400" />
+          {toast.message}
+        </div>
+      )}
       <div className="flex items-center gap-4 mb-6">
         <button onClick={onBack} className="p-2 hover:bg-stone-100 rounded-lg transition-colors">
           <ChevronLeft className="w-6 h-6 text-stone-600" />
@@ -845,15 +899,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           </div>
           <div className="flex-1 min-w-[150px]">
             <label className="block text-sm font-medium text-stone-600 mb-1">所屬公會</label>
-            <select
-              className="w-full p-2 border border-stone-300 rounded-lg"
-              value={formData.targetGuildId}
-              onChange={e => setFormData({ ...formData, targetGuildId: e.target.value })}
-            >
-              {(sortedGuilds as [string, any][]).map(([id, g]) => {
-                return <option key={id} value={id}>{g.name}</option>;
-              })}
-            </select>
+            <div className="w-full p-2 border border-stone-200 rounded-lg bg-stone-100 text-stone-500">
+              {db.guilds[guildId]?.name || '未知公會'}
+            </div>
           </div>
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-stone-600 mb-1">備註</label>
@@ -881,6 +929,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
               <th className="p-3 font-semibold">名稱</th>
               <th className="p-3 font-semibold">職位</th>
               <th className="p-3 font-semibold">備註</th>
+              <th className="p-3 font-semibold">封存記錄</th>
               <th className="p-3 font-semibold text-right">編輯</th>
             </tr>
           </thead>
@@ -964,6 +1013,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                     </span>
                   </td>
                   <td className="p-3 text-stone-500 text-sm">{member.note}</td>
+                  <td className="p-3 text-stone-400 text-xs">{member.archiveRemark}</td>
                   <td className="p-3 text-right">
                     <div className="flex justify-end gap-1">
                       <button
@@ -972,6 +1022,13 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                         title="編輯"
                       >
                         <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleArchiveClick(id, member.name)}
+                        className="p-2 text-stone-500 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors"
+                        title="封存"
+                      >
+                        <Archive className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteMember(id)}
@@ -987,7 +1044,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
             })}
             {members.length === 0 && (
               <tr>
-                <td colSpan={4} className="p-8 text-center text-stone-500">
+                <td colSpan={5} className="p-8 text-center text-stone-500">
                   此公會目前沒有成員
                 </td>
               </tr>
@@ -1004,6 +1061,64 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
         isDanger={confirmModal.isDanger}
         confirmText={confirmModal.isDanger ? "刪除" : "確認"}
       />
+
+      {/* Archive Modal */}
+      {archiveModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
+                <Archive className="w-5 h-5 text-amber-600" />
+                封存成員
+              </h3>
+              <button onClick={closeArchiveModal} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
+                <X className="w-5 h-5 text-stone-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg flex gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                <div className="text-sm text-amber-800">
+                  <p className="font-bold mb-1">即將封存成員</p>
+                  <p>確定要將 <strong>{archiveModal.memberName}</strong> 從 <strong>{archiveModal.guildName}</strong> 中封存嗎？</p>
+                  <p className="mt-1 text-amber-700/80 text-xs">該成員將從目前的列表中移除，並移動至封存區。</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">
+                  封存原因 <span className="text-stone-400 font-normal">(選填)</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-2.5 border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  placeholder="例如: 退坑、暫離..."
+                  value={archiveModal.reason}
+                  onChange={(e) => setArchiveModal(prev => ({ ...prev, reason: e.target.value }))}
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  onClick={handleConfirmArchive}
+                  disabled={isArchiving}
+                  className="flex-1 py-2.5 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isArchiving ? '處理中...' : '確認封存'}
+                </button>
+                <button
+                  onClick={closeArchiveModal}
+                  disabled={isArchiving}
+                  className="flex-1 py-2.5 bg-stone-200 text-stone-700 rounded-xl font-bold hover:bg-stone-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

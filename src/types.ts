@@ -22,6 +22,8 @@ export interface Member {
   exclusiveWeapons?: Record<string, boolean>; // characterId: boolean
   note?: string;
   updatedAt?: number;
+  status?: string;
+  archiveRemark?: string;
 }
 
 export interface Character {
