@@ -253,11 +253,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addMember = async (guildId: string, name: string, role: Role = '成員', note: string = '') => {
 
-    const { data: archivedData } = await supabase.from('members').select('*').eq('status', 'archived');
+    const { data: archivedData } = await supabase.from('members').select('name, id').eq('status', 'archived');
     const archivedMember = toCamel(archivedData.find((archivedMember) => archivedMember.name == name)) as ArchivedMember;
 
     if (archivedMember) {
       unarchiveMember(archivedMember.id, guildId);
+      return;
+    }
+
+    const { data: nowData } = await supabase.from('members').select('name').eq('status', 'active');
+    const nowMember = toCamel(nowData.find((nowMember) => nowMember.name == name)) as Member;
+
+    if (nowMember) {
+      alert(`已存在名為 ${nowMember.name} 的成員`);
       return;
     }
 
