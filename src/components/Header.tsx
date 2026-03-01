@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Shield, LogOut, Settings, List, User, Lock, AlertCircle, X } from 'lucide-react';
 import { supabase } from '../supabase';
+import i18n from '../i18n';
+import LanguageSelector from './LanguageSelector';
 
 const DOMAIN_SUFFIX = '@kazran.com';
 
@@ -12,7 +14,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -146,6 +148,9 @@ export default function Header() {
             <Shield className="w-6 h-6 text-amber-500" />
             Kazran 聯盟系統
           </h1>
+          <div className="flex items-center justify-between p-4 text-white" >
+            <LanguageSelector />
+          </div>
 
           <div className="flex items-center gap-4 text-sm font-medium">
             <button

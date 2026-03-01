@@ -109,10 +109,6 @@ export default function ArchivedMembersManager() {
 
     setIsProcessing(true);
     try {
-      const latestHistory = unarchiveModal.member.membersArchiveHistory[0];
-      const archivedAt = latestHistory ? formatDate(latestHistory.archivedAt) : '未知時間';
-      const archiveCount = unarchiveModal.member.membersArchiveHistory.length;
-      const remark = `最後封存：${archivedAt} (共 ${archiveCount} 次)`;
 
       await unarchiveMember(unarchiveModal.member.id, unarchiveModal.targetGuildId);
 
