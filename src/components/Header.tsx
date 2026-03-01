@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Shield, LogOut, Settings, List, User, Lock, AlertCircle, X } from 'lucide-react';
 import { supabase } from '../supabase';
-import i18n from '../i18n';
-import LanguageSelector from './LanguageSelector';
 
 const DOMAIN_SUFFIX = '@kazran.com';
 
@@ -169,8 +167,6 @@ export default function Header() {
                   </button>
                 )}
 
-                <LanguageSelector />
-
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 hover:text-amber-400 transition-colors"
@@ -180,7 +176,6 @@ export default function Header() {
               </>
             ) : (
               <>
-                <LanguageSelector />
                 <button
                   onClick={() => setIsLoginModalOpen(true)}
                   className="flex items-center gap-2 hover:text-amber-400 transition-colors"

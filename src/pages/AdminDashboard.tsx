@@ -11,8 +11,10 @@ import SinglePasswordUpdate from '../components/SinglePasswordUpdate';
 import BulkPasswordUpdate from '../components/BulkPasswordUpdate';
 import ArchivedMembersManager from '../components/ArchivedMembersManager';
 import { Reorder } from "motion/react";
+import { useTranslation } from 'react-i18next';
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const { db, setDb, setCurrentView, currentUser, setCurrentUser, fetchAllMembers } = useAppContext();
   const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived'>('guilds');
 
@@ -29,21 +31,21 @@ export default function AdminDashboard() {
 
       <main className="max-w-6xl mx-auto p-6 flex-1 w-full">
         <div className="mb-4 flex gap-4 text-[10px] text-stone-400 uppercase tracking-widest">
-          <span>公會: {Object.keys(db.guilds).length}</span>
-          <span>成員: {Object.values(db.members).filter(m => m.status === 'active').length}</span>
-          <span>角色: {Object.keys(db.characters).length}</span>
-          <span>服裝: {Object.keys(db.costumes).length}</span>
-          <span>使用者: {Object.keys(db.users).length}</span>
+          <span>{t('common.guild')}: {Object.keys(db.guilds).length}</span>
+          <span>{t('common.member')}: {Object.values(db.members).filter(m => m.status === 'active').length}</span>
+          <span>{t('common.character')}: {Object.keys(db.characters).length}</span>
+          <span>{t('common.costume')}: {Object.keys(db.costumes).length}</span>
+          <span>{t('common.user')}: {Object.keys(db.users).length}</span>
         </div>
         <div className="flex gap-4 mb-6 border-b border-stone-300 pb-2 overflow-x-auto">
-          <TabButton active={activeTab === 'guilds'} onClick={() => setActiveTab('guilds')} icon={<Shield />} label="公會管理" />
-          <TabButton active={activeTab === 'costumes'} onClick={() => setActiveTab('costumes')} icon={<Sword />} label="服裝資料庫" />
-          <TabButton active={activeTab === 'archived'} onClick={() => setActiveTab('archived')} icon={<Archive />} label="封存成員" />
+          <TabButton active={activeTab === 'guilds'} onClick={() => setActiveTab('guilds')} icon={<Shield />} label={t('nav.guild_management')} />
+          <TabButton active={activeTab === 'costumes'} onClick={() => setActiveTab('costumes')} icon={<Sword />} label={t('nav.costume_database')} />
+          <TabButton active={activeTab === 'archived'} onClick={() => setActiveTab('archived')} icon={<Archive />} label={t('nav.archived_members')} />
           {userRole !== 'manager' && (
             <>
-              <TabButton active={activeTab === 'passwords'} onClick={() => setActiveTab('passwords')} icon={<Key />} label="修改密碼" />
-              <TabButton active={activeTab === 'backup'} onClick={() => setActiveTab('backup')} icon={<Save />} label="備份與還原" />
-              <TabButton active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={<Wand2 />} label="便利小功能" />
+              <TabButton active={activeTab === 'passwords'} onClick={() => setActiveTab('passwords')} icon={<Key />} label={t('nav.change_password')} />
+              <TabButton active={activeTab === 'backup'} onClick={() => setActiveTab('backup')} icon={<Save />} label={t('nav.backup_restore')} />
+              <TabButton active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={<Wand2 />} label={t('nav.tools')} />
             </>
           )}
         </div>
@@ -58,9 +60,9 @@ export default function AdminDashboard() {
                 <div className="flex">
                   <div className="py-1"><AlertCircle className="h-5 w-5 text-amber-500 mr-3" /></div>
                   <div>
-                    <p className="font-bold text-amber-800">操作提示</p>
+                    <p className="font-bold text-amber-800">{t('common.info')}</p>
                     <p className="text-sm text-amber-700">
-                      使用系統開新公會後，要在 Supabase Auth 開一個帳號 <code className="bg-amber-100 px-1 rounded">"new_guild_name@kazran.com"</code>。
+                      {t('guilds.auth_account_notice')} <code className="bg-amber-100 px-1 rounded">"new_guild_name@kazran.com"</code>。
                     </p>
                   </div>
                 </div>
@@ -68,8 +70,8 @@ export default function AdminDashboard() {
 
               <section>
                 <div className="mb-6">
-                  <h3 className="text-lg font-bold text-stone-800">單一密碼修改</h3>
-                  <p className="text-sm text-stone-500">適合單一使用者重置密碼。</p>
+                  <h3 className="text-lg font-bold text-stone-800">{t('passwords.single_update')}</h3>
+                  <p className="text-sm text-stone-500">{t('passwords.single_update_desc')}</p>
                 </div>
                 <SinglePasswordUpdate />
               </section>
@@ -77,8 +79,8 @@ export default function AdminDashboard() {
               <div className="border-t border-stone-100 pt-12">
                 <section>
                   <div className="mb-6">
-                    <h3 className="text-lg font-bold text-stone-800">批次密碼修改</h3>
-                    <p className="text-sm text-stone-500">適合定期全面重置密碼時，透過 CSV 進行大範圍更新。</p>
+                    <h3 className="text-lg font-bold text-stone-800">{t('passwords.bulk_update')}</h3>
+                    <p className="text-sm text-stone-500">{t('passwords.bulk_update_desc')}</p>
                   </div>
                   <BulkPasswordUpdate />
                 </section>
@@ -95,6 +97,7 @@ export default function AdminDashboard() {
 }
 
 function ToolsManager() {
+  const { t } = useTranslation();
   const { db, addMember, deleteMember, updateMember, fetchAllMembers, restoreData, archiveMember, showToast } = useAppContext();
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -117,8 +120,8 @@ function ToolsManager() {
   const handleAutoTransfer = () => {
     setConfirmModal({
       isOpen: true,
-      title: '自動搬運',
-      message: '確定要執行自動搬運嗎？',
+      title: t('tools.auto_transfer'),
+      message: t('tools.confirm_auto_transfer'),
       isDanger: false,
       onConfirm: async () => {
         setIsProcessing(true);
@@ -167,10 +170,10 @@ function ToolsManager() {
         const membersToArchive = memberList.filter(member => !activeMemberList.find((memberName) => memberName == member.name));
 
         if (membersToArchive.length > 0) {
-          const confirmArchive = window.confirm(`發現 ${membersToArchive.length} 名成員不在總表中，確定要將他們封存嗎？`);
+          const confirmArchive = window.confirm(t('tools.confirm_archive_not_in_list', { count: membersToArchive.length }));
           if (confirmArchive) {
             for (const member of membersToArchive) {
-              await archiveMember(member.id, member.guildId, "不在總表中");
+              await archiveMember(member.id, member.guildId, t('tools.not_in_list_reason'));
             }
           }
         }
@@ -183,8 +186,8 @@ function ToolsManager() {
   const handleRemoveDuplicates = () => {
     setConfirmModal({
       isOpen: true,
-      title: '移除重複成員',
-      message: '確定要移除重複成員嗎？此動作將會刪除所有公會中同名且無服飾資料的成員。',
+      title: t('tools.remove_duplicates'),
+      message: t('tools.confirm_remove_duplicates'),
       isDanger: true,
       onConfirm: async () => {
         setIsProcessing(true);
@@ -251,8 +254,8 @@ function ToolsManager() {
   const handleImportCostume = () => {
     setConfirmModal({
       isOpen: true,
-      title: '匯入服裝表',
-      message: '確定要匯入服裝表嗎？',
+      title: t('tools.import_costumes'),
+      message: t('tools.confirm_import_costumes'),
       isDanger: false,
       onConfirm: async () => {
         setIsProcessing(true);
@@ -316,7 +319,7 @@ function ToolsManager() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold mb-6 text-stone-800 flex items-center gap-2">
         <Wand2 className="w-6 h-6 text-amber-600" />
-        便利小功能
+        {t('nav.tools')}
       </h2>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -324,16 +327,16 @@ function ToolsManager() {
           <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
             <RefreshCw className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-stone-800 mb-2">自動搬運</h3>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">{t('tools.auto_transfer')}</h3>
           <p className="text-stone-500 mb-6 max-w-md">
-            此功能可用於自動處理成員資料搬運。
+            {t('tools.auto_transfer_desc')}
           </p>
           <button
             onClick={handleAutoTransfer}
             disabled={isProcessing}
             className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isProcessing ? '處理中...' : '開始自動搬運'}
+            {isProcessing ? t('common.processing') : t('tools.start_auto_transfer')}
           </button>
         </div>
 
@@ -341,16 +344,16 @@ function ToolsManager() {
           <div className="p-4 bg-red-100 rounded-full text-red-600 mb-4">
             <Trash2 className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-stone-800 mb-2">移除重複成員</h3>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">{t('tools.remove_duplicates')}</h3>
           <p className="text-stone-500 mb-6 max-w-md">
-            移除所有公會中同名且無服飾資料的成員，或同名且服飾資料完全相同的成員。
+            {t('tools.remove_duplicates_desc')}
           </p>
           <button
             onClick={handleRemoveDuplicates}
             disabled={isProcessing}
             className="px-8 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isProcessing ? '處理中...' : '開始移除'}
+            {isProcessing ? t('common.processing') : t('tools.start_remove')}
           </button>
         </div>
 
@@ -358,16 +361,16 @@ function ToolsManager() {
           <div className="p-4 bg-amber-100 rounded-full text-amber-600 mb-4">
             <ArrowUp className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-stone-800 mb-2">匯入服裝表</h3>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">{t('tools.import_costumes')}</h3>
           <p className="text-stone-500 mb-6 max-w-md">
-            從現有試算表中匯入服裝表。
+            {t('tools.import_costumes_desc')}
           </p>
           <button
             onClick={handleImportCostume}
             disabled={isProcessing}
             className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isProcessing ? '處理中...' : '開始匯入'}
+            {isProcessing ? t('common.processing') : t('tools.start_import')}
           </button>
         </div>
       </div>
@@ -398,6 +401,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
 }
 
 function GuildsManager() {
+  const { t } = useTranslation();
   const { db, addGuild, updateGuild, deleteGuild, fetchAllMembers, showToast } = useAppContext();
   const [newGuildName, setNewGuildName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -433,9 +437,10 @@ function GuildsManager() {
     try {
       await addGuild(newGuildName.trim());
       setNewGuildName('');
+      showToast(t('guilds.add_success'), 'success');
     } catch (error: any) {
       console.error("Error adding guild:", error);
-      showToast(`新增公會失敗: ${error.message}`, 'error');
+      showToast(`${t('guilds.add_failed')}: ${error.message}`, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -463,9 +468,10 @@ function GuildsManager() {
         orderNum: editGuildOrder
       });
       setEditingGuildId(null);
+      showToast(t('guilds.update_success'), 'success');
     } catch (error: any) {
       console.error("Error updating guild:", error);
-      showToast(`更新公會失敗: ${error.message}`, 'error');
+      showToast(`${t('guilds.update_failed')}: ${error.message}`, 'error');
     }
   };
 
@@ -473,16 +479,17 @@ function GuildsManager() {
     e.stopPropagation();
     setConfirmModal({
       isOpen: true,
-      title: '刪除公會',
-      message: '確定要刪除此公會嗎？此動作無法復原。',
+      title: t('guilds.delete_guild'),
+      message: t('guilds.confirm_delete'),
       isDanger: true,
       onConfirm: async () => {
         try {
           await deleteGuild(id);
           closeConfirmModal();
+          showToast(t('guilds.delete_success'), 'success');
         } catch (error: any) {
           console.error("Error deleting guild:", error);
-          showToast(`刪除公會失敗: ${error.message}`, 'error');
+          showToast(`${t('guilds.delete_failed')}: ${error.message}`, 'error');
           closeConfirmModal();
         }
       }
@@ -510,11 +517,11 @@ function GuildsManager() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-stone-800">公會列表</h2>
+        <h2 className="text-2xl font-bold text-stone-800">{t('nav.guild_management')}</h2>
         <button
           onClick={() => fetchAllMembers()}
           className="p-2 text-stone-500 hover:bg-stone-200 rounded-full transition-colors"
-          title="重新整理"
+          title={t('common.reset')}
         >
           <RefreshCw className="w-5 h-5" />
         </button>
@@ -523,13 +530,13 @@ function GuildsManager() {
       <div className="flex gap-2 mb-6">
         <input
           type="text"
-          placeholder="新公會名稱"
+          placeholder={t('guilds.guild_name')}
           className="flex-1 p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
           value={newGuildName}
           onChange={e => setNewGuildName(e.target.value)}
         />
         <button onClick={handleAddGuild} disabled={isSaving} className="px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 flex items-center gap-2 disabled:opacity-50">
-          {isSaving ? '儲存中...' : <><Plus className="w-5 h-5" /> 新增公會</>}
+          {isSaving ? t('common.loading') : <><Plus className="w-5 h-5" /> {t('guilds.add_guild')}</>}
         </button>
       </div>
 
@@ -539,7 +546,7 @@ function GuildsManager() {
           if (tierGuilds.length === 0) return null;
           return (
             <div key={tier} className="flex flex-col gap-3">
-              <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>梯隊 {tier}</h3>
+              <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>{t('common.tier')} {tier}</h3>
               {tierGuilds.map(([id, guild]) => (
                 <div
                   key={id}
@@ -554,7 +561,7 @@ function GuildsManager() {
                         value={editGuildName}
                         onChange={e => setEditGuildName(e.target.value)}
                         onClick={e => e.stopPropagation()}
-                        placeholder="公會名稱"
+                        placeholder={t('guilds.guild_name')}
                         autoFocus
                       />
                       <div className="flex gap-2">
@@ -564,10 +571,10 @@ function GuildsManager() {
                           onChange={e => setEditGuildTier(Number(e.target.value))}
                           onClick={e => e.stopPropagation()}
                         >
-                          <option value={1}>梯隊 1</option>
-                          <option value={2}>梯隊 2</option>
-                          <option value={3}>梯隊 3</option>
-                          <option value={4}>梯隊 4</option>
+                          <option value={1}>{t('common.tier')} 1</option>
+                          <option value={2}>{t('common.tier')} 2</option>
+                          <option value={3}>{t('common.tier')} 3</option>
+                          <option value={4}>{t('common.tier')} 4</option>
                         </select>
                         <input
                           type="number"
@@ -575,29 +582,29 @@ function GuildsManager() {
                           value={editGuildOrder}
                           onChange={e => setEditGuildOrder(Number(e.target.value))}
                           onClick={e => e.stopPropagation()}
-                          placeholder="順序"
+                          placeholder={t('common.order')}
                           min={1}
                         />
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={saveEdit} className="flex-1 p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"><Save className="w-4 h-4" /> 儲存</button>
-                        <button onClick={(e) => { e.stopPropagation(); setEditingGuildId(null); }} className="flex-1 p-2 bg-stone-200 text-stone-600 rounded-lg hover:bg-stone-300 transition-colors flex items-center justify-center gap-1"><X className="w-4 h-4" /> 取消</button>
+                        <button onClick={saveEdit} className="flex-1 p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"><Save className="w-4 h-4" /> {t('common.save')}</button>
+                        <button onClick={(e) => { e.stopPropagation(); setEditingGuildId(null); }} className="flex-1 p-2 bg-stone-200 text-stone-600 rounded-lg hover:bg-stone-300 transition-colors flex items-center justify-center gap-1"><X className="w-4 h-4" /> {t('common.cancel')}</button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs font-bold rounded">順序 {guild.orderNum || 1}</span>
+                          <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-xs font-bold rounded">{t('common.order')} {guild.orderNum || 1}</span>
                         </div>
                         <h3 className="font-bold text-lg text-stone-800 group-hover:text-amber-700 transition-colors">{guild.name}</h3>
                         <p className={`text-sm font-medium ${getMemberCount(id) > 30 ? 'text-red-500 bg-red-50 px-1 py-0.5 rounded inline-block' : 'text-stone-500'}`}>
-                          成員數: {getMemberCount(id)} / 30
+                          {t('guilds.member_count')}: {getMemberCount(id)} / 30
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button onClick={(e) => startEdit(e, id, guild)} className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit2 className="w-5 h-5" /></button>
-                        <button onClick={(e) => handleDelete(e, id)} className="p-2 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-5 h-5" /></button>
+                        <button onClick={(e) => startEdit(e, id, guild)} className="p-2 text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title={t('common.edit')}><Edit2 className="w-5 h-5" /></button>
+                        <button onClick={(e) => handleDelete(e, id)} className="p-2 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title={t('common.delete')}><Trash2 className="w-5 h-5" /></button>
                         <Users className="w-5 h-5 ml-1 text-stone-400 group-hover:text-amber-500 transition-colors" />
                       </div>
                     </div>
@@ -616,13 +623,14 @@ function GuildsManager() {
         onConfirm={confirmModal.onConfirm}
         onCancel={closeConfirmModal}
         isDanger={confirmModal.isDanger}
-        confirmText={confirmModal.isDanger ? "刪除" : "確認"}
+        confirmText={confirmModal.isDanger ? t('common.delete') : t('common.confirm')}
       />
     </div>
   );
 }
 
 function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () => void }) {
+  const { t } = useTranslation();
   const { db, addMember, deleteMember, updateMember, fetchMembers, archiveMember, showToast: showGlobalToast } = useAppContext();
   const [selectedGuildId, setSelectedGuildId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -697,18 +705,18 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '副會長');
 
   const validateMoveOrAdd = (targetGId: string, role: Role, excludeMemberId?: string) => {
-    if (!targetGId) return "請選擇公會";
-    if (!formData.name.trim()) return "請輸入名稱";
+    if (!targetGId) return t('members.select_guild_required');
+    if (!formData.name.trim()) return t('members.name_required');
 
     // Check role limits only if role is changing or new member
     // This logic is simplified for now
     if (role === '會長') {
       const master = getGuildMaster(targetGId);
-      if (master && master[0] !== excludeMemberId) return "該公會已有會長";
+      if (master && master[0] !== excludeMemberId) return t('members.guild_has_master');
     }
     if (role === '副會長') {
       const deputy = getGuildDeputy(targetGId);
-      if (deputy && deputy[0] !== excludeMemberId) return "該公會已有副會長";
+      if (deputy && deputy[0] !== excludeMemberId) return t('members.guild_has_deputy');
     }
     return null;
   };
@@ -729,21 +737,23 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           guildId: formData.targetGuildId
         });
         setEditingId(null);
+        showGlobalToast(t('members.update_success'), 'success');
       } else {
         await addMember(formData.targetGuildId, formData.name, formData.role, formData.note);
         setIsAdding(false);
+        showGlobalToast(t('members.add_success'), 'success');
       }
       setFormData({ name: '', role: '成員', note: '', targetGuildId: guildId });
     } catch (error: any) {
       console.error("Error saving member:", error);
-      showGlobalToast(`儲存成員失敗: ${error.message}`, 'error');
+      showGlobalToast(`${t('members.update_failed')}: ${error.message}`, 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleArchiveClick = (memberId: string, memberName: string) => {
-    const guildName = db.guilds[guildId]?.name || '未知公會';
+    const guildName = db.guilds[guildId]?.name || t('common.unknown');
     setArchiveModal({
       isOpen: true,
       memberId,
@@ -759,11 +769,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     setIsArchiving(true);
     try {
       await archiveMember(archiveModal.memberId, guildId, archiveModal.reason);
-      showGlobalToast(`已成功封存成員 ${archiveModal.memberName}`, 'success');
+      showGlobalToast(t('members.archive_success'), 'success');
       closeArchiveModal();
     } catch (error: any) {
       console.error("Archive failed:", error);
-      showGlobalToast(`封存失敗: ${error.message}`, 'error');
+      showGlobalToast(`${t('members.archive_failed')}: ${error.message}`, 'error');
     } finally {
       setIsArchiving(false);
     }
@@ -772,16 +782,17 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const handleDeleteMember = (id: string) => {
     setConfirmModal({
       isOpen: true,
-      title: '刪除成員',
-      message: '確定要刪除此成員嗎？注意：這將會連同刪除該成員的所有服裝練度資料！此動作無法復原。',
+      title: t('members.delete_member'),
+      message: t('members.confirm_delete'),
       isDanger: true,
       onConfirm: async () => {
         try {
           await deleteMember(id);
           closeConfirmModal();
+          showGlobalToast(t('members.delete_success'), 'success');
         } catch (error: any) {
           console.error("Error deleting member:", error);
-          showGlobalToast(`刪除成員失敗: ${error.message}`, 'error');
+          showGlobalToast(`${t('members.delete_failed')}: ${error.message}`, 'error');
           closeConfirmModal();
         }
       }
@@ -827,10 +838,10 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 
       setBatchInput('');
       setIsBatchAdding(false);
-      showGlobalToast(`成功批量新增 ${lines.length} 名成員`, 'success');
+      showGlobalToast(t('members.batch_add_success'), 'success');
     } catch (error: any) {
       console.error("Error batch adding members:", error);
-      showGlobalToast(`批量新增失敗: ${error.message}`, 'error');
+      showGlobalToast(`${t('members.batch_add_failed')}: ${error.message}`, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -843,18 +854,18 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
           <ChevronLeft className="w-6 h-6 text-stone-600" />
         </button>
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-stone-800">{guild.name} - 成員管理</h2>
+          <h2 className="text-2xl font-bold text-stone-800">{guild.name} - {t('nav.guild_management')}</h2>
           <p className={`text-sm font-medium ${members.length > 30 ? 'text-red-500 bg-red-50 px-2 py-0.5 rounded inline-block' : 'text-stone-500'}`}>
-            成員數: {members.length} / 30
+            {t('guilds.member_count')}: {members.length} / 30
           </p>
         </div>
         {!isAdding && !editingId && !isBatchAdding && (
           <div className="flex gap-2">
             <button onClick={() => setIsAdding(true)} className="px-4 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 flex items-center gap-2">
-              <Plus className="w-5 h-5" /> 新增成員
+              <Plus className="w-5 h-5" /> {t('members.add_member')}
             </button>
             <button onClick={() => setIsBatchAdding(true)} className="px-4 py-2 bg-stone-200 text-stone-800 rounded-lg hover:bg-stone-300 flex items-center gap-2">
-              批量新增
+              {t('members.batch_add')}
             </button>
           </div>
         )}
@@ -862,18 +873,18 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 
       {isBatchAdding && (
         <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-6 flex flex-col gap-4">
-          <label className="block text-sm font-medium text-stone-600">批量新增成員 (每行一筆，格式: 名稱, 職位, 備註) <br />職位可填: 會長, 副會長, 成員 (預設)</label>
+          <label className="block text-sm font-medium text-stone-600 whitespace-pre-line">{t('members.batch_add_placeholder')}</label>
           <textarea
             className="w-full p-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none min-h-[100px]"
-            placeholder="玩家阿明, 會長, 這是備註&#10;玩家阿華, 成員&#10;玩家小美"
+            placeholder="Player1, Master, Note1&#10;Player2, Member&#10;Player3"
             value={batchInput}
             onChange={e => setBatchInput(e.target.value)}
           />
           <div className="flex gap-2 justify-end">
             <button onClick={handleBatchAdd} disabled={isSaving} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50">
-              {isSaving ? '儲存中...' : '確認新增'}
+              {isSaving ? t('common.loading') : t('common.confirm')}
             </button>
-            <button onClick={() => { setIsBatchAdding(false); setBatchInput(''); }} className="px-4 py-2 bg-stone-300 text-stone-800 rounded-lg hover:bg-stone-400">取消</button>
+            <button onClick={() => { setIsBatchAdding(false); setBatchInput(''); }} className="px-4 py-2 bg-stone-300 text-stone-800 rounded-lg hover:bg-stone-400">{t('common.cancel')}</button>
           </div>
         </div>
       )}
@@ -881,7 +892,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
       {isAdding && (
         <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 mb-6 flex gap-4 items-end flex-wrap">
           <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium text-stone-600 mb-1">名稱</label>
+            <label className="block text-sm font-medium text-stone-600 mb-1">{t('common.name')}</label>
             <input
               type="text"
               className="w-full p-2 border border-stone-300 rounded-lg"
@@ -890,38 +901,38 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
             />
           </div>
           <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium text-stone-600 mb-1">職位</label>
+            <label className="block text-sm font-medium text-stone-600 mb-1">{t('common.role')}</label>
             <select
               className="w-full p-2 border border-stone-300 rounded-lg"
               value={formData.role}
               onChange={e => setFormData({ ...formData, role: e.target.value as Role })}
             >
-              <option value="成員">成員</option>
-              <option value="副會長">副會長</option>
-              <option value="會長">會長</option>
+              <option value="成員">{t('roles.Member')}</option>
+              <option value="副會長">{t('roles.Deputy')}</option>
+              <option value="會長">{t('roles.Master')}</option>
             </select>
           </div>
           <div className="flex-1 min-w-[150px]">
-            <label className="block text-sm font-medium text-stone-600 mb-1">所屬公會</label>
+            <label className="block text-sm font-medium text-stone-600 mb-1">{t('members.target_guild')}</label>
             <div className="w-full p-2 border border-stone-200 rounded-lg bg-stone-100 text-stone-500">
-              {db.guilds[guildId]?.name || '未知公會'}
+              {db.guilds[guildId]?.name || t('common.unknown')}
             </div>
           </div>
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-stone-600 mb-1">備註</label>
+            <label className="block text-sm font-medium text-stone-600 mb-1">{t('common.note')}</label>
             <input
               type="text"
               className="w-full p-2 border border-stone-300 rounded-lg"
               value={formData.note}
               onChange={e => setFormData({ ...formData, note: e.target.value })}
-              placeholder="例如: 請假中"
+              placeholder={t('common.note')}
             />
           </div>
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50">
-              {isSaving ? '儲存中...' : '儲存'}
+              {isSaving ? t('common.loading') : t('common.save')}
             </button>
-            <button onClick={cancelEdit} className="px-4 py-2 bg-stone-300 text-stone-800 rounded-lg hover:bg-stone-400">取消</button>
+            <button onClick={cancelEdit} className="px-4 py-2 bg-stone-300 text-stone-800 rounded-lg hover:bg-stone-400">{t('common.cancel')}</button>
           </div>
         </div>
       )}
@@ -930,11 +941,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b-2 border-stone-200 text-stone-600">
-              <th className="p-3 font-semibold">名稱</th>
-              <th className="p-3 font-semibold">職位</th>
-              <th className="p-3 font-semibold">備註</th>
-              <th className="p-3 font-semibold">封存記錄</th>
-              <th className="p-3 font-semibold text-right">編輯</th>
+              <th className="p-3 font-semibold">{t('common.name')}</th>
+              <th className="p-3 font-semibold">{t('common.role')}</th>
+              <th className="p-3 font-semibold">{t('common.note')}</th>
+              <th className="p-3 font-semibold">{t('common.history')}</th>
+              <th className="p-3 font-semibold text-right">{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -958,9 +969,9 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                         value={formData.role}
                         onChange={e => setFormData({ ...formData, role: e.target.value as Role })}
                       >
-                        <option value="成員">成員</option>
-                        <option value="副會長">副會長</option>
-                        <option value="會長">會長</option>
+                        <option value="成員">{t('roles.Member')}</option>
+                        <option value="副會長">{t('roles.Deputy')}</option>
+                        <option value="會長">{t('roles.Master')}</option>
                       </select>
                     </td>
                     <td className="p-2">
@@ -979,7 +990,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                           className="w-full p-1.5 border border-stone-300 rounded bg-white text-sm"
                           value={formData.note}
                           onChange={e => setFormData({ ...formData, note: e.target.value })}
-                          placeholder="備註"
+                          placeholder={t('common.note')}
                         />
                       </div>
                     </td>
@@ -988,14 +999,14 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                         <button
                           onClick={handleSave}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="儲存"
+                          title={t('common.save')}
                         >
                           <Save className="w-4 h-4" />
                         </button>
                         <button
                           onClick={cancelEdit}
                           className="p-2 text-stone-400 hover:bg-stone-100 rounded-lg transition-colors"
-                          title="取消"
+                          title={t('common.cancel')}
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -1013,7 +1024,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                       member.role === '副會長' ? 'bg-amber-100 text-amber-800' :
                         'bg-stone-200 text-stone-700'
                       }`}>
-                      {member.role}
+                      {member.role === '會長' ? t('roles.Master') : member.role === '副會長' ? t('roles.Deputy') : t('roles.Member')}
                     </span>
                   </td>
                   <td className="p-3 text-stone-500 text-sm">{member.note}</td>
@@ -1023,21 +1034,21 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                       <button
                         onClick={() => startEdit(id)}
                         className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg transition-colors"
-                        title="編輯"
+                        title={t('common.edit')}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleArchiveClick(id, member.name)}
                         className="p-2 text-stone-500 hover:bg-amber-50 hover:text-amber-600 rounded-lg transition-colors"
-                        title="封存"
+                        title={t('members.archive_member')}
                       >
                         <Archive className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteMember(id)}
                         className="p-2 text-stone-500 hover:bg-stone-100 rounded-lg transition-colors"
-                        title="刪除"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1049,7 +1060,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
             {members.length === 0 && (
               <tr>
                 <td colSpan={5} className="p-8 text-center text-stone-500">
-                  此公會目前沒有成員
+                  {t('common.noData')}
                 </td>
               </tr>
             )}
@@ -1063,7 +1074,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
         onConfirm={confirmModal.onConfirm}
         onCancel={closeConfirmModal}
         isDanger={confirmModal.isDanger}
-        confirmText={confirmModal.isDanger ? "刪除" : "確認"}
+        confirmText={confirmModal.isDanger ? t('common.delete') : t('common.confirm')}
       />
 
       {/* Archive Modal */}
@@ -1073,7 +1084,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
             <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
               <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
                 <Archive className="w-5 h-5 text-amber-600" />
-                封存成員
+                {t('members.archive_member')}
               </h3>
               <button onClick={closeArchiveModal} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
                 <X className="w-5 h-5 text-stone-500" />
@@ -1084,20 +1095,19 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
               <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg flex gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
                 <div className="text-sm text-amber-800">
-                  <p className="font-bold mb-1">即將封存成員</p>
-                  <p>確定要將 <strong>{archiveModal.memberName}</strong> 從 <strong>{archiveModal.guildName}</strong> 中封存嗎？</p>
-                  <p className="mt-1 text-amber-700/80 text-xs">該成員將從目前的列表中移除，並移動至封存區。</p>
+                  <p className="font-bold mb-1">{t('members.confirm_archive')}</p>
+                  <p><strong>{archiveModal.memberName}</strong> - <strong>{archiveModal.guildName}</strong></p>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-stone-600 mb-1">
-                  封存原因 <span className="text-stone-400 font-normal">(選填)</span>
+                  {t('members.archive_reason')} <span className="text-stone-400 font-normal">({t('common.optional')})</span>
                 </label>
                 <input
                   type="text"
                   className="w-full p-2.5 border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-500 outline-none"
-                  placeholder="例如: 退坑、暫離..."
+                  placeholder={t('common.note')}
                   value={archiveModal.reason}
                   onChange={(e) => setArchiveModal(prev => ({ ...prev, reason: e.target.value }))}
                 />
@@ -1109,14 +1119,14 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                   disabled={isArchiving}
                   className="flex-1 py-2.5 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isArchiving ? '處理中...' : '確認封存'}
+                  {isArchiving ? t('common.processing') : t('common.confirm')}
                 </button>
                 <button
                   onClick={closeArchiveModal}
                   disabled={isArchiving}
                   className="flex-1 py-2.5 bg-stone-200 text-stone-700 rounded-xl font-bold hover:bg-stone-300 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>
@@ -1128,6 +1138,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 }
 
 function CostumesManager() {
+  const { t } = useTranslation();
   const { db, addCharacter, updateCharacter, deleteCharacter, addCostume, updateCostume, deleteCostume, updateCharactersOrder, updateCostumesOrder, showToast } = useAppContext();
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedCostumeId, setSelectedCostumeId] = useState<string | null>(null);
@@ -1197,7 +1208,7 @@ function CostumesManager() {
     try {
       await updateCharactersOrder(orderedCharacters);
     } catch (error: any) {
-      showToast(`更新排序失敗: ${error.message}`, 'error');
+      showToast(`${t('costumes.reorder_failed')}: ${error.message}`, 'error');
     }
   };
 
@@ -1208,7 +1219,7 @@ function CostumesManager() {
     try {
       await updateCostumesOrder(orderedCostumes);
     } catch (error: any) {
-      showToast(`更新排序失敗: ${error.message}`, 'error');
+      showToast(`${t('costumes.reorder_failed')}: ${error.message}`, 'error');
     }
   };
 
@@ -1240,15 +1251,15 @@ function CostumesManager() {
   const handleAddCharacter = () => {
     setInputModal({
       isOpen: true,
-      title: '新增角色',
-      message: '請輸入新角色名稱：',
+      title: t('costumes.add_character'),
+      message: `${t('costumes.add_character')}:`,
       onConfirm: async (name) => {
         try {
           await addCharacter(name, characters.length + 1);
           closeInputModal();
-          showToast('角色新增成功', 'success');
+          showToast(t('costumes.add_character_success'), 'success');
         } catch (error: any) {
-          showToast(`新增角色失敗: ${error.message}`, 'error');
+          showToast(`${t('costumes.add_character_failed')}: ${error.message}`, 'error');
         }
       }
     });
@@ -1259,8 +1270,8 @@ function CostumesManager() {
 
     setConfirmModal({
       isOpen: true,
-      title: '刪除角色',
-      message: '確定要刪除此角色嗎？注意：這將會連同刪除該角色底下的所有服裝資料！此動作無法復原。',
+      title: t('costumes.delete_character'),
+      message: t('costumes.confirm_delete_character'),
       isDanger: true,
       onConfirm: async () => {
         try {
@@ -1274,10 +1285,10 @@ function CostumesManager() {
           setSelectedCharacterId(null);
           setSelectedCostumeId(null);
           closeConfirmModal();
-          showToast('角色已刪除', 'success');
+          showToast(t('costumes.delete_character_success'), 'success');
         } catch (error: any) {
           console.error("Error deleting character:", error);
-          showToast(`刪除角色失敗: ${error.message}`, 'error');
+          showToast(`${t('costumes.delete_character_failed')}: ${error.message}`, 'error');
           closeConfirmModal();
         }
       }
@@ -1287,22 +1298,22 @@ function CostumesManager() {
   const handleUpdateCharacter = async () => {
     if (!selectedCharacterId) return;
     await updateCharacter(selectedCharacterId, { name: editCharacterName, orderNum: editCharacterOrder });
-    showToast('角色更新成功', 'success');
+    showToast(t('costumes.update_character_success'), 'success');
   };
 
   const handleAddCostume = () => {
     if (!selectedCharacterId) return;
     setInputModal({
       isOpen: true,
-      title: '新增服裝',
-      message: '請輸入新服裝名稱：',
+      title: t('costumes.add_costume'),
+      message: `${t('costumes.add_costume')}:`,
       onConfirm: async (name) => {
         try {
           await addCostume(selectedCharacterId, name, costumes.length + 1);
           closeInputModal();
-          showToast('服裝新增成功', 'success');
+          showToast(t('costumes.add_costume_success'), 'success');
         } catch (error: any) {
-          showToast(`新增服裝失敗: ${error.message}`, 'error');
+          showToast(`${t('costumes.add_costume_failed')}: ${error.message}`, 'error');
         }
       }
     });
@@ -1313,17 +1324,17 @@ function CostumesManager() {
 
     setConfirmModal({
       isOpen: true,
-      title: '刪除服裝',
-      message: '確定要刪除此服裝嗎？此動作無法復原。',
+      title: t('costumes.delete_costume'),
+      message: t('costumes.confirm_delete_costume'),
       isDanger: true,
       onConfirm: async () => {
         try {
           await deleteCostume(selectedCostumeId);
           setSelectedCostumeId(null);
           closeConfirmModal();
-          showToast('服裝已刪除', 'success');
+          showToast(t('costumes.delete_costume_success'), 'success');
         } catch (error: any) {
-          showToast(`刪除服裝失敗: ${error.message}`, 'error');
+          showToast(`${t('costumes.delete_costume_failed')}: ${error.message}`, 'error');
           closeConfirmModal();
         }
       }
@@ -1346,26 +1357,26 @@ function CostumesManager() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6 text-stone-800">服裝資料庫管理</h2>
+      <h2 className="text-2xl font-bold mb-6 text-stone-800">{t('nav.costume_db')}</h2>
       <div className="grid grid-cols-12 gap-6 h-[600px]">
         {/* Characters Column */}
         <div className="col-span-3 bg-stone-50 rounded-xl border border-stone-200 p-4 overflow-y-auto flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">角色</h3>
+            <h3 className="text-lg font-semibold">{t('costumes.character')}</h3>
             <div className="flex gap-1">
               {saveSuccess === 'character' && (
-                <div className="p-1.5 text-emerald-600 flex items-center justify-center" title="儲存成功">
+                <div className="p-1.5 text-emerald-600 flex items-center justify-center" title={t('common.save_success')}>
                   <Check className="w-4 h-4" />
                 </div>
               )}
               <button
                 onClick={() => isReorderingCharacters ? handleSaveCharacterOrder() : setIsReorderingCharacters(true)}
                 className={`p-1.5 rounded-lg transition-colors ${isReorderingCharacters ? 'bg-amber-200 text-amber-800' : 'bg-stone-200 hover:bg-stone-300 text-stone-700'}`}
-                title={isReorderingCharacters ? "儲存排序" : "排序角色"}
+                title={isReorderingCharacters ? t('costumes.save_order') : t('costumes.reorder_character')}
               >
                 {isReorderingCharacters ? <Save className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
               </button>
-              <button onClick={handleAddCharacter} className="p-1.5 bg-stone-200 hover:bg-stone-300 rounded-lg transition-colors" title="新增角色">
+              <button onClick={handleAddCharacter} className="p-1.5 bg-stone-200 hover:bg-stone-300 rounded-lg transition-colors" title={t('costumes.add_character')}>
                 <Plus className="w-4 h-4 text-stone-700" />
               </button>
             </div>
@@ -1383,8 +1394,8 @@ function CostumesManager() {
                 ))}
               </Reorder.Group>
               <div className="mt-4 flex gap-2 sticky bottom-0 bg-stone-50 pt-2">
-                <button onClick={handleSaveCharacterOrder} className="flex-1 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">儲存</button>
-                <button onClick={() => setIsReorderingCharacters(false)} className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg text-sm hover:bg-stone-300">取消</button>
+                <button onClick={handleSaveCharacterOrder} className="flex-1 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">{t('common.save')}</button>
+                <button onClick={() => setIsReorderingCharacters(false)} className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg text-sm hover:bg-stone-300">{t('common.cancel')}</button>
               </div>
             </div>
           ) : (
@@ -1405,22 +1416,22 @@ function CostumesManager() {
         {/* Costumes Column */}
         <div className="col-span-4 bg-stone-50 rounded-xl border border-stone-200 p-4 overflow-y-auto flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">{selectedCharacter?.name || '服裝'}</h3>
+            <h3 className="text-lg font-semibold">{selectedCharacter?.name || t('costumes.costume')}</h3>
             {selectedCharacterId && (
               <div className="flex gap-1">
                 {saveSuccess === 'costume' && (
-                  <div className="p-1.5 text-emerald-600 flex items-center justify-center" title="儲存成功">
+                  <div className="p-1.5 text-emerald-600 flex items-center justify-center" title={t('common.save_success')}>
                     <Check className="w-4 h-4" />
                   </div>
                 )}
                 <button
                   onClick={() => isReorderingCostumes ? handleSaveCostumeOrder() : setIsReorderingCostumes(true)}
                   className={`p-1.5 rounded-lg transition-colors ${isReorderingCostumes ? 'bg-amber-200 text-amber-800' : 'bg-stone-200 hover:bg-stone-300 text-stone-700'}`}
-                  title={isReorderingCostumes ? "儲存排序" : "排序服裝"}
+                  title={isReorderingCostumes ? t('costumes.save_order') : t('costumes.reorder_costume')}
                 >
                   {isReorderingCostumes ? <Save className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
                 </button>
-                <button onClick={handleAddCostume} className="p-1.5 bg-stone-200 hover:bg-stone-300 rounded-lg transition-colors" title="新增服裝">
+                <button onClick={handleAddCostume} className="p-1.5 bg-stone-200 hover:bg-stone-300 rounded-lg transition-colors" title={t('costumes.add_costume')}>
                   <Plus className="w-4 h-4 text-stone-700" />
                 </button>
               </div>
@@ -1439,8 +1450,8 @@ function CostumesManager() {
                   ))}
                 </Reorder.Group>
                 <div className="mt-4 flex gap-2 sticky bottom-0 bg-stone-50 pt-2">
-                  <button onClick={handleSaveCostumeOrder} className="flex-1 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">儲存</button>
-                  <button onClick={() => setIsReorderingCostumes(false)} className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg text-sm hover:bg-stone-300">取消</button>
+                  <button onClick={handleSaveCostumeOrder} className="flex-1 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700">{t('common.save')}</button>
+                  <button onClick={() => setIsReorderingCostumes(false)} className="flex-1 py-2 bg-stone-200 text-stone-600 rounded-lg text-sm hover:bg-stone-300">{t('common.cancel')}</button>
                 </div>
               </div>
             ) : (
@@ -1462,33 +1473,33 @@ function CostumesManager() {
 
         {/* Edit Column */}
         <div className="col-span-5 bg-stone-50 rounded-xl border border-stone-200 p-4 overflow-y-auto">
-          <h3 className="text-lg font-semibold mb-4">編輯</h3>
+          <h3 className="text-lg font-semibold mb-4">{t('common.edit')}</h3>
           {selectedCostume && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-stone-600 mb-1">服裝名稱</label>
+                <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.costume_name')}</label>
                 <input type="text" value={editCostumeName} onChange={e => setEditCostumeName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-600 mb-1">排序</label>
+                <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.order')}</label>
                 <input type="number" value={editCostumeOrder} onChange={e => setEditCostumeOrder(Number(e.target.value))} className="w-full p-2 border border-stone-300 rounded-lg" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-600 mb-1">圖片名稱</label>
+                <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.image_name')}</label>
                 <input type="text" value={editCostumeImageName} onChange={e => setEditCostumeImageName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
               </div>
               <div className="flex items-center">
                 <input type="checkbox" id="isNew" checked={editCostumeIsNew} onChange={e => setEditCostumeIsNew(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
-                <label htmlFor="isNew" className="ml-2 block text-sm text-stone-900">標示為NEW</label>
+                <label htmlFor="isNew" className="ml-2 block text-sm text-stone-900">{t('costumes.mark_new')}</label>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleUpdateCostume}
                   className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center gap-2 ${isCostumeSaved ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-600 hover:bg-amber-700'}`}
                 >
-                  {isCostumeSaved ? <><Check className="w-4 h-4" /> 已儲存</> : '儲存服裝'}
+                  {isCostumeSaved ? <><Check className="w-4 h-4" /> {t('common.save_success')}</> : t('costumes.save_costume')}
                 </button>
-                <button onClick={handleDeleteCostume} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200" title="刪除服裝">
+                <button onClick={handleDeleteCostume} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200" title={t('costumes.delete_costume')}>
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
@@ -1497,16 +1508,16 @@ function CostumesManager() {
           {selectedCharacter && !selectedCostume && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-stone-600 mb-1">角色名稱</label>
+                <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.character_name')}</label>
                 <input type="text" value={editCharacterName} onChange={e => setEditCharacterName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-600 mb-1">排序</label>
+                <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.order')}</label>
                 <input type="number" value={editCharacterOrder} onChange={e => setEditCharacterOrder(Number(e.target.value))} className="w-full p-2 border border-stone-300 rounded-lg" />
               </div>
               <div className="flex gap-2">
-                <button onClick={handleUpdateCharacter} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">儲存角色</button>
-                <button onClick={handleDeleteCharacter} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200" title="刪除角色">
+                <button onClick={handleUpdateCharacter} className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">{t('costumes.save_character')}</button>
+                <button onClick={handleDeleteCharacter} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200" title={t('costumes.delete_character')}>
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
@@ -1534,6 +1545,7 @@ function CostumesManager() {
 }
 
 function BackupManager() {
+  const { t } = useTranslation();
   const { db, restoreData, showToast } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1548,7 +1560,7 @@ function BackupManager() {
       link.click();
     } catch (error) {
       console.error("Backup failed:", error);
-      showToast("備份失敗，請檢查 console log 獲取更多資訊。", 'error');
+      showToast(t('backup.backup_failed'), 'error');
     }
   };
 
@@ -1565,14 +1577,14 @@ function BackupManager() {
           // Basic validation
           if (restoredDb.guilds && restoredDb.members && restoredDb.costumes) {
             await restoreData(restoredDb);
-            showToast("資料已成功還原！", 'success');
+            showToast(t('backup.restore_success'), 'success');
           } else {
-            showToast("無效的備份檔案格式。", 'error');
+            showToast(t('backup.invalid_format'), 'error');
           }
         }
       } catch (error) {
         console.error("Restore failed:", error);
-        showToast("還原失敗，請確保檔案格式正確。", 'error');
+        showToast(t('backup.restore_failed'), 'error');
       }
     };
     reader.readAsText(file);
@@ -1582,22 +1594,22 @@ function BackupManager() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold mb-6 text-stone-800 flex items-center gap-2">
         <Save className="w-6 h-6 text-amber-600" />
-        備份與還原
+        {t('nav.backup')}
       </h2>
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-stone-50 p-8 rounded-2xl border border-stone-200 flex flex-col items-center justify-center text-center">
           <div className="p-4 bg-blue-100 rounded-full text-blue-600 mb-4">
             <Download className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-stone-800 mb-2">下載備份</h3>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">{t('backup.download_backup')}</h3>
           <p className="text-stone-500 mb-6 max-w-md">
-            將目前的完整資料庫下載為 JSON 檔案。請妥善保管此檔案。
+            {t('backup.download_desc')}
           </p>
           <button
             onClick={handleBackup}
             className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-md"
           >
-            下載備份檔
+            {t('backup.download_btn')}
           </button>
         </div>
 
@@ -1605,16 +1617,16 @@ function BackupManager() {
           <div className="p-4 bg-green-100 rounded-full text-green-600 mb-4">
             <Upload className="w-8 h-8" />
           </div>
-          <h3 className="text-xl font-bold text-stone-800 mb-2">從檔案還原</h3>
+          <h3 className="text-xl font-bold text-stone-800 mb-2">{t('backup.restore_from_file')}</h3>
           <p className="text-stone-500 mb-6 max-w-md">
-            從之前下載的 JSON 備份檔還原資料。注意：此操作將會覆寫所有現有資料。
+            {t('backup.restore_desc')}
           </p>
           <input type="file" accept=".json" onChange={handleRestore} ref={fileInputRef} className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
             className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all active:scale-95 shadow-md"
           >
-            選擇檔案並還原
+            {t('backup.restore_btn')}
           </button>
         </div>
       </div>
@@ -1622,9 +1634,9 @@ function BackupManager() {
         <div className="flex">
           <div className="py-1"><AlertCircle className="h-5 w-5 text-amber-500 mr-3" /></div>
           <div>
-            <p className="font-bold text-amber-800">重要提示</p>
+            <p className="font-bold text-amber-800">{t('backup.important_notice')}</p>
             <p className="text-sm text-amber-700">
-              還原操作是不可逆的。在還原之前，強烈建議您先下載目前的資料作為備份。
+              {t('backup.important_desc')}
             </p>
           </div>
         </div>
