@@ -35,7 +35,9 @@ export default function App() {
   return (
     <AppProvider>
       <div className="min-h-screen bg-stone-100 text-stone-900 font-sans">
-        <AppContent />
+        <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+          <AppContent />
+        </React.Suspense>
         <ToastContainer />
       </div>
     </AppProvider>
