@@ -142,7 +142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isMuted, setIsMutedState] = useState<boolean>(() => {
     const saved = localStorage.getItem('isMuted');
-    return saved === 'true';
+    return saved === null ? true : saved === 'true';
   });
 
   const setIsMuted = (muted: boolean) => {

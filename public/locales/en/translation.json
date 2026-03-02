@@ -190,7 +190,8 @@
     "following": "Following",
     "friends": "Friends",
     "blocks": "Blocks",
-    "mutes": "Mutes",
+    "mute": "Mute",
+    "unmute": "Unmute",
     "reports_user": "Report User",
     "reports_content": "Report Content",
     "reports_bug": "Report Bug",
@@ -216,9 +217,7 @@
     "costume_list": "Costume List",
     "admin_settings": "Admin Settings",
     "logout": "Logout ({{user}})",
-    "login_btn": "Login",
-    "mute": "Mute",
-    "unmute": "Unmute"
+    "login_btn": "Login"
   },
   "login": {
     "no_login_account": "This guild has not set up a login account",

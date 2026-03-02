@@ -190,7 +190,8 @@
     "following": "追蹤中",
     "friends": "朋友",
     "blocks": "封鎖",
-    "mutes": "靜音",
+    "mute": "靜音",
+    "unmute": "取消靜音",
     "reports_user": "檢舉使用者",
     "reports_content": "檢舉內容",
     "reports_bug": "回報錯誤",
@@ -216,9 +217,7 @@
     "costume_list": "服裝列表",
     "admin_settings": "後台設定",
     "logout": "登出({{user}})",
-    "login_btn": "登入",
-    "mute": "靜音",
-    "unmute": "取消靜音"
+    "login_btn": "登入"
   },
   "login": {
     "no_login_account": "此公會尚未設定登入帳號",

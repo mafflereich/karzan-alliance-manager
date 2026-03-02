@@ -193,7 +193,7 @@ export default function Header() {
             <button
               onClick={() => setIsMuted(!isMuted)}
               className="flex items-center justify-center hover:text-amber-400 transition-colors p-1"
-              title={isMuted ? t('header.unmute') : t('header.mute')}
+              title={isMuted ? t('common.unmute') : t('common.mute')}
             >
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>

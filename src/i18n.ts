@@ -10,8 +10,14 @@ i18n
     .use(HttpBackend)
     .init({
         lng: 'zh-TW',                     // 強制起始語言
-        fallbackLng: 'zh-TW',
-        supportedLngs: ['zh-TW', 'en', 'zh'],   // 明確列出
+        fallbackLng: {
+            'zh-HK': ['zh-TW'],
+            'zh-MO': ['zh-TW'],
+            'zh-CN': ['zh-TW'],
+            'zh': ['zh-TW'],
+            'default': ['zh-TW']
+        },
+        supportedLngs: ['zh-TW', 'en'],   // 明確列出
         ns: ['translation'],
         defaultNS: 'translation',
         backend: {
