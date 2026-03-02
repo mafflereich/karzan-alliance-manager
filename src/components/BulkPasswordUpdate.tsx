@@ -1,9 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import Papa from 'papaparse';
+import { useTranslation } from 'react-i18next';
+
 import { Download, Upload, FileUp, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function BulkPasswordUpdate() {
+  const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' | null }>({
@@ -26,7 +29,7 @@ export default function BulkPasswordUpdate() {
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        setStatus({ message: '目前沒有公會資料可供匯出', type: 'error' });
+        setStatus({ message: t('passwords.no_guild_data'), type: 'error' });
         return;
       }
 
@@ -39,7 +42,7 @@ export default function BulkPasswordUpdate() {
       downloadCSV(csvData);
     } catch (error: any) {
       console.error('Export error:', error);
-      setStatus({ message: '匯出失敗: ' + error.message, type: 'error' });
+      setStatus({ message: t('passwords.export_failed') + error.message, type: 'error' });
     } finally {
       setIsExporting(false);
     }
@@ -63,13 +66,13 @@ export default function BulkPasswordUpdate() {
     console.log("目前的登入狀態：", session);
 
     if (!session) {
-      setStatus({ message: "系統偵測到你尚未登入，請重新登入！", type: 'error' });
+      setStatus({ message: t('passwords.not_logged_in'), type: 'error' });
       return;
     }
 
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
-      setStatus({ message: '請先選擇 CSV 檔案', type: 'error' });
+      setStatus({ message: t('passwords.select_csv'), type: 'error' });
       return;
     }
 
@@ -92,7 +95,7 @@ complete: async (results) => {
               }));
 
             if (updatesArray.length === 0) {
-              setStatus({ message: 'CSV 檔案中沒有填寫新密碼的資料，或缺少 username 欄位', type: 'error' });
+              setStatus({ message: t('passwords.csv_no_password'), type: 'error' });
               setIsImporting(false);
               return;
             }
@@ -116,31 +119,31 @@ complete: async (results) => {
             if (failures.length > 0) {
               // 如果有失敗的，印出統計數據與第一個失敗的原因
               setStatus({ 
-                message: `批次處理完成！ ✅ 成功：${successes.length} 筆, ❌ 失敗：${failures.length} 筆 (錯誤範例: ${failures[0].reason})`, 
+                message: t('passwords.bulk_update_success', { success: successes.length, fail: failures.length, reason: failures[0].reason }), 
                 type: 'error' 
               });
             } else {
               // 全數成功
-              setStatus({ message: `✅ 完美！成功批次修改 ${successes.length} 筆密碼！`, type: 'success' });
+              setStatus({ message: t('passwords.bulk_update_perfect', { count: successes.length }), type: 'success' });
             }
 
             if (fileInputRef.current) fileInputRef.current.value = '';
           } catch (err: any) {
             console.error('Import processing error:', err);
-            setStatus({ message: '批次修改失敗: ' + (err.message || '發生未知錯誤'), type: 'error' });
+            setStatus({ message: t('passwords.bulk_update_failed') + (err.message || t('passwords.unknown_error')), type: 'error' });
           } finally {
             setIsImporting(false);
           }
         },
         error: (err) => {
           console.error('CSV Parse error:', err);
-          setStatus({ message: '解析 CSV 失敗', type: 'error' });
+          setStatus({ message: t('passwords.parse_csv_failed'), type: 'error' });
           setIsImporting(false);
         }
       });
     } catch (error: any) {
       console.error('Import error:', error);
-      setStatus({ message: '發生錯誤: ' + error.message, type: 'error' });
+      setStatus({ message: t('passwords.error_occurred') + error.message, type: 'error' });
       setIsImporting(false);
     }
   };
@@ -149,17 +152,16 @@ complete: async (results) => {
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 max-w-2xl mx-auto space-y-8">
       <div className="flex items-center gap-2 border-b border-stone-100 pb-4">
         <FileUp className="w-6 h-6 text-amber-600" />
-        <h2 className="text-xl font-bold text-stone-800">批次修改密碼 (CSV)</h2>
+        <h2 className="text-xl font-bold text-stone-800">{t('passwords.bulk_update')} (CSV)</h2>
       </div>
 
       {/* Step 1: Export */}
       <div className="space-y-3">
         <h3 className="text-lg font-semibold text-stone-700 flex items-center gap-2">
           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-stone-800 text-white text-xs">1</span>
-          下載名單
+          {t('passwords.download_list')}
         </h3>
-        <p className="text-sm text-stone-500">
-          點擊下方按鈕下載包含所有公會帳號的名單，並在 Excel 中填寫 <code className="bg-stone-100 px-1 rounded">new_password</code> 欄位。
+        <p className="text-sm text-stone-500" dangerouslySetInnerHTML={{ __html: t('passwords.download_list_desc') }}>
         </p>
         <button
           onClick={handleExportCSV}
@@ -167,7 +169,7 @@ complete: async (results) => {
           className="flex items-center gap-2 px-6 py-2.5 bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-xl font-medium transition-all disabled:opacity-50"
         >
           {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          下載公會名單 (CSV)
+          {t('passwords.download_csv')}
         </button>
       </div>
 
@@ -175,10 +177,10 @@ complete: async (results) => {
       <div className="space-y-4 pt-4 border-t border-stone-100">
         <h3 className="text-lg font-semibold text-stone-700 flex items-center gap-2">
           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-stone-800 text-white text-xs">2</span>
-          上傳並修改
+          {t('passwords.upload_and_update')}
         </h3>
         <p className="text-sm text-stone-500">
-          選擇填寫好新密碼的 CSV 檔案，系統將自動過濾空白密碼並進行批次更新。
+          {t('passwords.upload_and_update_desc')}
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4">
@@ -196,12 +198,12 @@ complete: async (results) => {
             {isImporting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                處理中...
+                {t('passwords.updating')}
               </>
             ) : (
               <>
                 <Upload className="w-4 h-4" />
-                開始批次修改密碼
+                {t('passwords.start_bulk_update')}
               </>
             )}
           </button>
@@ -219,12 +221,12 @@ complete: async (results) => {
         <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex gap-3">
           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
           <div className="text-xs text-amber-800 space-y-1">
-            <p className="font-bold">注意事項：</p>
+            <p className="font-bold">{t('passwords.notes')}</p>
             <ul className="list-disc list-inside space-y-0.5">
-              <li>請確保 CSV 檔案中有 <code className="font-mono">username</code> 欄位，系統將以此作為修改依據。</li>
-              <li>系統只會處理 <code className="font-mono">new_password</code> 欄位有內容的列。</li>
-              <li>新密碼長度必須至少為 6 個字元。</li>
-              <li>批次更新可能需要一些時間，請耐心等候結果通知。</li>
+              <li dangerouslySetInnerHTML={{ __html: t('passwords.note_1') }}></li>
+              <li dangerouslySetInnerHTML={{ __html: t('passwords.note_2') }}></li>
+              <li>{t('passwords.note_3')}</li>
+              <li>{t('passwords.note_4')}</li>
             </ul>
           </div>
         </div>

@@ -3,8 +3,10 @@ import { useAppContext } from '../store';
 import { X, Save, CheckCircle2, Swords } from 'lucide-react';
 import { getImageUrl } from '../utils';
 import ConfirmModal from './ConfirmModal';
+import { useTranslation } from 'react-i18next';
 
 export default function MemberEditModal({ memberId, onClose }: { memberId: string, onClose: () => void }) {
+  const { t } = useTranslation();
   const { db, updateMember, showToast } = useAppContext();
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -29,7 +31,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
       }, 1000);
     } catch (error) {
       console.error("Error updating member:", error);
-      showToast("儲存失敗，請稍後再試", 'error');
+      showToast(t('common.save_failed'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -50,8 +52,8 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
       <div className="bg-stone-100 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="bg-white px-6 py-4 border-b border-stone-200 flex justify-between items-center sticky top-0 z-10">
           <div>
-            <h2 className="text-xl font-bold text-stone-800">編輯成員: {member.name}</h2>
-            <p className="text-stone-500 text-sm">服裝練度與UR專用登記</p>
+            <h2 className="text-xl font-bold text-stone-800">{t('common.edit_member_title', { name: member.name })}</h2>
+            <p className="text-stone-500 text-sm">{t('common.edit_member_desc')}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
             <X className="w-6 h-6 text-stone-500" />
@@ -69,7 +71,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
                   <h3 className="font-bold text-stone-800">{character.name}</h3>
                   <label className="flex items-center gap-2 cursor-pointer group bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 active:bg-stone-100 transition-colors shrink-0">
                     <Swords className={`w-4 h-4 transition-colors ${hasExclusiveWeapon ? 'text-amber-600' : 'text-stone-400'}`} />
-                    <span className={`text-sm font-bold ${hasExclusiveWeapon ? 'text-amber-700' : 'text-stone-500'}`}>UR專用</span>
+                    <span className={`text-sm font-bold ${hasExclusiveWeapon ? 'text-amber-700' : 'text-stone-500'}`}>{t('common.ur_exclusive')}</span>
                     <div className="relative flex items-center">
                       <input
                         type="checkbox"
@@ -108,10 +110,10 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
                         </div>
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2 flex-1 flex-wrap">
-                            <label className="text-sm font-bold text-stone-500 whitespace-nowrap mr-2">等級</label>
+                            <label className="text-sm font-bold text-stone-500 whitespace-nowrap mr-2">{t('common.level')}</label>
                             <div className="flex flex-wrap gap-1">
                               {[
-                                { val: -1, label: '未持有' },
+                                { val: -1, label: t('common.not_owned') },
                                 { val: 0, label: '+0' },
                                 { val: 1, label: '+1' },
                                 { val: 2, label: '+2' },
@@ -154,7 +156,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
           <button
             onClick={onClose}
             className="p-2 text-stone-500 hover:bg-stone-100 rounded-xl transition-colors"
-            title="取消"
+            title={t('common.cancel')}
           >
             <X className="w-6 h-6" />
           </button>
@@ -163,7 +165,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
             disabled={isSaving}
             className={`flex items-center justify-center p-2 rounded-xl font-medium shadow-sm transition-all active:scale-95 disabled:opacity-70 ${showSuccess ? 'bg-green-600 text-white' : 'bg-amber-600 hover:bg-amber-700 text-white'
               }`}
-            title={showSuccess ? '已儲存' : isSaving ? '儲存中...' : '儲存變更'}
+            title={showSuccess ? t('common.saved') : isSaving ? t('common.saving') : t('common.save_changes')}
           >
             {showSuccess ? <CheckCircle2 className="w-6 h-6" /> : <Save className="w-6 h-6" />}
           </button>

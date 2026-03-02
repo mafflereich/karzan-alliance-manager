@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Shield, LogOut, Settings, List, User, Lock, AlertCircle, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
 import { supabase } from '../supabase';
 
 const DOMAIN_SUFFIX = '@kazran.com';
 
 function LoginModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const { db, setCurrentUser } = useAppContext();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -26,14 +29,14 @@ function LoginModal({ onClose }: { onClose: () => void }) {
       });
 
       if (authError) {
-        throw new Error('帳號或密碼錯誤！');
+        throw new Error(t('header.wrong_credentials'));
       }
 
       setCurrentUser(username);
       onClose();
     } catch (error: any) {
       setError(error.message);
-      console.error('登入失敗:', error);
+      console.error(t('header.login_failed'), error);
     } finally {
       setLoading(false);
     }
@@ -44,7 +47,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
         <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center gap-2 text-stone-800">
-            <Shield className="w-6 h-6 text-amber-600" /> 管理員登入
+            <Shield className="w-6 h-6 text-amber-600" /> {t('header.admin_login')}
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
             <X className="w-5 h-5 text-stone-500" />
@@ -54,7 +57,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         <div className="p-6">
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-stone-600 mb-1">帳號</label>
+              <label className="block text-sm font-medium text-stone-600 mb-1">{t('header.account')}</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
@@ -63,13 +66,13 @@ function LoginModal({ onClose }: { onClose: () => void }) {
                   className="w-full pl-10 pr-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="請輸入帳號"
+                  placeholder={t('header.enter_account')}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-stone-600 mb-1">密碼</label>
+              <label className="block text-sm font-medium text-stone-600 mb-1">{t('header.password')}</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
@@ -78,7 +81,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
                   className="w-full pl-10 pr-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="請輸入密碼"
+                  placeholder={t('header.enter_password')}
                 />
               </div>
             </div>
@@ -96,7 +99,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
                 disabled={loading}
                 className="w-full py-2 bg-stone-800 text-white hover:bg-stone-700 rounded-lg font-medium transition-colors disabled:opacity-50"
               >
-                {loading ? '登入中...' : '登入'}
+                {loading ? t('header.logging_in') : t('header.login')}
               </button>
             </div>
           </form>
@@ -107,6 +110,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function Header() {
+  const { t } = useTranslation();
   const { db, currentUser, setCurrentUser, currentView, setCurrentView } = useAppContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
@@ -144,7 +148,7 @@ export default function Header() {
             onClick={() => setCurrentView(null)}
           >
             <Shield className="w-6 h-6 text-amber-500" />
-            Kazran 聯盟系統
+            {t('header.system_title')}
           </h1>
           <div className="flex items-center gap-4 text-sm font-medium">
             <button
@@ -152,7 +156,7 @@ export default function Header() {
               disabled={isCostumeListActive || !topGuildId}
               className={`flex items-center gap-2 transition-colors ${isCostumeListActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed'}`}
             >
-              <List className="w-4 h-4" /> 服裝列表
+              <List className="w-4 h-4" /> {t('header.costume_list')}
             </button>
 
             {currentUser ? (
@@ -163,7 +167,7 @@ export default function Header() {
                     disabled={isAdminActive}
                     className={`flex items-center gap-2 transition-colors ${isAdminActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400'}`}
                   >
-                    <Settings className="w-4 h-4" /> 後台設定
+                    <Settings className="w-4 h-4" /> {t('header.admin_settings')}
                   </button>
                 )}
 
@@ -171,7 +175,7 @@ export default function Header() {
                   onClick={handleLogout}
                   className="flex items-center gap-2 hover:text-amber-400 transition-colors"
                 >
-                  <LogOut className="w-4 h-4" /> 登出({currentUser})
+                  <LogOut className="w-4 h-4" /> {t('header.logout', { user: currentUser })}
                 </button>
               </>
             ) : (
@@ -180,7 +184,7 @@ export default function Header() {
                   onClick={() => setIsLoginModalOpen(true)}
                   className="flex items-center gap-2 hover:text-amber-400 transition-colors"
                 >
-                  <User className="w-4 h-4" /> 登入
+                  <User className="w-4 h-4" /> {t('header.login_btn')}
                 </button>
               </>
             )}

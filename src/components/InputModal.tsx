@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface InputModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface InputModalProps {
 }
 
 export default function InputModal({ isOpen, title, message, defaultValue = '', placeholder = '', onConfirm, onCancel }: InputModalProps) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(defaultValue);
 
   useEffect(() => {
@@ -57,14 +59,14 @@ export default function InputModal({ isOpen, title, message, defaultValue = '', 
               onClick={onCancel}
               className="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-lg transition-colors font-medium"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={!value.trim()}
               className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              確認
+              {t('common.confirm')}
             </button>
           </div>
         </form>

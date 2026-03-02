@@ -7,8 +7,10 @@ import Footer from '../components/Footer';
 import Header from '../components/Header';
 import { Role } from '../types';
 import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass, truncateName, getImageUrl } from '../utils';
+import { useTranslation } from 'react-i18next';
 
 export default function GuildDashboard({ guildId }: { guildId: string }) {
+  const { t } = useTranslation();
   const { db, setCurrentView, currentUser } = useAppContext();
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -26,7 +28,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     message: '',
     onConfirm: () => { },
     isDanger: false,
-    confirmText: "是的"
+    confirmText: t('common.yes')
   });
 
   const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -34,10 +36,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
   const handleEditClick = (id: string, memberName: string) => {
     setConfirmModal({
       isOpen: true,
-      title: '身分確認',
-      message: <>請問你是 「<b>{memberName}</b>」 嗎？</>,
+      title: t('dashboard.identity_confirm'),
+      message: <>{t('dashboard.are_you')} 「<b>{memberName}</b>」 {t('dashboard.question_mark')}</>,
       isDanger: false,
-      confirmText: "是的",
+      confirmText: t('common.yes'),
       onConfirm: () => {
         setEditingMemberId(id);
         closeConfirmModal();
@@ -57,13 +59,13 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
         <div className="flex-1 flex items-center justify-center bg-stone-100">
           <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-stone-200 max-w-md">
             <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-stone-800 mb-2">權限不足</h2>
-            <p className="text-stone-500 mb-6">您沒有權限查看此公會的資料。</p>
+            <h2 className="text-xl font-bold text-stone-800 mb-2">{t('errors.permission')}</h2>
+            <p className="text-stone-500 mb-6">{t('dashboard.no_permission')}</p>
             <button
               onClick={() => userGuildId && setCurrentView({ type: 'guild', guildId: userGuildId })}
               className="px-6 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-700 transition-colors"
             >
-              返回您的公會
+              {t('dashboard.return_to_guild')}
             </button>
           </div>
         </div>
@@ -180,7 +182,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
         `}>
           <div className="p-4 flex items-center justify-between border-b border-stone-800">
             <h2 className="font-bold text-white flex items-center gap-2">
-              公會列表
+              {t('dashboard.guild_list')}
             </h2>
             <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 hover:bg-stone-800 rounded">
               <X className="w-5 h-5" />
@@ -193,7 +195,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                 if (tierGuilds.length === 0) return null;
                 return (
                   <div key={tier}>
-                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-2 px-4 ${getTierTextColorDark(tier)}`}>梯隊 {tier}</h3>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-2 px-4 ${getTierTextColorDark(tier)}`}>{t('guilds.tier')} {tier}</h3>
                     <ul className="space-y-1">
                       {tierGuilds.map(([id, g]) => (
                         <li key={id}>
@@ -231,7 +233,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
             <div>
               <h1 className="font-bold text-xl text-stone-800">{guild.name}</h1>
               <p className={`text-xs font-medium ${members.length > 30 ? 'text-red-500 bg-red-50 px-1.5 py-0.5 rounded inline-block mt-1' : 'text-stone-500 mt-1'}`}>
-                成員數: {members.length} / 30
+                {t('dashboard.member_count')}: {members.length} / 30
               </p>
             </div>
           </header>
@@ -242,7 +244,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                 <div className="mb-2 flex items-center justify-between shrink-0">
                   <div className="text-xs text-stone-400 flex items-center gap-1">
                     <MoveHorizontal className="w-3 h-3" />
-                    <span>可左右拖曳或捲動查看完整表格</span>
+                    <span>{t('dashboard.scroll_hint')}</span>
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex-1 flex flex-col min-h-0">
@@ -257,7 +259,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                     <table className="w-full text-left border-collapse min-w-max">
                       <thead>
                         <tr className="bg-stone-50 text-stone-600">
-                          <th className="p-3 font-semibold sticky top-0 left-0 bg-stone-50 z-30 border-r border-b-2 border-stone-200 shadow-[1px_0_0_0_#e7e5e4]">成員</th>
+                          <th className="p-3 font-semibold sticky top-0 left-0 bg-stone-50 z-30 border-r border-b-2 border-stone-200 shadow-[1px_0_0_0_#e7e5e4]">{t('common.member')}</th>
                           {costumes.map(c => (
                             <th key={c.id} className="p-3 font-semibold text-center text-xs w-24 border-r border-b-2 border-stone-200 last:border-r-0 sticky top-0 bg-stone-50 z-20">
                               {c.imageName && (
@@ -277,7 +279,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                               <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={db.characters[c.characterId]?.name}>{db.characters[c.characterId]?.name}</div>
                             </th>
                           ))}
-                          <th className="p-3 font-semibold text-center sticky top-0 right-0 bg-stone-50 z-30 border-l border-b-2 border-stone-200 shadow-[-1px_0_0_0_#e7e5e4]">編輯</th>
+                          <th className="p-3 font-semibold text-center sticky top-0 right-0 bg-stone-50 z-30 border-l border-b-2 border-stone-200 shadow-[-1px_0_0_0_#e7e5e4]">{t('common.edit')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -287,10 +289,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
                                   <span title={member.name}>{truncateName(member.name)}</span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${member.role === '會長' ? 'bg-red-100 text-red-800' :
-                                    member.role === '副會長' ? 'bg-amber-100 text-amber-800' :
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${member.role === '會長' || member.role === 'Master' ? 'bg-red-100 text-red-800' :
+                                    member.role === '副會長' || member.role === 'Deputy' ? 'bg-amber-100 text-amber-800' :
                                       'bg-stone-200 text-stone-700'
-                                    }`}>{member.role}</span>
+                                    }`}>{member.role === '會長' || member.role === 'Master' ? t('roles.Master') : member.role === '副會長' || member.role === 'Deputy' ? t('roles.Deputy') : t('roles.Member')}</span>
                                 </div>
                                 {member.updatedAt && (
                                   <span className="text-[10px] text-stone-400 mt-0.5">
@@ -336,7 +338,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                               <button
                                 onClick={() => handleEditClick(id, member.name)}
                                 className="flex items-center justify-center p-2 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-lg transition-colors mx-auto"
-                                title="編輯"
+                                title={t('common.edit')}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
@@ -346,7 +348,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                         {members.length === 0 && (
                           <tr>
                             <td colSpan={costumes.length + 2} className="p-8 text-center text-stone-500">
-                              該公會目前沒有成員
+                              {t('dashboard.no_members')}
                             </td>
                           </tr>
                         )}

@@ -701,8 +701,8 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
     });
 
   const getMemberCount = (gId: string) => Object.values(db.members).filter((m: any) => m.guildId === gId).length;
-  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '會長');
-  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && m.role === '副會長');
+  const getGuildMaster = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && (m.role === '會長' || m.role === 'Master'));
+  const getGuildDeputy = (gId: string) => Object.entries(db.members).find(([_, m]: [string, any]) => m.guildId === gId && (m.role === '副會長' || m.role === 'Deputy'));
 
   const validateMoveOrAdd = (targetGId: string, role: Role, excludeMemberId?: string) => {
     if (!targetGId) return t('members.select_guild_required');
@@ -710,11 +710,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 
     // Check role limits only if role is changing or new member
     // This logic is simplified for now
-    if (role === '會長') {
+    if (role === '會長' || role === 'Master') {
       const master = getGuildMaster(targetGId);
       if (master && master[0] !== excludeMemberId) return t('members.guild_has_master');
     }
-    if (role === '副會長') {
+    if (role === '副會長' || role === 'Deputy') {
       const deputy = getGuildDeputy(targetGId);
       if (deputy && deputy[0] !== excludeMemberId) return t('members.guild_has_deputy');
     }
@@ -1020,11 +1020,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
                 <tr key={id} className="border-b border-stone-100 hover:bg-stone-50">
                   <td className="p-3 font-medium text-stone-800">{member.name}</td>
                   <td className="p-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.role === '會長' ? 'bg-red-100 text-red-800' :
-                      member.role === '副會長' ? 'bg-amber-100 text-amber-800' :
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${member.role === '會長' || member.role === 'Master' ? 'bg-red-100 text-red-800' :
+                      member.role === '副會長' || member.role === 'Deputy' ? 'bg-amber-100 text-amber-800' :
                         'bg-stone-200 text-stone-700'
                       }`}>
-                      {member.role === '會長' ? t('roles.Master') : member.role === '副會長' ? t('roles.Deputy') : t('roles.Member')}
+                      {member.role === '會長' || member.role === 'Master' ? t('roles.Master') : member.role === '副會長' || member.role === 'Deputy' ? t('roles.Deputy') : t('roles.Member')}
                     </span>
                   </td>
                   <td className="p-3 text-stone-500 text-sm">{member.note}</td>

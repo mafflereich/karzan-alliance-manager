@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useTranslation } from 'react-i18next';
+
 import { Key, User, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface AdminUser {
@@ -7,6 +9,7 @@ interface AdminUser {
 }
 
 export default function SinglePasswordUpdate() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedUsername, setSelectedUsername] = useState<string>('');
   const [newPassword, setNewPassword] = useState('');
@@ -36,7 +39,7 @@ export default function SinglePasswordUpdate() {
         }
       } catch (error: any) {
         console.error('Error fetching users:', error);
-        setStatus({ message: '無法取得使用者列表: ' + error.message, type: 'error' });
+        setStatus({ message: t('passwords.fetch_users_failed') + error.message, type: 'error' });
       } finally {
         setIsFetching(false);
       }
@@ -54,27 +57,27 @@ export default function SinglePasswordUpdate() {
     console.log("目前的登入狀態：", session);
 
     if (!session) {
-      setStatus({ message: "系統偵測到你尚未登入，請重新登入！", type: 'error' });
+      setStatus({ message: t('passwords.not_logged_in'), type: 'error' });
       return;
     }
 
     if (!selectedUsername) {
-      setStatus({ message: '請選擇使用者', type: 'error' });
+      setStatus({ message: t('passwords.select_user'), type: 'error' });
       return;
     }
 
     if (!newPassword || !confirmPassword) {
-      setStatus({ message: '請輸入密碼', type: 'error' });
+      setStatus({ message: t('passwords.enter_password'), type: 'error' });
       return;
     }
 
     if (newPassword.length < 6) {
-      setStatus({ message: '新密碼長度必須至少為 6 個字元', type: 'error' });
+      setStatus({ message: t('passwords.password_length'), type: 'error' });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setStatus({ message: '兩次輸入的密碼不一致', type: 'error' });
+      setStatus({ message: t('passwords.password_mismatch'), type: 'error' });
       return;
     }
 
@@ -103,16 +106,16 @@ console.log("Edge Function 詳細回傳內容：", data);
       // 🚨 回傳結果防呆處理
       const result = data.results[0];
       if (result.status === 'failed') {
-        setStatus({ message: `❌ 修改失敗：${result.reason}`, type: 'error' });
+        setStatus({ message: `❌ ${t('passwords.update_failed_reason')}${result.reason}`, type: 'error' });
         return;
       }
 
-      setStatus({ message: '✅ 密碼修改成功！', type: 'success' });
+      setStatus({ message: t('passwords.update_success'), type: 'success' });
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       console.error('Catch Error:', error);
-      setStatus({ message: '修改失敗: ' + (error.message || '發生未知錯誤'), type: 'error' });
+      setStatus({ message: t('passwords.update_failed') + (error.message || t('passwords.unknown_error')), type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -122,12 +125,12 @@ console.log("Edge Function 詳細回傳內容：", data);
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 max-w-md mx-auto">
       <div className="flex items-center gap-2 mb-6">
         <Key className="w-6 h-6 text-amber-600" />
-        <h2 className="text-xl font-bold text-stone-800">修改使用者密碼</h2>
+        <h2 className="text-xl font-bold text-stone-800">{t('passwords.single_update')}</h2>
       </div>
 
       <form onSubmit={handleUpdatePassword} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-stone-600 mb-1">選擇使用者</label>
+          <label className="block text-sm font-medium text-stone-600 mb-1">{t('passwords.select_user')}</label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
             <select
@@ -136,7 +139,7 @@ console.log("Edge Function 詳細回傳內容：", data);
               onChange={(e) => setSelectedUsername(e.target.value)}
               disabled={isFetching || isLoading}
             >
-              <option value="">-- {isFetching ? '載入中...' : '請選擇使用者'} --</option>
+              <option value="">-- {isFetching ? t('passwords.loading') : t('passwords.select_user')} --</option>
               {users.map((user) => (
                 <option key={user.username} value={user.username}>
                   {user.username}
@@ -149,11 +152,11 @@ console.log("Edge Function 詳細回傳內容：", data);
         {selectedUsername && (
           <>
             <div>
-              <label className="block text-sm font-medium text-stone-600 mb-1">新密碼</label>
+              <label className="block text-sm font-medium text-stone-600 mb-1">{t('passwords.new_password')}</label>
               <input
                 type="password"
                 className="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                placeholder="請輸入新密碼"
+                placeholder={t('passwords.enter_new_password')}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 disabled={isLoading}
@@ -161,11 +164,11 @@ console.log("Edge Function 詳細回傳內容：", data);
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-stone-600 mb-1">確認新密碼</label>
+              <label className="block text-sm font-medium text-stone-600 mb-1">{t('passwords.confirm_new_password')}</label>
               <input
                 type="password"
                 className="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
-                placeholder="請再次輸入新密碼"
+                placeholder={t('passwords.enter_new_password_again')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={isLoading}
@@ -189,10 +192,10 @@ console.log("Edge Function 詳細回傳內容：", data);
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  修改中...
+                  {t('passwords.updating')}
                 </>
               ) : (
-                '確認修改'
+                t('passwords.confirm_update')
               )}
             </button>
           </>

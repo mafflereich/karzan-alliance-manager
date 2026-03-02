@@ -4,8 +4,8 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import HttpBackend from 'i18next-http-backend';
 
 // 開發環境直接用 import，生產環境建議用 http-backend 非同步載入
-import zhTWCommon from './locales/zh-TW/common.json';
-import enCommon from './locales/en/common.json';
+import zhTW from '../locales/zh-TW/translation.json';
+import en from '../locales/en/translation.json';
 const savedLng = localStorage.getItem('i18nextLng') || 'zh-TW';
 
 i18n
@@ -18,12 +18,8 @@ i18n
 
         // 開發環境直接載入（熱重載方便）
         resources: {
-            'zh-TW': {
-                common: zhTWCommon,
-            },
-            en: {
-                common: enCommon,
-            },
+            'zh-TW': zhTW,
+            en: en,
         },
 
         // 生產環境改用 http-backend 從 public/locales 載入
@@ -31,7 +27,6 @@ i18n
         //   loadPath: '/locales/{{lng}}/{{ns}}.json',
         // },
 
-        ns: ['common'],                 // 命名空間（可多個）
         defaultNS: 'common',
 
         interpolation: {

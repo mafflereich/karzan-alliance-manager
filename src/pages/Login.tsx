@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Shield, Users, ChevronRight, Lock, X, AlertCircle } from 'lucide-react';
 import { getTierColor, getTierBorderHoverClass, getTierTextHoverClass } from '../utils';
+import { useTranslation } from 'react-i18next';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import { supabase } from '../supabase';
@@ -9,6 +10,7 @@ import { supabase } from '../supabase';
 const DOMAIN_SUFFIX = '@kazran.com';
 
 export default function Login() {
+  const { t } = useTranslation();
   const { db, setCurrentView, setCurrentUser, currentUser } = useAppContext();
   const [selectedGuildForLogin, setSelectedGuildForLogin] = useState<{ id: string, name: string } | null>(null);
   const [guildPassword, setGuildPassword] = useState('');
@@ -39,7 +41,7 @@ export default function Login() {
     const username = guild?.username;
 
     if (!username) {
-      setError('此公會尚未設定登入帳號');
+      setError(t('login.no_login_account'));
       return;
     }
 
@@ -55,14 +57,14 @@ export default function Login() {
       });
 
       if (authError) {
-        throw new Error('密碼錯誤');
+        throw new Error(t('login.wrong_password'));
       }
 
       setCurrentUser(username);
       setCurrentView({ type: 'guild', guildId: selectedGuildForLogin.id });
     } catch (error: any) {
       setError(error.message);
-      console.error('公會登入失敗:', error);
+      console.error(t('login.login_failed'), error);
     } finally {
       setIsVerifying(false);
     }
@@ -82,17 +84,17 @@ export default function Login() {
       <Header />
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-5xl transition-all duration-300">
-          <h1 className="text-3xl font-bold text-center mb-8 text-stone-800">Kazran 聯盟系統</h1>
+          <h1 className="text-3xl font-bold text-center mb-8 text-stone-800">{t('login.system_title')}</h1>
 
           <div className="space-y-8">
             <div className="p-6 border border-stone-200 rounded-xl bg-stone-50">
               <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <Users className="w-5 h-5" /> 選擇公會
+                <Users className="w-5 h-5" /> {t('login.select_guild')}
               </h2>
 
               {Object.keys(db.guilds).length === 0 ? (
                 <div className="text-center text-stone-500 py-8">
-                  目前沒有任何公會
+                  {t('login.no_guilds')}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -101,7 +103,7 @@ export default function Login() {
                     if (tierGuilds.length === 0) return null;
                     return (
                       <div key={tier} className="space-y-3">
-                        <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>梯隊 {tier}</h3>
+                        <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>{t('guilds.tier')} {tier}</h3>
                         {tierGuilds.map(([id, guild]: [string, any]) => {
                           const isDisabled = currentUser && !canSeeAllGuilds && id !== userGuildId;
                           return (
@@ -132,7 +134,7 @@ export default function Login() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
             <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
               <h2 className="text-xl font-bold flex items-center gap-2 text-stone-800">
-                <Shield className="w-6 h-6 text-amber-600" /> 進入 {selectedGuildForLogin.name}
+                <Shield className="w-6 h-6 text-amber-600" /> {t('login.enter_guild', { guildName: selectedGuildForLogin.name })}
               </h2>
               <button onClick={() => setSelectedGuildForLogin(null)} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
                 <X className="w-5 h-5 text-stone-500" />
@@ -142,7 +144,7 @@ export default function Login() {
             <div className="p-6">
               <form onSubmit={handleGuildLogin} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-stone-600 mb-1">公會密碼</label>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">{t('login.guild_password')}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                     <input
@@ -150,7 +152,7 @@ export default function Login() {
                       className="w-full pl-10 pr-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white"
                       value={guildPassword}
                       onChange={e => setGuildPassword(e.target.value)}
-                      placeholder="請輸入公會密碼"
+                      placeholder={t('login.enter_password')}
                       autoFocus
                     />
                   </div>
@@ -169,7 +171,7 @@ export default function Login() {
                     disabled={isVerifying}
                     className="w-full py-2 bg-stone-800 text-white hover:bg-stone-700 rounded-lg font-medium transition-colors disabled:opacity-50"
                   >
-                    {isVerifying ? '驗證中...' : '進入'}
+                    {isVerifying ? t('login.verifying') : t('login.enter')}
                   </button>
                 </div>
               </form>

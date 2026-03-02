@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType } from './types';
 import { supabase, supabaseInsert, supabaseUpdate, supabaseUpsert, toCamel } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { useTranslation } from 'react-i18next';
 import { formatDate } from './utils';
 
 const defaultData: Database = {
@@ -78,6 +79,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation();
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
   const [db, setDbState] = useState<Database>(defaultData);
@@ -118,7 +120,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (now - parseInt(loginTime, 10) > SESSION_TIMEOUT) {
             setCurrentUser(null);
             setCurrentView(null);
-            showToast('登入已超過 24 小時，請重新登入。', 'warning');
+            showToast(t('common.session_expired'), 'warning');
           }
         }
       }
@@ -216,7 +218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (error) {
       console.error("Error fetching members:", error);
       setIsOffline(true);
-      showToast("讀取成員列表失敗：權限不足。將切換至離線模式。", 'error');
+      showToast(t('common.fetch_members_failed'), 'error');
       return;
     }
 
@@ -281,7 +283,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (activeData) {
-      showToast(`已存在名為 ${name} 的活躍成員`, 'warning');
+      showToast(t('common.member_exists', { name }), 'warning');
       return;
     }
 
@@ -423,7 +425,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const archiveMember = async (memberId: string, fromGuildId: string, reason: string) => {
     if (isOffline) {
-      showToast("離線模式無法執行此操作", 'warning');
+      showToast(t('common.offline_warning'), 'warning');
       return;
     }
 
@@ -456,7 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const unarchiveMember = async (memberId: string, targetGuildId: string) => {
     if (isOffline) {
-      showToast("離線模式無法執行此操作", 'warning');
+      showToast(t('common.offline_warning'), 'warning');
       return;
     }
 
@@ -488,9 +490,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const archivedMember = toCamel(archivedData) as ArchivedMember;
 
     const latestHistory = archivedMember.membersArchiveHistory?.[0];
-    const archivedAt = latestHistory ? formatDate(latestHistory.archivedAt) : '未知時間';
+    const archivedAt = latestHistory ? formatDate(latestHistory.archivedAt) : t('common.unknown_time');
     const archiveCount = archivedMember.membersArchiveHistory?.length || 0;
-    const remark = `最後封存：${archivedAt} (共 ${archiveCount} 次)`;
+    const remark = t('common.archive_remark', { time: archivedAt, count: archiveCount });
 
     const { error: updateError } = await supabaseUpdate('members',
       {
@@ -732,7 +734,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await supabaseUpsert('settings', data.settings);
       }
 
-      showToast('資料還原成功！頁面即將重新整理。', 'success');
+      showToast(t('common.restore_success_msg'), 'success');
       setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
       console.error('Error restoring data:', error);
@@ -813,7 +815,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   if (!isLoaded) {
-    return <div className="min-h-screen flex items-center justify-center bg-stone-100 text-stone-500">載入中...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-stone-100 text-stone-500">{t('common.loading')}</div>;
   }
 
   return (
