@@ -162,29 +162,29 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     });
 
   return (
-    <div className="h-screen bg-stone-100 flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-stone-100 flex flex-col">
       <Header />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex">
         {/* Sidebar Overlay */}
         {isSidebarOpen && (
           <div
-            className="fixed inset-0 bg-stone-900/50 z-40 lg:hidden"
+            className="fixed inset-0 bg-stone-900/50 z-40"
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
         {/* Sidebar */}
         <aside className={`
-          fixed lg:sticky top-0 left-0 h-full w-64 bg-stone-900 text-stone-300 z-50
+          fixed top-0 left-0 h-full w-64 bg-stone-900 text-stone-300 z-50
           transform transition-transform duration-300 ease-in-out
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           flex flex-col
         `}>
           <div className="p-4 flex items-center justify-between border-b border-stone-800">
             <h2 className="font-bold text-white flex items-center gap-2">
               {t('dashboard.guild_list')}
             </h2>
-            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 hover:bg-stone-800 rounded">
+            <button onClick={() => setIsSidebarOpen(false)} className="p-1 hover:bg-stone-800 rounded">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -222,11 +222,11 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col">
           <header className="bg-white p-4 shadow-sm sticky top-0 z-20 flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-stone-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
             >
               <Menu className="w-6 h-6 text-stone-600" />
             </button>
@@ -238,19 +238,19 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
             </div>
           </header>
 
-          <main className="flex-1 overflow-hidden p-4 flex flex-col">
-            <div className="max-w-full mx-auto w-full min-h-full flex flex-col min-h-0">
-              <div className="flex-1 flex flex-col min-h-0">
+          <main className="flex-1 p-4 flex flex-col">
+            <div className="max-w-full mx-auto w-full flex flex-col">
+              <div className="flex flex-col">
                 <div className="mb-2 flex items-center justify-between shrink-0">
                   <div className="text-xs text-stone-400 flex items-center gap-1">
                     <MoveHorizontal className="w-3 h-3" />
                     <span>{t('dashboard.scroll_hint')}</span>
                   </div>
                 </div>
-                <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
                   <div
                     ref={scrollRef}
-                    className={`overflow-auto flex-1 cursor-grab overflow-x-auto overflow-y-auto [&::-webkit-scrollbar:horizontal]:hidden ${isDragging ? 'cursor-grabbing select-none' : ''}`}
+                    className={`overflow-x-auto cursor-grab [&::-webkit-scrollbar:horizontal]:hidden ${isDragging ? 'cursor-grabbing select-none' : ''}`}
                     onMouseDown={handleMouseDown}
                     onMouseLeave={handleMouseLeave}
                     onMouseUp={handleMouseUp}

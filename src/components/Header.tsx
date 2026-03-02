@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
-import { Shield, LogOut, Settings, List, User, Lock, AlertCircle, X, Globe, Volume2, VolumeX } from 'lucide-react';
+import { Shield, LogOut, Settings, Users, User, Lock, AlertCircle, X, Globe, Volume2, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { supabase } from '../supabase';
@@ -142,33 +142,35 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-stone-900 text-white p-4 shadow-md shrink-0">
+      <header className="bg-stone-900 text-white p-4 shadow-md shrink-0 relative z-[100]">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <h1
             className="text-xl font-bold flex items-center gap-2 cursor-pointer hover:text-amber-400 transition-colors"
             onClick={() => setCurrentView(null)}
           >
             <Shield className="w-6 h-6 text-amber-500" />
-            {t('header.system_title')}
+            <span className="hidden sm:inline">{t('header.system_title')}</span>
           </h1>
-          <div className="flex items-center gap-4 text-sm font-medium">
+          <div className="flex items-center gap-6 text-sm font-medium">
             <button
               onClick={() => topGuildId && setCurrentView({ type: 'guild', guildId: topGuildId })}
               disabled={isCostumeListActive || !topGuildId}
               className={`flex items-center gap-2 transition-colors ${isCostumeListActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed'}`}
             >
-              <List className="w-4 h-4" /> {t('header.costume_list')}
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('header.costume_list')}</span>
             </button>
 
             {currentUser ? (
-              <>
+              <div className="flex items-center gap-6">
                 {canAccessAdmin && (
                   <button
                     onClick={() => setCurrentView({ type: 'admin' })}
                     disabled={isAdminActive}
                     className={`flex items-center gap-2 transition-colors ${isAdminActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400'}`}
                   >
-                    <Settings className="w-4 h-4" /> {t('header.admin_settings')}
+                    <Settings className="w-4 h-4" />
+                    <span className="hidden sm:inline">{t('header.admin_settings')}</span>
                   </button>
                 )}
 
@@ -176,65 +178,67 @@ export default function Header() {
                   onClick={handleLogout}
                   className="flex items-center gap-2 hover:text-amber-400 transition-colors"
                 >
-                  <LogOut className="w-4 h-4" /> {t('header.logout', { user: currentUser })}
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">{t('header.logout', { user: currentUser })}</span>
                 </button>
-              </>
+              </div>
             ) : (
-              <>
-                <button
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="flex items-center gap-2 hover:text-amber-400 transition-colors"
-                >
-                  <User className="w-4 h-4" /> {t('header.login_btn')}
-                </button>
-              </>
+              <button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="flex items-center gap-2 hover:text-amber-400 transition-colors"
+              >
+                <User className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('header.login_btn')}</span>
+              </button>
             )}
 
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="flex items-center justify-center hover:text-amber-400 transition-colors p-1"
-              title={isMuted ? t('common.unmute') : t('common.mute')}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-
-            <div className="relative">
+            <div className="flex items-center gap-4 border-l border-stone-800 pl-4">
               <button
-                onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+                onClick={() => setIsMuted(!isMuted)}
                 className="flex items-center justify-center hover:text-amber-400 transition-colors p-1"
-                title={t('footer.language')}
+                title={isMuted ? t('common.unmute') : t('common.mute')}
               >
-                <Globe className="w-4 h-4" />
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
 
-              {isLangDropdownOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setIsLangDropdownOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-32 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-20 overflow-hidden">
-                    <button
-                      onClick={() => {
-                        i18n.changeLanguage('zh-TW');
-                        setIsLangDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-xs hover:bg-stone-700 transition-colors ${i18n.language === 'zh-TW' ? 'text-amber-500 font-bold' : 'text-stone-300'}`}
-                    >
-                      繁體中文
-                    </button>
-                    <button
-                      onClick={() => {
-                        i18n.changeLanguage('en');
-                        setIsLangDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-xs hover:bg-stone-700 transition-colors ${i18n.language === 'en' ? 'text-amber-500 font-bold' : 'text-stone-300'}`}
-                    >
-                      English
-                    </button>
-                  </div>
-                </>
-              )}
+              <div className="relative">
+                <button
+                  onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+                  className="flex items-center justify-center hover:text-amber-400 transition-colors p-1"
+                  title={t('footer.language')}
+                >
+                  <Globe className="w-4 h-4" />
+                </button>
+
+                {isLangDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-[90]"
+                      onClick={() => setIsLangDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-32 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-[100] overflow-hidden">
+                      <button
+                        onClick={() => {
+                          i18n.changeLanguage('zh-TW');
+                          setIsLangDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-xs hover:bg-stone-700 transition-colors ${i18n.language === 'zh-TW' ? 'text-amber-500 font-bold' : 'text-stone-300'}`}
+                      >
+                        繁體中文
+                      </button>
+                      <button
+                        onClick={() => {
+                          i18n.changeLanguage('en');
+                          setIsLangDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-xs hover:bg-stone-700 transition-colors ${i18n.language === 'en' ? 'text-amber-500 font-bold' : 'text-stone-300'}`}
+                      >
+                        English
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

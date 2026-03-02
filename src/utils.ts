@@ -58,7 +58,7 @@ export const getTierTextHoverClass = (tier: number) => {
   }
 };
 
-export const truncateName = (name: string, maxLength: number = 14) => {
+export const truncateName = (name: string, maxLength: number = 10) => {
   let currentLength = 0;
   let truncated = '';
   for (let i = 0; i < name.length; i++) {
