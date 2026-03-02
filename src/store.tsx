@@ -45,13 +45,13 @@ interface AppContextType {
   deleteGuild: (guildId: string) => Promise<void>;
 
   // Character functions
-  addCharacter: (name: string, order: number) => Promise<void>;
+  addCharacter: (name: string, order: number, nameE?: string) => Promise<void>;
   updateCharacter: (characterId: string, data: Partial<Character>) => Promise<void>;
   deleteCharacter: (characterId: string) => Promise<void>;
   updateCharactersOrder: (newOrder: Character[]) => Promise<void>;
 
   // Costume functions
-  addCostume: (characterId: string, name: string, order: number) => Promise<void>;
+  addCostume: (characterId: string, name: string, order: number, nameE?: string) => Promise<void>;
   updateCostume: (costumeId: string, data: Partial<Costume>) => Promise<void>;
   deleteCostume: (costumeId: string) => Promise<void>;
   updateCostumesOrder: (newOrder: Costume[]) => Promise<void>;
@@ -546,8 +546,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addCharacter = async (name: string, order: number) => {
-    const newChar = { id: uuidv4(), name, orderNum: order };
+  const addCharacter = async (name: string, order: number, nameE: string = '') => {
+    const newChar = { id: uuidv4(), name, nameE, orderNum: order };
     const { data, error } = await supabaseInsert('characters', newChar);
     if (error) {
       console.error('Error adding character:', error);
@@ -621,8 +621,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addCostume = async (characterId: string, name: string, order: number) => {
-    const newCostume = { id: uuidv4(), characterId: characterId, name, orderNum: order, isNew: false };
+  const addCostume = async (characterId: string, name: string, order: number, nameE: string = '') => {
+    const newCostume = { id: uuidv4(), characterId: characterId, name, nameE, orderNum: order, isNew: false };
     const { data, error } = await supabaseInsert('costumes', newCostume);
     if (error) {
       console.error('Error adding costume:', error);

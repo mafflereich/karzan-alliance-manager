@@ -29,6 +29,7 @@ export interface Member {
 export interface Character {
   id: string;
   name: string;
+  nameE?: string;
   orderNum: number;
   imageName?: string;
 }
@@ -36,6 +37,7 @@ export interface Character {
 export interface Costume {
   id: string;
   name: string;
+  nameE?: string;
   characterId: string;
   imageName?: string;
   orderNum?: number;

@@ -10,7 +10,7 @@ import { getTierTextColorDark, getTierHighlightClass, getTierHoverClass, truncat
 import { useTranslation } from 'react-i18next';
 
 export default function GuildDashboard({ guildId }: { guildId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { db, setCurrentView, currentUser } = useAppContext();
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -266,7 +266,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                                 <div className="w-[50px] h-[50px] mx-auto mb-2 bg-stone-100 rounded-lg overflow-hidden border border-stone-200">
                                   <img
                                     src={getImageUrl(c.imageName)}
-                                    alt={c.name}
+                                    alt={i18n.language === 'en' ? (c.nameE || c.name) : c.name}
                                     className="w-full h-full object-cover"
                                     referrerPolicy="no-referrer"
                                     onError={(e) => {
@@ -275,8 +275,8 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                                   />
                                 </div>
                               )}
-                              <div className="truncate w-20 mx-auto" title={c.name}>{c.name}</div>
-                              <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={db.characters[c.characterId]?.name}>{db.characters[c.characterId]?.name}</div>
+                              <div className="truncate w-20 mx-auto" title={i18n.language === 'en' ? (c.nameE || c.name) : c.name}>{i18n.language === 'en' ? (c.nameE || c.name) : c.name}</div>
+                              <div className="text-[10px] text-stone-400 mt-1 truncate w-20 mx-auto" title={i18n.language === 'en' ? (db.characters[c.characterId]?.nameE || db.characters[c.characterId]?.name) : db.characters[c.characterId]?.name}>{i18n.language === 'en' ? (db.characters[c.characterId]?.nameE || db.characters[c.characterId]?.name) : db.characters[c.characterId]?.name}</div>
                             </th>
                           ))}
                           <th className="p-3 font-semibold text-center sticky top-0 right-0 bg-stone-50 z-30 border-l border-b-2 border-stone-200 shadow-[-1px_0_0_0_#e7e5e4]">{t('common.edit')}</th>

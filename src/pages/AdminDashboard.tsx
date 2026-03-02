@@ -1138,7 +1138,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 }
 
 function CostumesManager() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { db, addCharacter, updateCharacter, deleteCharacter, addCostume, updateCostume, deleteCostume, updateCharactersOrder, updateCostumesOrder, showToast } = useAppContext();
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedCostumeId, setSelectedCostumeId] = useState<string | null>(null);
@@ -1167,8 +1167,10 @@ function CostumesManager() {
 
   // Edit states
   const [editCharacterName, setEditCharacterName] = useState('');
+  const [editCharacterNameE, setEditCharacterNameE] = useState('');
   const [editCharacterOrder, setEditCharacterOrder] = useState(0);
   const [editCostumeName, setEditCostumeName] = useState('');
+  const [editCostumeNameE, setEditCostumeNameE] = useState('');
   const [editCostumeOrder, setEditCostumeOrder] = useState(0);
   const [editCostumeImageName, setEditCostumeImageName] = useState('');
   const [editCostumeIsNew, setEditCostumeIsNew] = useState(false);
@@ -1226,6 +1228,7 @@ function CostumesManager() {
   useEffect(() => {
     if (selectedCharacter) {
       setEditCharacterName(selectedCharacter.name);
+      setEditCharacterNameE(selectedCharacter.nameE ?? '');
       setEditCharacterOrder(selectedCharacter.orderNum);
     } else {
       setSelectedCharacterId(null);
@@ -1235,6 +1238,7 @@ function CostumesManager() {
   useEffect(() => {
     if (selectedCostume) {
       setEditCostumeName(selectedCostume.name);
+      setEditCostumeNameE(selectedCostume.nameE ?? '');
       setEditCostumeOrder(selectedCostume.orderNum ?? 0);
       setEditCostumeImageName(selectedCostume.imageName ?? '');
       setEditCostumeIsNew(selectedCostume.isNew ?? false);
@@ -1297,7 +1301,11 @@ function CostumesManager() {
 
   const handleUpdateCharacter = async () => {
     if (!selectedCharacterId) return;
-    await updateCharacter(selectedCharacterId, { name: editCharacterName, orderNum: editCharacterOrder });
+    await updateCharacter(selectedCharacterId, { 
+      name: editCharacterName, 
+      nameE: editCharacterNameE,
+      orderNum: editCharacterOrder 
+    });
     showToast(t('costumes.update_character_success'), 'success');
   };
 
@@ -1347,6 +1355,7 @@ function CostumesManager() {
     if (!selectedCostumeId) return;
     await updateCostume(selectedCostumeId, {
       name: editCostumeName,
+      nameE: editCostumeNameE,
       orderNum: editCostumeOrder,
       imageName: editCostumeImageName,
       isNew: editCostumeIsNew
@@ -1389,7 +1398,7 @@ function CostumesManager() {
                   <Reorder.Item key={char.id} value={char} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
                     <GripVertical className="w-4 h-4 text-stone-400" />
                     <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-8 h-8 rounded-md object-cover" />
-                    <span>{char.name}</span>
+                    <span>{i18n.language === 'en' ? (char.nameE || char.name) : char.name}</span>
                   </Reorder.Item>
                 ))}
               </Reorder.Group>
@@ -1406,7 +1415,7 @@ function CostumesManager() {
                   onClick={() => handleSelectCharacter(char.id)}
                   className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCharacterId === char.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
                   <img src={getImageUrl(Object.values(db.costumes).find(c => c.characterId === char.id)?.imageName)} alt={char.name} className="w-10 h-10 rounded-md object-cover" />
-                  <span>{char.name}</span>
+                  <span>{i18n.language === 'en' ? (char.nameE || char.name) : char.name}</span>
                 </button>
               ))}
             </div>
@@ -1416,7 +1425,7 @@ function CostumesManager() {
         {/* Costumes Column */}
         <div className="col-span-4 bg-stone-50 rounded-xl border border-stone-200 p-4 overflow-y-auto flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">{selectedCharacter?.name || t('costumes.costume')}</h3>
+            <h3 className="text-lg font-semibold">{selectedCharacter ? (i18n.language === 'en' ? (selectedCharacter.nameE || selectedCharacter.name) : selectedCharacter.name) : t('costumes.costume')}</h3>
             {selectedCharacterId && (
               <div className="flex gap-1">
                 {saveSuccess === 'costume' && (
@@ -1445,7 +1454,7 @@ function CostumesManager() {
                     <Reorder.Item key={costume.id} value={costume} className="bg-white p-2 rounded-lg shadow-sm border border-stone-200 flex items-center gap-3 cursor-grab active:cursor-grabbing">
                       <GripVertical className="w-4 h-4 text-stone-400" />
                       <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-8 h-8 rounded-md object-cover" />
-                      <span>{costume.name}</span>
+                      <span>{i18n.language === 'en' ? (costume.nameE || costume.name) : costume.name}</span>
                     </Reorder.Item>
                   ))}
                 </Reorder.Group>
@@ -1462,7 +1471,7 @@ function CostumesManager() {
                     onClick={() => setSelectedCostumeId(costume.id)}
                     className={`w-full text-left p-2 rounded-lg flex items-center gap-3 ${selectedCostumeId === costume.id ? 'bg-amber-100 text-amber-800' : 'hover:bg-stone-200'}`}>
                     <img src={getImageUrl(costume.imageName)} alt={costume.name} className="w-10 h-10 rounded-md object-cover" />
-                    <span>{costume.name}</span>
+                    <span>{i18n.language === 'en' ? (costume.nameE || costume.name) : costume.name}</span>
                     {costume.isNew && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">NEW</span>}
                   </button>
                 ))}
@@ -1479,6 +1488,10 @@ function CostumesManager() {
               <div>
                 <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.costume_name')}</label>
                 <input type="text" value={editCostumeName} onChange={e => setEditCostumeName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.costume_name')} (EN)</label>
+                <input type="text" value={editCostumeNameE} onChange={e => setEditCostumeNameE(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.order')}</label>
@@ -1510,6 +1523,10 @@ function CostumesManager() {
               <div>
                 <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.character_name')}</label>
                 <input type="text" value={editCharacterName} onChange={e => setEditCharacterName(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.character_name')} (EN)</label>
+                <input type="text" value={editCharacterNameE} onChange={e => setEditCharacterNameE(e.target.value)} className="w-full p-2 border border-stone-300 rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-stone-600 mb-1">{t('costumes.order')}</label>

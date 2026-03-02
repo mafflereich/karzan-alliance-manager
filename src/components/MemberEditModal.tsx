@@ -6,7 +6,7 @@ import ConfirmModal from './ConfirmModal';
 import { useTranslation } from 'react-i18next';
 
 export default function MemberEditModal({ memberId, onClose }: { memberId: string, onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { db, updateMember, showToast } = useAppContext();
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -68,7 +68,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
             return (
               <div key={character.id} className={`bg-white rounded-xl shadow-sm border ${hasExclusiveWeapon ? 'border-orange-400' : 'border-stone-200'} overflow-hidden`}>
                 <div className="bg-stone-50 px-5 py-3 border-b border-stone-200 flex justify-between items-center">
-                  <h3 className="font-bold text-stone-800">{character.name}</h3>
+                  <h3 className="font-bold text-stone-800">{i18n.language === 'en' ? (character.nameE || character.name) : character.name}</h3>
                   <label className="flex items-center gap-2 cursor-pointer group bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 active:bg-stone-100 transition-colors shrink-0">
                     <Swords className={`w-4 h-4 transition-colors ${hasExclusiveWeapon ? 'text-amber-600' : 'text-stone-400'}`} />
                     <span className={`text-sm font-bold ${hasExclusiveWeapon ? 'text-amber-700' : 'text-stone-500'}`}>{t('common.ur_exclusive')}</span>
@@ -95,7 +95,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
                             <div className="w-[40px] h-[40px] bg-stone-100 rounded-lg overflow-hidden border border-stone-200 flex-shrink-0">
                               <img
                                 src={getImageUrl(costume.imageName)}
-                                alt={costume.name}
+                                alt={i18n.language === 'en' ? (costume.nameE || costume.name) : costume.name}
                                 className="w-full h-full object-cover"
                                 referrerPolicy="no-referrer"
                                 onError={(e) => {
@@ -105,7 +105,7 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
                             </div>
                           )}
                           <div className="font-medium text-stone-800">
-                            {costume.name}
+                            {i18n.language === 'en' ? (costume.nameE || costume.name) : costume.name}
                           </div>
                         </div>
                         <div className="flex items-center justify-between gap-4">
