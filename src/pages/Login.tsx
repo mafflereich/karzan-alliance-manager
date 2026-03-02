@@ -49,7 +49,7 @@ export default function Login() {
     setError('');
     
     try {
-      const formattedEmail = `${username}${DOMAIN_SUFFIX}`;
+      const formattedEmail = `${username.toLowerCase()}${DOMAIN_SUFFIX}`;
 
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: formattedEmail,
@@ -60,7 +60,7 @@ export default function Login() {
         throw new Error(t('login.wrong_password'));
       }
 
-      setCurrentUser(username);
+      setCurrentUser(username.toLowerCase());
       setCurrentView({ type: 'guild', guildId: selectedGuildForLogin.id });
     } catch (error: any) {
       setError(error.message);

@@ -21,7 +21,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
     setError('');
 
     try {
-      const formattedEmail = `${username}${DOMAIN_SUFFIX}`;
+      const formattedEmail = `${username.toLowerCase()}${DOMAIN_SUFFIX}`;
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: formattedEmail,
@@ -32,7 +32,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         throw new Error(t('header.wrong_credentials'));
       }
 
-      setCurrentUser(username);
+      setCurrentUser(username.toLowerCase());
       onClose();
     } catch (error: any) {
       setError(error.message);
