@@ -152,7 +152,7 @@ function ToolsManager() {
             const member = memberList.find((member) => member.name == memberName);
 
             const guildId = guildListInDB.find((guild) => guild.name == guildName)?.id;
-            const role = guildLeaderList[`@${memberName}`]?.replaceAll(/<|>/g, "") ?? "成員";
+            const role = guildLeaderList[`@${memberName}`]?.replaceAll(/<|>/g, "") ?? "member";
 
             if (!member && !memberName.match(/Vacancy/) && memberName) {
               await addMember(guildId, memberName, role, "");
@@ -640,7 +640,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{ name: string, role: Role, note: string, targetGuildId: string }>({
     name: '',
-    role: '成員',
+    role: 'member',
     note: '',
     targetGuildId: db.guilds[guildId]?.id
   });
