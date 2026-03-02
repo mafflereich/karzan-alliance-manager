@@ -232,9 +232,9 @@
     "enter": "Enter"
   },
   "roles": {
-    "Master": "Master",
-    "Deputy": "Deputy",
-    "Member": "Member"
+    "leader": "Leader",
+    "coleader": "Co-leader",
+    "member": "Member"
   },
   "nav": {
     "guild_management": "Guild Management",

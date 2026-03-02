@@ -232,9 +232,9 @@
     "enter": "進入"
   },
   "roles": {
-    "Master": "會長",
-    "Deputy": "副會長",
-    "Member": "成員"
+    "leader": "會長",
+    "coleader": "副會長",
+    "member": "成員"
   },
   "nav": {
     "guild_management": "公會管理",

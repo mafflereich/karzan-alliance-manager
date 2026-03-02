@@ -269,7 +269,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDbState(value);
   };
 
-  const addMember = async (guildId: string, name: string, role: Role = '成員', note: string = '') => {
+  const addMember = async (guildId: string, name: string, role: Role = 'member', note: string = '') => {
     // Check if member already exists in active status
     const { data: activeData, error: activeError } = await supabase
       .from('members')

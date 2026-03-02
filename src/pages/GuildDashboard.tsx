@@ -103,9 +103,9 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     .filter(([_, m]: [string, any]) => m.guildId === guildId)
     .sort((a: [string, any], b: [string, any]) => {
       const roleOrder: Record<string, number> = {
-        '會長': 1, 'Master': 1,
-        '副會長': 2, 'Deputy': 2,
-        '成員': 3, 'Member': 3
+        'leader': 1,
+        'coleader': 2,
+        'member': 3
       };
       const orderA = roleOrder[a[1].role] || 99;
       const orderB = roleOrder[b[1].role] || 99;
@@ -289,10 +289,10 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
                                   <span title={member.name}>{truncateName(member.name)}</span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${member.role === '會長' || member.role === 'Master' ? 'bg-red-100 text-red-800' :
-                                    member.role === '副會長' || member.role === 'Deputy' ? 'bg-amber-100 text-amber-800' :
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${member.role === 'leader' ? 'bg-red-100 text-red-800' :
+                                    member.role === 'coleader' ? 'bg-amber-100 text-amber-800' :
                                       'bg-stone-200 text-stone-700'
-                                    }`}>{member.role === '會長' || member.role === 'Master' ? t('roles.Master') : member.role === '副會長' || member.role === 'Deputy' ? t('roles.Deputy') : t('roles.Member')}</span>
+                                    }`}>{member.role === 'leader' ? t('roles.leader') : member.role === 'coleader' ? t('roles.coleader') : t('roles.member')}</span>
                                 </div>
                                 {member.updatedAt && (
                                   <span className="text-[10px] text-stone-400 mt-0.5">
