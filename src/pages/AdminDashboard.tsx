@@ -640,7 +640,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{ name: string, role: Role, note: string, targetGuildId: string }>({
     name: '',
-    role: '成員',
+    role: 'member',
     note: '',
     targetGuildId: db.guilds[guildId]?.id
   });
