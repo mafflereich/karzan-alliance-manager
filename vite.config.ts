@@ -7,7 +7,7 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
-    base: '/kazran-alliance-manager/', // 這裡要填你在 GitHub 上的專案名稱 (Repository Name)
+    base: mode === 'production' ? '/kazran-alliance-manager/' : '/', // 自動切換 GitHub Pages 路徑與開發路徑
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

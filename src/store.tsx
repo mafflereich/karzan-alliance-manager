@@ -15,10 +15,6 @@ const defaultData: Database = {
     "creator": { username: "creator", role: "creator" },
     "admin": { username: "admin", role: "admin" },
     "manager": { username: "manager", role: "manager" }
-  },
-  settings: {
-    sitePassword: "bd2",
-    redirectUrl: "https://www.browndust2.com/"
   }
 };
 
@@ -60,12 +56,11 @@ interface AppContextType {
   deleteCostume: (costumeId: string) => Promise<void>;
   updateCostumesOrder: (newOrder: Costume[]) => Promise<void>;
 
-  // User and settings functions
+  // User functions
   updateUserPassword: (username: string, password: string) => Promise<void>;
   updateUserRole: (username: string, role: User['role']) => Promise<void>;
   addUser: (user: User) => Promise<void>;
   deleteUser: (username: string) => Promise<void>;
-  updateSettings: (data: Partial<Database['settings']>) => Promise<void>;
 
   // Data management
   restoreData: (data: Partial<Database>) => Promise<void>;
@@ -156,19 +151,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [guildsRes, charactersRes, costumesRes, usersRes, settingsRes] = await Promise.all([
+        const [guildsRes, charactersRes, costumesRes, usersRes] = await Promise.all([
           supabase.from('guilds').select('*'),
           supabase.from('characters').select('*'),
           supabase.from('costumes').select('*'),
           supabase.from('admin_users').select('*'),
-          supabase.from('settings').select('*').limit(1).single(),
         ]);
 
         if (guildsRes.error) throw guildsRes.error;
         if (charactersRes.error) throw charactersRes.error;
         if (costumesRes.error) throw costumesRes.error;
         if (usersRes.error) throw usersRes.error;
-        if (settingsRes.error) throw settingsRes.error;
 
         const guilds = guildsRes.data.reduce((acc, guild) => ({ ...acc, [guild.id]: toCamel(guild) }), {});
         const characters = charactersRes.data.reduce((acc, char) => ({ ...acc, [char.id]: toCamel(char) }), {});
@@ -181,7 +174,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           characters,
           costumes,
           users,
-          settings: settingsRes.data ? toCamel<Database['settings']>(settingsRes.data) : defaultData.settings,
         }));
 
         setLoadedStates({ global: true, guilds: true, costumes: true, characters: true, users: true });
@@ -730,9 +722,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (data.users) {
         await supabaseUpsert('admin_users', Object.values(data.users));
       }
-      if (data.settings) {
-        await supabaseUpsert('settings', data.settings);
-      }
 
       showToast(t('common.restore_success_msg'), 'success');
       setTimeout(() => window.location.reload(), 2000);
@@ -797,23 +786,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateSettings = async (data: Partial<Database['settings']>) => {
-    const { data: currentSettingsData, error } = await supabase.from('settings').select('*').limit(1).single();
-    if (error && error.code !== 'PGRST116') { // Ignore 'not found' error
-      console.error('Error fetching settings:', error);
-      return;
-    }
-
-    const currentSettings = currentSettingsData ? toCamel<Database['settings']>(currentSettingsData) : {};
-    const newSettings = { ...currentSettings, ...data };
-    await supabaseUpsert('settings', newSettings);
-
-    setDbState(prev => ({
-      ...prev,
-      settings: { ...prev.settings, ...data }
-    }));
-  };
-
   if (!isLoaded) {
     return <div className="min-h-screen flex items-center justify-center bg-stone-100 text-stone-500">{t('common.loading')}</div>;
   }
@@ -825,7 +797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addGuild, updateGuild, deleteGuild,
       addCharacter, updateCharacter, deleteCharacter, updateCharactersOrder,
       addCostume, updateCostume, deleteCostume, updateCostumesOrder,
-      updateUserPassword, updateUserRole, addUser, deleteUser, updateSettings,
+      updateUserPassword, updateUserRole, addUser, deleteUser,
       restoreData,
       toasts, showToast, removeToast
     }}>

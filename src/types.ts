@@ -54,10 +54,6 @@ export interface Database {
   characters: Record<string, Character>;
   costumes: Record<string, Costume>;
   users: Record<string, User>;
-  settings: {
-    sitePassword?: string;
-    redirectUrl?: string;
-  };
 }
 export interface ArchiveHistory {
   id: string;
