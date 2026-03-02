@@ -48,8 +48,8 @@ export default function MemberEditModal({ memberId, onClose }: { memberId: strin
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
-      <div className="bg-stone-100 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[110] flex items-start justify-center p-4 bg-stone-900/60 backdrop-blur-sm pt-[80px]">
+      <div className="bg-stone-100 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[calc(100vh-120px)] flex flex-col overflow-hidden">
         <div className="bg-white px-6 py-4 border-b border-stone-200 flex justify-between items-center sticky top-0 z-10">
           <div>
             <h2 className="text-xl font-bold text-stone-800">{t('common.edit_member_title', { name: member.name })}</h2>

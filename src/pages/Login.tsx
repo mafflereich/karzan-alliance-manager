@@ -130,7 +130,7 @@ export default function Login() {
       <Footer />
 
       {selectedGuildForLogin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
             <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
               <h2 className="text-xl font-bold flex items-center gap-2 text-stone-800">

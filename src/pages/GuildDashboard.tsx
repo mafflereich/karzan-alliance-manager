@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../store';
-import { ChevronLeft, Edit2, Menu, X, Shield, Swords, MoveHorizontal } from 'lucide-react';
+import { ChevronLeft, Edit2, Menu, X, Shield, Swords } from 'lucide-react';
 import MemberEditModal from '../components/MemberEditModal';
 import ConfirmModal from '../components/ConfirmModal';
 import Footer from '../components/Footer';
@@ -14,6 +14,19 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
   const { db, setCurrentView, currentUser } = useAppContext();
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const getTruncatedName = (name: string, role: string) => {
+    if (!isMobile) return truncateName(name, 20);
+    if (role === 'leader' || role === 'coleader') return truncateName(name, 8);
+    return truncateName(name, 14);
+  };
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -162,9 +175,9 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     });
 
   return (
-    <div className="min-h-screen bg-stone-100 flex flex-col">
+    <div className="h-screen bg-stone-100 flex flex-col overflow-hidden">
       <Header />
-      <div className="flex-1 flex">
+      <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Overlay */}
         {isSidebarOpen && (
           <div
@@ -222,35 +235,30 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          <header className="bg-white p-4 shadow-sm sticky top-0 z-20 flex items-center gap-4">
+        <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
+          <header className="bg-white px-4 py-2 shadow-sm flex items-center gap-4 shrink-0">
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
             >
-              <Menu className="w-6 h-6 text-stone-600" />
+              <Menu className="w-5 h-5 text-stone-600" />
             </button>
-            <div>
-              <h1 className="font-bold text-xl text-stone-800">{guild.name}</h1>
-              <p className={`text-xs font-medium ${members.length > 30 ? 'text-red-500 bg-red-50 px-1.5 py-0.5 rounded inline-block mt-1' : 'text-stone-500 mt-1'}`}>
+            <div className="flex items-baseline gap-3">
+              <h1 className="font-bold text-lg text-stone-800">{guild.name}</h1>
+              <span className={`text-xs font-medium ${members.length > 30 ? 'text-red-500 bg-red-50 px-1.5 py-0.5 rounded' : 'text-stone-500'}`}>
                 {t('dashboard.member_count')}: {members.length} / 30
-              </p>
+              </span>
             </div>
           </header>
 
-          <main className="flex-1 p-4 flex flex-col">
-            <div className="max-w-full mx-auto w-full flex flex-col">
-              <div className="flex flex-col">
-                <div className="mb-2 flex items-center justify-between shrink-0">
-                  <div className="text-xs text-stone-400 flex items-center gap-1">
-                    <MoveHorizontal className="w-3 h-3" />
-                    <span>{t('dashboard.scroll_hint')}</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+          <main className="flex-1 overflow-hidden p-4 flex flex-col">
+            <div className="max-w-full mx-auto w-full h-full flex flex-col min-h-0">
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="mb-2 shrink-0" />
+                <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex-1 flex flex-col min-h-0">
                   <div
                     ref={scrollRef}
-                    className={`overflow-x-auto cursor-grab [&::-webkit-scrollbar:horizontal]:hidden ${isDragging ? 'cursor-grabbing select-none' : ''}`}
+                    className={`overflow-auto flex-1 cursor-grab [&::-webkit-scrollbar:horizontal]:hidden ${isDragging ? 'cursor-grabbing select-none' : ''}`}
                     onMouseDown={handleMouseDown}
                     onMouseLeave={handleMouseLeave}
                     onMouseUp={handleMouseUp}
@@ -288,11 +296,12 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
                             <td className="p-3 font-medium text-stone-800 sticky left-0 bg-white group-hover:bg-stone-50 border-r border-stone-200 shadow-[1px_0_0_0_#e7e5e4] transition-colors">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
-                                  <span title={member.name}>{truncateName(member.name)}</span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${member.role === 'leader' ? 'bg-red-100 text-red-800' :
-                                    member.role === 'coleader' ? 'bg-amber-100 text-amber-800' :
-                                      'bg-stone-200 text-stone-700'
-                                    }`}>{member.role === 'leader' ? t('roles.leader') : member.role === 'coleader' ? t('roles.coleader') : t('roles.member')}</span>
+                                  <span title={member.name}>{getTruncatedName(member.name, member.role)}</span>
+                                  {(member.role === 'leader' || member.role === 'coleader') && (
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${member.role === 'leader' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                                      {member.role === 'leader' ? t('roles.leader') : t('roles.coleader')}
+                                    </span>
+                                  )}
                                 </div>
                                 {member.updatedAt && (
                                   <span className="text-[10px] text-stone-400 mt-0.5">

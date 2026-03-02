@@ -43,7 +43,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
         <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
           <h2 className="text-xl font-bold flex items-center gap-2 text-stone-800">
@@ -142,7 +142,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-stone-900 text-white p-4 shadow-md shrink-0 relative z-[100]">
+      <header className="bg-stone-900 text-white p-4 shadow-md shrink-0 sticky top-0 z-[100]">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <h1
             className="text-xl font-bold flex items-center gap-2 cursor-pointer hover:text-amber-400 transition-colors"

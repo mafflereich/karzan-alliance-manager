@@ -32,7 +32,7 @@ export default function InputModal({ isOpen, title, message, defaultValue = '', 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="px-6 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
           <h3 className="font-bold text-lg text-stone-800">{title}</h3>

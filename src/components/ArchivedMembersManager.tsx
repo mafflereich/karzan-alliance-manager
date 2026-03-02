@@ -290,7 +290,7 @@ export default function ArchivedMembersManager() {
 
       {/* Unarchive Modal */}
       {unarchiveModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="bg-stone-50 px-6 py-4 border-b border-stone-200 flex justify-between items-center">
               <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
