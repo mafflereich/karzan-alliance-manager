@@ -111,6 +111,7 @@
     "saved": "Saved",
     "saving": "Saving...",
     "save_changes": "Save Changes",
+    "save_success": "Saved successfully",
     "dashboard": "Dashboard",
     "home": "Home",
     "admin": "Admin",
@@ -241,7 +242,8 @@
     "archived_members": "Archived Members",
     "change_password": "Change Password",
     "backup_restore": "Backup & Restore",
-    "tools": "Tools"
+    "tools": "Tools",
+    "costume_db": "Costume Database"
   },
   "dashboard": {
     "guilds": "Guilds",
@@ -256,7 +258,8 @@
     "return_to_guild": "Return to your guild",
     "guild_list": "Guild List",
     "scroll_hint": "Drag left/right or scroll to view the full table",
-    "no_members": "This guild currently has no members"
+    "no_members": "This guild currently has no members",
+    "member_count": "Member Count"
   },
   "guilds": {
     "add_guild": "Add Guild",
@@ -315,12 +318,15 @@
   },
   "costumes": {
     "add_character": "Add Character",
+    "character": "Character",
     "character_name": "Character Name",
     "edit_character": "Edit Character",
     "delete_character": "Delete Character",
     "confirm_delete_character": "Are you sure you want to delete this character? Note: This will also delete all costume data under this character! This action cannot be undone.",
     "add_costume": "Add Costume",
+    "costume": "Costume",
     "costume_name": "Costume Name",
+    "order": "Order",
     "image_name": "Image Name",
     "is_new": "New Costume",
     "edit_costume": "Edit Costume",
@@ -329,6 +335,9 @@
     "reorder_characters": "Reorder Characters",
     "reorder_costumes": "Reorder Costumes",
     "save_order": "Save Order",
+    "save_character": "Save Character",
+    "save_costume": "Save Costume",
+    "mark_new": "Mark as New",
     "add_character_success": "Character added successfully",
     "add_character_failed": "Failed to add character",
     "update_character_success": "Character updated successfully",
@@ -360,6 +369,7 @@
     "backup_failed": "Backup failed, please check console log for more information.",
     "restore_success": "Data restored successfully!",
     "invalid_file": "Invalid backup file format.",
+    "invalid_format": "Invalid file format",
     "restore_failed": "Restore failed, please ensure the file format is correct."
   },
   "tools": {
@@ -466,6 +476,7 @@
     "unknown": "Unknown error occurred",
     "network": "Network error",
     "permission": "Permission denied",
+    "guild_not_found": "Guild not found",
     "not_found": "Resource not found",
     "invalid_input": "Invalid input"
   },

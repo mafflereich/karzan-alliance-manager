@@ -137,7 +137,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     return (a.orderNum ?? 999) - (b.orderNum ?? 999);
   });
 
-  if (!guild) return <div>Guild not found</div>;
+  if (!guild) return <div>{t('errors.guild_not_found')}</div>;
 
   const formatDate = (timestamp: number) => {
     const d = new Date(timestamp);

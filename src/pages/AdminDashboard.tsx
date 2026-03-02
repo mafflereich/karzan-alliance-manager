@@ -710,11 +710,11 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
 
     // Check role limits only if role is changing or new member
     // This logic is simplified for now
-    if (role === '會長' || role === 'Master') {
+    if ((role as string) === '會長' || (role as string) === 'Master') {
       const master = getGuildMaster(targetGId);
       if (master && master[0] !== excludeMemberId) return t('members.guild_has_master');
     }
-    if (role === '副會長' || role === 'Deputy') {
+    if ((role as string) === '副會長' || (role as string) === 'Deputy') {
       const deputy = getGuildDeputy(targetGId);
       if (deputy && deputy[0] !== excludeMemberId) return t('members.guild_has_deputy');
     }

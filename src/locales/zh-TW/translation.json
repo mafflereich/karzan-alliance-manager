@@ -111,6 +111,7 @@
     "saved": "已儲存",
     "saving": "儲存中...",
     "save_changes": "儲存變更",
+    "save_success": "儲存成功",
     "dashboard": "儀表板",
     "home": "首頁",
     "admin": "管理員",
@@ -241,7 +242,8 @@
     "archived_members": "封存成員",
     "change_password": "修改密碼",
     "backup_restore": "備份與還原",
-    "tools": "便利小功能"
+    "tools": "便利小功能",
+    "costume_db": "服裝資料庫"
   },
   "dashboard": {
     "guilds": "公會",
@@ -256,7 +258,8 @@
     "return_to_guild": "返回您的公會",
     "guild_list": "公會列表",
     "scroll_hint": "可左右拖曳或捲動查看完整表格",
-    "no_members": "該公會目前沒有成員"
+    "no_members": "該公會目前沒有成員",
+    "member_count": "成員數"
   },
   "guilds": {
     "add_guild": "新增公會",
@@ -315,12 +318,15 @@
   },
   "costumes": {
     "add_character": "新增角色",
+    "character": "角色",
     "character_name": "角色名稱",
     "edit_character": "編輯角色",
     "delete_character": "刪除角色",
     "confirm_delete_character": "確定要刪除此角色嗎？注意：這將會連同刪除該角色底下的所有服裝資料！此動作無法復原。",
     "add_costume": "新增服裝",
+    "costume": "服裝",
     "costume_name": "服裝名稱",
+    "order": "順序",
     "image_name": "圖片名稱",
     "is_new": "新服裝",
     "edit_costume": "編輯服裝",
@@ -329,6 +335,9 @@
     "reorder_characters": "重新排序角色",
     "reorder_costumes": "重新排序服裝",
     "save_order": "儲存排序",
+    "save_character": "儲存角色",
+    "save_costume": "儲存服裝",
+    "mark_new": "標記為新服裝",
     "add_character_success": "新增角色成功",
     "add_character_failed": "新增角色失敗",
     "update_character_success": "更新角色成功",
@@ -360,6 +369,7 @@
     "backup_failed": "備份失敗，請檢查 console log 獲取更多資訊。",
     "restore_success": "資料已成功還原！",
     "invalid_file": "無效的備份檔案格式。",
+    "invalid_format": "無效的檔案格式",
     "restore_failed": "還原失敗，請確保檔案格式正確。"
   },
   "tools": {
@@ -466,6 +476,7 @@
     "unknown": "發生未知錯誤",
     "network": "網路錯誤",
     "permission": "權限不足",
+    "guild_not_found": "找不到公會",
     "not_found": "找不到資源",
     "invalid_input": "輸入無效"
   },
