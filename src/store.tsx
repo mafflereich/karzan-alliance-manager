@@ -79,6 +79,7 @@ interface AppContextType {
   setIsMuted: (muted: boolean) => void;
 
   isRoleLoading: boolean;
+  isMembersLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -106,6 +107,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [isRoleLoading, setIsRoleLoading] = useState(false);
+  const [isMembersLoading, setIsMembersLoading] = useState(false);
 
   const setCurrentUser = (user: string | null) => {
     setCurrentUserState(user);
@@ -261,6 +263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchMembers = async (guildId: string, includeNote: boolean = false) => {
     if (isOffline) return;
 
+    setIsMembersLoading(true);
     const selectQuery = includeNote
       ? '*'
       : 'id, name, guild_id, role, records, exclusive_weapons, updated_at, status, archive_remark';
@@ -274,12 +277,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Error fetching members:", error);
       setIsOffline(true);
       showToast(t('common.fetch_members_failed'), 'error');
+      setIsMembersLoading(false);
       return;
     }
 
     const members = data.reduce((acc, member) => ({ ...acc, [member.id]: toCamel(member) }), {});
 
     setDbState(prev => ({ ...prev, members }));
+    setIsMembersLoading(false);
   };
 
   const fetchAllMembers = async () => {
@@ -877,7 +882,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addCostume, updateCostume, deleteCostume, updateCostumesOrder,
       updateUserPassword, updateUserRole, addUser, deleteUser, updateSetting,
       restoreData, toasts, showToast, removeToast,
-      isMuted, setIsMuted, isRoleLoading
+      isMuted, setIsMuted, isRoleLoading, isMembersLoading
     }}>
       {children}
     </AppContext.Provider>

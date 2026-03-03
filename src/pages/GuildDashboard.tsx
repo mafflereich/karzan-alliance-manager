@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 
 export default function GuildDashboard({ guildId }: { guildId: string }) {
   const { t, i18n } = useTranslation();
-  const { db, setCurrentView, currentUser } = useAppContext();
+  const { db, setCurrentView, currentUser, isMembersLoading } = useAppContext();
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
@@ -312,7 +312,15 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
             <div className="max-w-full mx-auto w-full h-full flex flex-col min-h-0">
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="mb-2 shrink-0" />
-                <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex-1 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden flex-1 flex flex-col min-h-0 relative">
+                  {isMembersLoading && (
+                    <div className="absolute inset-0 z-50 bg-white/50 backdrop-blur-sm flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3 bg-white p-6 rounded-2xl shadow-xl border border-stone-100">
+                        <div className="w-8 h-8 border-4 border-stone-200 border-t-stone-800 rounded-full animate-spin"></div>
+                        <span className="text-stone-600 font-medium">{t('common.loading', '載入中...')}</span>
+                      </div>
+                    </div>
+                  )}
                   <div
                     ref={scrollRef}
                     className={`overflow-auto flex-1 cursor-grab [&::-webkit-scrollbar:horizontal]:hidden ${isDragging ? 'cursor-grabbing select-none' : ''}`}
