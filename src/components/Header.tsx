@@ -240,13 +240,13 @@ export default function Header() {
               </button>
             )}
 
-            <div 
-              ref={volumeContainerRef}
-              className="flex items-center gap-4 border-l border-stone-800 pl-4"
-              onMouseEnter={handleVolumeMouseEnter}
-              onMouseLeave={handleVolumeMouseLeave}
-            >
-              <div className="relative">
+            <div className="flex items-center gap-4 border-l border-stone-800 pl-4">
+              <div 
+                ref={volumeContainerRef}
+                className="relative"
+                onMouseEnter={handleVolumeMouseEnter}
+                onMouseLeave={handleVolumeMouseLeave}
+              >
                 <button
                   onClick={() => hasBgm && toggleMute()}
                   disabled={!hasBgm}
