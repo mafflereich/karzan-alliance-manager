@@ -592,7 +592,7 @@ function GuildMembersManager({ guildId, onBack }: { guildId: string, onBack: () 
   const closeArchiveModal = () => setArchiveModal(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
-    fetchMembers(guildId, true);
+    fetchMembers(guildId, '*');
   }, [guildId]);
 
   const sortedGuilds = (Object.entries(db.guilds) as [string, any][]).sort((a, b) => {

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../store';
 import { Shield, Users, ChevronRight, Lock, X, AlertCircle } from 'lucide-react';
-import { getTierColor, getTierBorderHoverClass, getTierTextHoverClass } from '../utils';
+import { getTierColor, getTierTextColor, getTierBorderHoverClass, getTierTextHoverClass } from '../utils';
 import { useTranslation } from 'react-i18next';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
@@ -11,7 +11,7 @@ const DOMAIN_SUFFIX = '@kazran.com';
 
 export default function Login() {
   const { t } = useTranslation();
-  const { db, setCurrentView, setCurrentUser, currentUser, isRoleLoading } = useAppContext();
+  const { db, fetchAllMembers, setCurrentView, setCurrentUser, currentUser, isRoleLoading } = useAppContext();
   const [selectedGuildForLogin, setSelectedGuildForLogin] = useState<{ id: string, name: string } | null>(null);
   const [guildPassword, setGuildPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,6 +20,10 @@ export default function Login() {
   const userRole = currentUser ? db.users[currentUser]?.role : null;
   const canSeeAllGuilds = userRole === 'admin' || userRole === 'creator' || userRole === 'manager';
   const userGuildId = !canSeeAllGuilds && currentUser ? Object.entries(db.guilds).find(([_, g]) => g.username === currentUser)?.[0] : null;
+
+  useEffect(() => {
+    fetchAllMembers();
+  }, []);
 
   const handleGuildSelect = async (guildId: string, guildName: string) => {
     if (currentUser) {
@@ -47,7 +51,7 @@ export default function Login() {
 
     setIsVerifying(true);
     setError('');
-    
+
     try {
       const formattedEmail = `${username.toLowerCase()}${DOMAIN_SUFFIX}`;
 
@@ -111,12 +115,19 @@ export default function Login() {
                         <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>{t('guilds.tier')} {tier}</h3>
                         {tierGuilds.map(([id, guild]: [string, any]) => {
                           const isDisabled = currentUser && !canSeeAllGuilds && id !== userGuildId;
-                          
+                          const newCostume = Object.values(db.costumes).find((costume) => costume.isNew);
+                          const membersInGuild = Object.values(db.members).filter((member) => member.guildId == guild.id && member.status == "active");
+
+                          const newCostumeRate = Math.round((membersInGuild.filter((member) =>
+                            Object.entries(member.records).find(([id, record]) => id == newCostume.id && (+record.level) >= 0)
+                          ).length / membersInGuild.length) * 100);
+                          const newCostumeRateText = membersInGuild.length ? `(${newCostumeRate.toFixed(0)}%)` : ``;
+
                           // Determine classes based on state and tier
                           let buttonClasses = "w-full flex items-center justify-between p-4 bg-white dark:bg-stone-800 border rounded-xl transition-all group disabled:opacity-50";
-                          let textClasses = "font-medium transition-colors";
+                          let textClasses = `font-medium transition-colors ${newCostumeRate == 100 ? getTierTextColor(tier) : ""}`;
                           let iconClasses = "w-5 h-5 transition-colors";
-                          
+
                           if (isDisabled) {
                             buttonClasses += " border-stone-200 dark:border-stone-700 opacity-30 grayscale cursor-not-allowed";
                             textClasses += " text-stone-800 dark:text-stone-300";
@@ -124,14 +135,14 @@ export default function Login() {
                           } else {
                             // Enabled state - apply tier colors
                             buttonClasses += ` ${getTierBorderHoverClass(tier)}`;
-                            
+
                             // Add specific background hover colors based on tier
                             if (tier === 1) buttonClasses += " hover:bg-orange-50 border-orange-200 dark:hover:bg-orange-900/20 dark:border-orange-800";
                             else if (tier === 2) buttonClasses += " hover:bg-blue-50 border-blue-200 dark:hover:bg-blue-900/20 dark:border-blue-800";
                             else if (tier === 3) buttonClasses += " hover:bg-stone-50 border-stone-300 dark:hover:bg-stone-700 dark:border-stone-600";
                             else if (tier === 4) buttonClasses += " hover:bg-green-50 border-green-200 dark:hover:bg-green-900/20 dark:border-green-800";
                             else buttonClasses += " hover:bg-stone-50 border-stone-200 dark:hover:bg-stone-700 dark:border-stone-700";
-                            
+
                             textClasses += ` ${getTierTextHoverClass(tier)}`;
                             iconClasses += ` ${getTierTextHoverClass(tier)}`;
                           }
@@ -143,7 +154,7 @@ export default function Login() {
                               disabled={isVerifying || isDisabled}
                               className={buttonClasses}
                             >
-                              <span className={textClasses}>{guild.name}</span>
+                              <span className={textClasses}>{guild.name} {newCostumeRateText}</span>
                               <ChevronRight className={iconClasses} />
                             </button>
                           );

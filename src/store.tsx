@@ -30,7 +30,7 @@ interface AppContextType {
   setCurrentUser: React.Dispatch<React.SetStateAction<string | null>>;
 
   // Member functions
-  fetchMembers: (guildId: string, includeNote?: boolean) => void;
+  fetchMembers: (guildId: string, columns?: string) => void;
   fetchAllMembers: () => Promise<void>;
   searchMembers: (query: string, includeArchived?: boolean, page?: number, pageSize?: number) => Promise<{ data: Member[], total: number }>;
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
@@ -132,8 +132,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .single(); // 我們預期只會有一筆
 
       if (error) {
-         console.error("無法取得使用者權限:", error);
-         return;
+        console.error("無法取得使用者權限:", error);
+        return;
       }
 
       if (data) {
@@ -293,20 +293,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guildId: string, includeNote: boolean = false) => {
+  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, updated_at, status, archive_remark') => {
     if (isOffline) return;
 
     // Check if we already have members for this guild
     const hasCachedMembers = Object.values(db.members).some(m => m.guildId === guildId);
-    
+
     // Only show loading if we don't have any data for this guild
     if (!hasCachedMembers) {
       setIsMembersLoading(true);
     }
 
-    const selectQuery = includeNote
-      ? '*'
-      : 'id, name, guild_id, role, records, exclusive_weapons, updated_at, status, archive_remark';
+    const selectQuery = columns;
 
     const { data, error } = await supabase
       .from('members')
@@ -335,7 +333,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         members: { ...otherGuildMembers, ...newMembers }
       };
     });
-    
+
     setIsMembersLoading(false);
   };
 
@@ -355,7 +353,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const searchMembers = async (query: string, includeArchived: boolean = false, page: number = 1, pageSize: number = 20): Promise<{ data: Member[], total: number }> => {
     if (!query.trim()) return { data: [], total: 0 };
-    
+
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
@@ -949,8 +947,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...prev,
       settings: {
         ...prev.settings,
-        [id]: { 
-          id, 
+        [id]: {
+          id,
           bgmUrl: value,
           bgmDefaultVolume: volume !== undefined ? volume : prev.settings[id]?.bgmDefaultVolume
         }

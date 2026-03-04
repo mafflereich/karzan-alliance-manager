@@ -1,8 +1,22 @@
+export const getTierTextColor = (tier: Number) => {
+  const genericGradient = `font-medium transition-colors
+    bg-clip-text text-transparent
+    bg-[length:200%_auto] animate-[gradient-x_6s_ease_infinite]`;
+
+  switch (tier) {
+    case 1: return `bg-gradient-to-r from-[#e23513] via-[#ff7e3f] to-[#e23513] ${genericGradient}`;
+    case 2: return `bg-gradient-to-r from-[#5fd3b0] via-[#3a6fe4] to-[#5fd3b0] ${genericGradient}`;
+    case 3: return `bg-gradient-to-r from-[#b43939] via-[#5ea4cf] to-[#b43939] ${genericGradient}`;
+    case 4: return `bg-gradient-to-r from-[#19d166] via-[#9f22f8] to-[#19d166] ${genericGradient}`;
+    default: return `bg-gradient-to-r from-[#000000] via-[#000000] to-[#000000] ${genericGradient}`;
+  }
+}
+
 export const getTierColor = (tier: number) => {
   switch (tier) {
     case 1: return 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-200 dark:border-orange-800';
     case 2: return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800';
-    case 3: return 'bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 border-stone-300 dark:border-stone-600';
+    case 3: return 'bg-stone-200 dark:bg-stone-600 text-stone-800 dark:text-stone-200 border-stone-300 dark:border-stone-800';
     case 4: return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800';
     default: return 'bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-700';
   }
