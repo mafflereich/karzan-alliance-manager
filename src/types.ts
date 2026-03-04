@@ -54,6 +54,7 @@ export interface Setting {
   bgmUrl?: string;
   bgmDefaultVolume?: number;
   indexMessage?: string;
+  indexPercentType?: 'empty' | 'new_costumes_owned';
 }
 
 export interface Database {

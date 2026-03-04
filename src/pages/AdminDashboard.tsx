@@ -1586,12 +1586,24 @@ function BackupManager() {
 
 function SettingsManager() {
   const { t } = useTranslation(['admin', 'translation']);
-  const { db, updateSetting, showToast } = useAppContext();
+  const { db, updateSetting, showToast, fetchSettings } = useAppContext();
   const firstSettingId = db.settings && Object.keys(db.settings).length > 0 ? Object.keys(db.settings)[0] : 'default';
   const [bgmUrl, setBgmUrl] = useState(db.settings?.[firstSettingId]?.bgmUrl || '');
   const [bgmDefaultVolume, setBgmDefaultVolume] = useState(db.settings?.[firstSettingId]?.bgmDefaultVolume ?? 50);
   const [indexMessage, setIndexMessage] = useState(db.settings?.[firstSettingId]?.indexMessage || '');
+  
+  const getSafeIndexPercentType = (val?: string): 'empty' | 'new_costumes_owned' => {
+    return val === 'new_costumes_owned' ? 'new_costumes_owned' : 'empty';
+  };
+
+  const [indexPercentType, setIndexPercentType] = useState<'empty' | 'new_costumes_owned'>(
+    getSafeIndexPercentType(db.settings?.[firstSettingId]?.indexPercentType)
+  );
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     if (db.settings && Object.keys(db.settings).length > 0) {
@@ -1599,13 +1611,14 @@ function SettingsManager() {
       setBgmUrl(db.settings[id].bgmUrl || '');
       setBgmDefaultVolume(db.settings[id].bgmDefaultVolume ?? 50);
       setIndexMessage(db.settings[id].indexMessage || '');
+      setIndexPercentType(getSafeIndexPercentType(db.settings[id].indexPercentType));
     }
   }, [db.settings]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updateSetting(firstSettingId, { bgmUrl, bgmDefaultVolume, indexMessage });
+      await updateSetting(firstSettingId, { bgmUrl, bgmDefaultVolume, indexMessage, indexPercentType });
       showToast(t('settings.save_success'), 'success');
     } catch (error: any) {
       console.error("Error saving settings:", error);
@@ -1634,6 +1647,20 @@ function SettingsManager() {
       <div className="bg-stone-50 dark:bg-stone-700 p-6 rounded-2xl border border-stone-200 dark:border-stone-600">
         <h3 className="text-lg font-bold text-stone-800 dark:text-stone-200 mb-4">主頁面</h3>
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-stone-600 dark:text-stone-400 mb-1">
+              公會百分比計算
+            </label>
+            <select
+              value={indexPercentType}
+              onChange={(e) => setIndexPercentType(e.target.value as 'empty' | 'new_costumes_owned')}
+              className="w-full p-3 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none dark:bg-stone-700 dark:text-stone-100"
+            >
+              <option value="empty">沒有</option>
+              <option value="new_costumes_owned">新服裝持有率</option>
+            </select>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-stone-600 dark:text-stone-400 mb-1">
               訊息

@@ -10,7 +10,7 @@ const DOMAIN_SUFFIX = '@kazran.com';
 
 function LoginModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  const { db, setCurrentUser } = useAppContext();
+  const { db, setCurrentUser, fetchAllMembers } = useAppContext();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -34,6 +34,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
       }
 
       setCurrentUser(username.toLowerCase());
+      await fetchAllMembers();
       onClose();
     } catch (error: any) {
       setError(error.message);

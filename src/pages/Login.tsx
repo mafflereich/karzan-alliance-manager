@@ -140,7 +140,11 @@ export default function Login() {
 
                           // Determine classes based on state and tier
                           let buttonClasses = "w-full flex items-center justify-between p-4 bg-white dark:bg-stone-800 border rounded-xl transition-all group overflow-hidden relative disabled:opacity-50";
-                          let textClasses = is100 ? getTierTextColor(tier) : `font-medium transition-colors ${getTierTextHoverClass(tier)}`;
+                          
+                          const indexPercentType = Object.values(db.settings)[0]?.indexPercentType;
+                          const showPercent = currentUser && indexPercentType === 'new_costumes_owned';
+                          
+                          let textClasses = (showPercent && is100) ? getTierTextColor(tier) : `font-medium transition-colors ${getTierTextHoverClass(tier)}`;
                           let iconClasses = `w-5 h-5 transition-colors ${isDisabled ? 'text-stone-300 dark:text-stone-600' : getTierTextHoverClass(tier)}`;
 
                           if (isDisabled) {
@@ -165,8 +169,8 @@ export default function Login() {
                               disabled={isVerifying || isDisabled}
                               className={`${buttonClasses} group/btn`}
                             >
-                              {/* Progress Background Overlay - Only show if logged in */}
-                              {currentUser && (
+                              {/* Progress Background Overlay - Only show if logged in AND enabled in settings */}
+                              {showPercent && (
                                 <div 
                                   className={`absolute left-0 top-0 bottom-0 transition-all duration-1000 ${
                                     isDisabled 
@@ -181,11 +185,11 @@ export default function Login() {
                               
                               <div className="relative z-10 flex flex-col items-start">
                                 <span className={textClasses}>{guild.name}</span>
-                                {currentUser && is100 && !isDisabled && <span className="text-[9px] uppercase tracking-widest font-bold text-amber-600 dark:text-amber-400">Complete</span>}
+                                {showPercent && is100 && !isDisabled && <span className="text-[9px] uppercase tracking-widest font-bold text-amber-600 dark:text-amber-400">Complete</span>}
                               </div>
                               
                               <div className="relative z-10 flex items-center gap-2">
-                                {currentUser && (
+                                {showPercent && (
                                   <span className={`text-sm font-black ${isDisabled ? 'text-stone-300 dark:text-stone-600' : is100 ? 'text-amber-500' : 'text-stone-400'}`}>
                                     {newCostumeRate}%
                                   </span>

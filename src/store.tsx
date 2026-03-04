@@ -66,6 +66,7 @@ interface AppContextType {
 
   // Settings functions
   updateSetting: (id: string, updates: Partial<Setting>) => Promise<void>;
+  fetchSettings: () => Promise<void>;
 
   // Data management
   restoreData: (data: Partial<Database>) => Promise<void>;
@@ -950,6 +951,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
+  const fetchSettings = async () => {
+    if (isOffline) return;
+
+    const { data, error } = await supabase.from('settings').select('*');
+    if (error) {
+      console.error('Error fetching settings:', error);
+      return;
+    }
+
+    if (data) {
+      const settings = data.reduce((acc, setting) => ({ ...acc, [setting.id]: toCamel(setting) }), {});
+      setDbState(prev => ({ ...prev, settings }));
+    }
+  };
+
   if (!isLoaded) {
     return <div className="min-h-screen flex items-center justify-center bg-stone-100 text-stone-500">{t('common.loading')}</div>;
   }
@@ -961,7 +977,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addGuild, updateGuild, deleteGuild,
       addCharacter, updateCharacter, deleteCharacter, updateCharactersOrder,
       addCostume, updateCostume, deleteCostume, updateCostumesOrder,
-      updateUserPassword, updateUserRole, addUser, deleteUser, updateSetting,
+      updateUserPassword, updateUserRole, addUser, deleteUser, updateSetting, fetchSettings,
       restoreData, toasts, showToast, removeToast,
       userVolume, setUserVolume, isRoleLoading, isMembersLoading
     }}>
