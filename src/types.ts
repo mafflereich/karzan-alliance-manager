@@ -53,6 +53,7 @@ export interface Setting {
   id: string;
   bgmUrl?: string;
   bgmDefaultVolume?: number;
+  indexMessage?: string;
 }
 
 export interface Database {

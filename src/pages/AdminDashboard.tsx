@@ -1590,6 +1590,7 @@ function SettingsManager() {
   const firstSettingId = db.settings && Object.keys(db.settings).length > 0 ? Object.keys(db.settings)[0] : 'default';
   const [bgmUrl, setBgmUrl] = useState(db.settings?.[firstSettingId]?.bgmUrl || '');
   const [bgmDefaultVolume, setBgmDefaultVolume] = useState(db.settings?.[firstSettingId]?.bgmDefaultVolume ?? 50);
+  const [indexMessage, setIndexMessage] = useState(db.settings?.[firstSettingId]?.indexMessage || '');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -1597,13 +1598,14 @@ function SettingsManager() {
       const id = Object.keys(db.settings)[0];
       setBgmUrl(db.settings[id].bgmUrl || '');
       setBgmDefaultVolume(db.settings[id].bgmDefaultVolume ?? 50);
+      setIndexMessage(db.settings[id].indexMessage || '');
     }
   }, [db.settings]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updateSetting(firstSettingId, bgmUrl, bgmDefaultVolume);
+      await updateSetting(firstSettingId, { bgmUrl, bgmDefaultVolume, indexMessage });
       showToast(t('settings.save_success'), 'success');
     } catch (error: any) {
       console.error("Error saving settings:", error);
@@ -1615,10 +1617,36 @@ function SettingsManager() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold mb-6 text-stone-800 dark:text-stone-200 flex items-center gap-2">
-        <Settings className="w-6 h-6 text-amber-600" />
-        {t('nav.settings')}
-      </h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-stone-800 dark:text-stone-200 flex items-center gap-2">
+          <Settings className="w-6 h-6 text-amber-600" />
+          {t('nav.settings')}
+        </h2>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-6 py-2 bg-amber-600 text-white rounded-lg font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-sm disabled:opacity-50 flex items-center gap-2"
+        >
+          {isSaving ? t('common.saving') : <><Save className="w-4 h-4" /> {t('common.save')}</>}
+        </button>
+      </div>
+
+      <div className="bg-stone-50 dark:bg-stone-700 p-6 rounded-2xl border border-stone-200 dark:border-stone-600">
+        <h3 className="text-lg font-bold text-stone-800 dark:text-stone-200 mb-4">主頁面</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-stone-600 dark:text-stone-400 mb-1">
+              訊息
+            </label>
+            <textarea
+              value={indexMessage}
+              onChange={(e) => setIndexMessage(e.target.value)}
+              placeholder="輸入顯示在主頁面的訊息..."
+              className="w-full p-3 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none dark:bg-stone-700 dark:text-stone-100 min-h-[100px]"
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="bg-stone-50 dark:bg-stone-700 p-6 rounded-2xl border border-stone-200 dark:border-stone-600">
         <h3 className="text-lg font-bold text-stone-800 dark:text-stone-200 mb-4">{t('settings.bgm')}</h3>
@@ -1651,16 +1679,6 @@ function SettingsManager() {
               onChange={(e) => setBgmDefaultVolume(Number(e.target.value))}
               className="w-full h-2 bg-stone-200 dark:bg-stone-600 rounded-lg appearance-none cursor-pointer accent-amber-600"
             />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="px-6 py-2 bg-amber-600 text-white rounded-lg font-bold hover:bg-amber-700 transition-all active:scale-95 shadow-sm disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSaving ? t('common.saving') : <><Save className="w-4 h-4" /> {t('common.save')}</>}
-            </button>
           </div>
         </div>
       </div>

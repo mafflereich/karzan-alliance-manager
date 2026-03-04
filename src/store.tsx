@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType } from './types';
+import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting } from './types';
 import { supabase, supabaseInsert, supabaseUpdate, supabaseUpsert, toCamel } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { useTranslation } from 'react-i18next';
@@ -65,7 +65,7 @@ interface AppContextType {
   deleteUser: (username: string) => Promise<void>;
 
   // Settings functions
-  updateSetting: (id: string, value: string, volume?: number) => Promise<void>;
+  updateSetting: (id: string, updates: Partial<Setting>) => Promise<void>;
 
   // Data management
   restoreData: (data: Partial<Database>) => Promise<void>;
@@ -932,15 +932,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateSetting = async (id: string, value: string, volume?: number) => {
+  const updateSetting = async (id: string, updates: Partial<Setting>) => {
     if (isOffline) return;
 
-    const updates: any = { id, bgm_url: value };
-    if (volume !== undefined) {
-      updates.bgm_default_volume = volume;
-    }
-
-    const { error } = await supabaseUpsert('settings', updates);
+    const { error } = await supabaseUpsert('settings', { id, ...updates });
     if (error) throw error;
 
     setDbState(prev => ({
@@ -948,9 +943,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       settings: {
         ...prev.settings,
         [id]: {
-          id,
-          bgmUrl: value,
-          bgmDefaultVolume: volume !== undefined ? volume : prev.settings[id]?.bgmDefaultVolume
+          ...prev.settings[id],
+          ...updates
         }
       }
     }));

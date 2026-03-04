@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../store';
-import { Shield, Users, ChevronRight, Lock, X, AlertCircle } from 'lucide-react';
+import { Shield, Users, ChevronRight, Lock, X, AlertCircle, Info } from 'lucide-react';
 import { getTierColor, getTierTextColor, getTierBorderHoverClass, getTierTextHoverClass } from '../utils';
 import { useTranslation } from 'react-i18next';
 import Footer from '../components/Footer';
@@ -65,6 +65,7 @@ export default function Login() {
       }
 
       setCurrentUser(username.toLowerCase());
+      await fetchAllMembers();
       setCurrentView({ type: 'guild', guildId: selectedGuildForLogin.id });
     } catch (error: any) {
       setError(error.message);
@@ -92,9 +93,20 @@ export default function Login() {
 
           <div className="space-y-8">
             <div className="p-6 border border-stone-200 dark:border-stone-700 rounded-xl bg-stone-50 dark:bg-stone-700">
-              <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
-                <Users className="w-5 h-5" /> {t('login.select_guild')}
-              </h2>
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="w-5 h-5" /> {t('login.select_guild')}
+                </h2>
+
+                {Object.values(db.settings)[0]?.indexMessage && (
+                  <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-4 py-2 rounded-lg">
+                    <p className="text-amber-800 dark:text-amber-200 text-sm font-bold flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      {Object.values(db.settings)[0].indexMessage}
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {isRoleLoading ? (
                 <div className="text-center text-stone-500 dark:text-stone-400 py-8 flex items-center justify-center gap-2">
@@ -118,20 +130,22 @@ export default function Login() {
                           const newCostume = Object.values(db.costumes).find((costume) => costume.isNew);
                           const membersInGuild = Object.values(db.members).filter((member) => member.guildId == guild.id && member.status == "active");
 
-                          const newCostumeRate = Math.round((membersInGuild.filter((member) =>
-                            Object.entries(member.records).find(([id, record]) => id == newCostume.id && (+record.level) >= 0)
-                          ).length / membersInGuild.length) * 100);
+                          const newCostumeRate = (newCostume && membersInGuild.length > 0) 
+                            ? Math.round((membersInGuild.filter((member) =>
+                                member.records && Object.entries(member.records).find(([id, record]) => id == newCostume.id && (+record.level) >= 0)
+                              ).length / membersInGuild.length) * 100)
+                            : 0;
+                          const is100 = newCostumeRate === 100;
                           const newCostumeRateText = membersInGuild.length ? `(${newCostumeRate.toFixed(0)}%)` : ``;
 
                           // Determine classes based on state and tier
-                          let buttonClasses = "w-full flex items-center justify-between p-4 bg-white dark:bg-stone-800 border rounded-xl transition-all group disabled:opacity-50";
-                          let textClasses = `font-medium transition-colors ${newCostumeRate == 100 ? getTierTextColor(tier) : ""}`;
-                          let iconClasses = "w-5 h-5 transition-colors";
+                          let buttonClasses = "w-full flex items-center justify-between p-4 bg-white dark:bg-stone-800 border rounded-xl transition-all group overflow-hidden relative disabled:opacity-50";
+                          let textClasses = is100 ? getTierTextColor(tier) : `font-medium transition-colors ${getTierTextHoverClass(tier)}`;
+                          let iconClasses = `w-5 h-5 transition-colors ${isDisabled ? 'text-stone-300 dark:text-stone-600' : getTierTextHoverClass(tier)}`;
 
                           if (isDisabled) {
                             buttonClasses += " border-stone-200 dark:border-stone-700 opacity-30 grayscale cursor-not-allowed";
-                            textClasses += " text-stone-800 dark:text-stone-300";
-                            iconClasses += " text-stone-400 dark:text-stone-500";
+                            textClasses = "font-medium text-stone-400 dark:text-stone-500";
                           } else {
                             // Enabled state - apply tier colors
                             buttonClasses += ` ${getTierBorderHoverClass(tier)}`;
@@ -142,9 +156,6 @@ export default function Login() {
                             else if (tier === 3) buttonClasses += " hover:bg-stone-50 border-stone-300 dark:hover:bg-stone-700 dark:border-stone-600";
                             else if (tier === 4) buttonClasses += " hover:bg-green-50 border-green-200 dark:hover:bg-green-900/20 dark:border-green-800";
                             else buttonClasses += " hover:bg-stone-50 border-stone-200 dark:hover:bg-stone-700 dark:border-stone-700";
-
-                            textClasses += ` ${getTierTextHoverClass(tier)}`;
-                            iconClasses += ` ${getTierTextHoverClass(tier)}`;
                           }
 
                           return (
@@ -152,10 +163,35 @@ export default function Login() {
                               key={id}
                               onClick={() => handleGuildSelect(id, guild.name)}
                               disabled={isVerifying || isDisabled}
-                              className={buttonClasses}
+                              className={`${buttonClasses} group/btn`}
                             >
-                              <span className={textClasses}>{guild.name} {newCostumeRateText}</span>
-                              <ChevronRight className={iconClasses} />
+                              {/* Progress Background Overlay - Only show if logged in */}
+                              {currentUser && (
+                                <div 
+                                  className={`absolute left-0 top-0 bottom-0 transition-all duration-1000 ${
+                                    isDisabled 
+                                      ? 'bg-stone-300 dark:bg-stone-600 opacity-20' 
+                                      : is100 
+                                        ? 'bg-amber-500 opacity-10 dark:opacity-20' 
+                                        : 'bg-stone-400 opacity-10 dark:opacity-20'
+                                  }`}
+                                  style={{ width: `${newCostumeRate}%` }}
+                                />
+                              )}
+                              
+                              <div className="relative z-10 flex flex-col items-start">
+                                <span className={textClasses}>{guild.name}</span>
+                                {currentUser && is100 && !isDisabled && <span className="text-[9px] uppercase tracking-widest font-bold text-amber-600 dark:text-amber-400">Complete</span>}
+                              </div>
+                              
+                              <div className="relative z-10 flex items-center gap-2">
+                                {currentUser && (
+                                  <span className={`text-sm font-black ${isDisabled ? 'text-stone-300 dark:text-stone-600' : is100 ? 'text-amber-500' : 'text-stone-400'}`}>
+                                    {newCostumeRate}%
+                                  </span>
+                                )}
+                                <ChevronRight className={iconClasses} />
+                              </div>
                             </button>
                           );
                         })}
