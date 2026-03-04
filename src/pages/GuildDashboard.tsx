@@ -250,7 +250,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
           <div className="flex-1 overflow-y-auto py-4">
             <div className="space-y-6 px-2">
               {[1, 2, 3, 4].map(tier => {
-                const tierGuilds = sortedGuilds.filter(g => (g[1].tier || 1) === tier);
+                const tierGuilds = sortedGuilds.filter(g => (g[1].tier || 1) === tier && g[1].isDisplay !== false);
                 if (tierGuilds.length === 0) return null;
                 return (
                   <div key={tier}>

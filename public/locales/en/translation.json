@@ -30,6 +30,8 @@
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
     "none": "None",
+    "show": "Show",
+    "hide": "Hide",
     "no_bgm": "No Background Music",
     "unknown": "Unknown",
     "other": "Other",

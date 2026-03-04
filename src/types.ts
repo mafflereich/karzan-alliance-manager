@@ -6,6 +6,7 @@ export interface Guild {
   tier?: number;
   orderNum?: number;
   username?: string;
+  isDisplay?: boolean;
 }
 
 export interface CostumeRecord {

@@ -332,6 +332,7 @@ function GuildsManager() {
   const [editGuildName, setEditGuildName] = useState('');
   const [editGuildTier, setEditGuildTier] = useState<number>(1);
   const [editGuildOrder, setEditGuildOrder] = useState<number>(1);
+  const [editGuildIsDisplay, setEditGuildIsDisplay] = useState<boolean>(true);
 
   useEffect(() => {
     fetchAllMembers();
@@ -378,6 +379,7 @@ function GuildsManager() {
     setEditGuildName(guild.name);
     setEditGuildTier(guild.tier || 1);
     setEditGuildOrder(guild.orderNum || 1);
+    setEditGuildIsDisplay(guild.isDisplay !== false);
   };
 
   const saveEdit = async (e: React.MouseEvent) => {
@@ -387,7 +389,8 @@ function GuildsManager() {
       await updateGuild(editingGuildId, {
         name: editGuildName.trim(),
         tier: editGuildTier,
-        orderNum: editGuildOrder
+        orderNum: editGuildOrder,
+        isDisplay: editGuildIsDisplay
       });
       setEditingGuildId(null);
       showToast(t('guilds.update_success'), 'success');
@@ -507,6 +510,15 @@ function GuildsManager() {
                           placeholder={t('common.order')}
                           min={1}
                         />
+                        <select
+                          className="w-24 p-2 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none dark:bg-stone-700 dark:text-stone-100"
+                          value={editGuildIsDisplay ? 'true' : 'false'}
+                          onChange={e => setEditGuildIsDisplay(e.target.value === 'true')}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <option value="true">{t('common.show')}</option>
+                          <option value="false">{t('common.hide')}</option>
+                        </select>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={saveEdit} className="flex-1 p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"><Save className="w-4 h-4" /> {t('common.save')}</button>

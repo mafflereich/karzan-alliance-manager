@@ -120,7 +120,7 @@ export default function Login() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {[1, 2, 3, 4].map(tier => {
-                    const tierGuilds = sortedGuilds.filter(g => (g[1].tier || 1) === tier);
+                    const tierGuilds = sortedGuilds.filter(g => (g[1].tier || 1) === tier && g[1].isDisplay !== false);
                     if (tierGuilds.length === 0) return null;
                     return (
                       <div key={tier} className="space-y-3">
