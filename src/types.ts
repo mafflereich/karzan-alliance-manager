@@ -58,6 +58,15 @@ export interface Setting {
   indexPercentType?: 'empty' | 'new_costumes_owned';
 }
 
+export interface ApplyMail {
+  id: string;
+  createdAt: string;
+  subject: string;
+  content: string;
+  status: string;
+  loginId: string;
+}
+
 export interface Database {
   guilds: Record<string, Guild>;
   guildOrder?: string[];
@@ -66,6 +75,7 @@ export interface Database {
   costumes: Record<string, Costume>;
   users: Record<string, User>;
   settings: Record<string, Setting>;
+  applyMails: Record<string, ApplyMail>;
 }
 export interface ArchiveHistory {
   id: string;

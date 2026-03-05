@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting } from './types';
+import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail } from './types';
 import { supabase, supabaseInsert, supabaseUpdate, supabaseUpsert, toCamel } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,8 @@ const defaultData: Database = {
     "admin": { username: "admin", role: "admin" },
     "manager": { username: "manager", role: "manager" }
   },
-  settings: {}
+  settings: {},
+  applyMails: {}
 };
 
 type ViewState = { type: 'admin' } | { type: 'guild', guildId: string } | { type: 'application_mailbox' } | null;
@@ -67,6 +68,12 @@ interface AppContextType {
   // Settings functions
   updateSetting: (id: string, updates: Partial<Setting>) => Promise<void>;
   fetchSettings: () => Promise<void>;
+
+  // Apply mail functions
+  fetchApplyMails: () => Promise<void>;
+  addApplyMail: (subject: string, content: string) => Promise<void>;
+  updateApplyMail: (id: string, data: Partial<ApplyMail>) => Promise<void>;
+  deleteApplyMail: (id: string) => Promise<void>;
 
   // Data management
   restoreData: (data: Partial<Database>) => Promise<void>;
@@ -966,6 +973,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const fetchApplyMails = async () => {
+    if (isOffline) return;
+    const { data, error } = await supabase.from('apply_mail').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching apply mails:', error);
+      return;
+    }
+    if (data) {
+      const applyMails = data.reduce((acc, mail) => ({ ...acc, [mail.id]: toCamel(mail) }), {});
+      setDbState(prev => ({ ...prev, applyMails }));
+    }
+  };
+
+  const addApplyMail = async (subject: string, content: string) => {
+    const newMail = {
+      id: uuidv4(),
+      subject,
+      content,
+      status: 'pending',
+      loginId: currentUser || 'anonymous'
+    };
+    const { data, error } = await supabaseInsert('apply_mail', newMail);
+    if (error) {
+      console.error('Error adding apply mail:', error);
+      throw error;
+    }
+    if (data) {
+      const addedMail = data[0] as ApplyMail;
+      setDbState(prev => ({
+        ...prev,
+        applyMails: { [addedMail.id]: addedMail, ...prev.applyMails }
+      }));
+    }
+  };
+
+  const updateApplyMail = async (id: string, data: Partial<ApplyMail>) => {
+    const { error } = await supabaseUpdate('apply_mail', data, { id });
+    if (error) {
+      console.error('Error updating apply mail:', error);
+      throw error;
+    }
+    setDbState(prev => ({
+      ...prev,
+      applyMails: {
+        ...prev.applyMails,
+        [id]: { ...prev.applyMails[id], ...data }
+      }
+    }));
+  };
+
+  const deleteApplyMail = async (id: string) => {
+    const { error } = await supabase.from('apply_mail').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting apply mail:', error);
+      throw error;
+    }
+    setDbState(prev => {
+      const { [id]: _, ...rest } = prev.applyMails;
+      return { ...prev, applyMails: rest };
+    });
+  };
+
   if (!isLoaded) {
     return <div className="min-h-screen flex items-center justify-center bg-stone-100 text-stone-500">{t('common.loading')}</div>;
   }
@@ -978,6 +1047,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addCharacter, updateCharacter, deleteCharacter, updateCharactersOrder,
       addCostume, updateCostume, deleteCostume, updateCostumesOrder,
       updateUserPassword, updateUserRole, addUser, deleteUser, updateSetting, fetchSettings,
+      fetchApplyMails, addApplyMail, updateApplyMail, deleteApplyMail,
       restoreData, toasts, showToast, removeToast,
       userVolume, setUserVolume, isRoleLoading, isMembersLoading
     }}>
