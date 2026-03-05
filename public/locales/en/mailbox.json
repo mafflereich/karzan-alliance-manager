@@ -1,0 +1,11 @@
+{
+  "status_pending": "Pending",
+  "status_acknowledged": "Noted",
+  "status_rejected": "Rejected",
+  "status_discuss": "Find ZoarS",
+  "status_unclear": "Unknown meaning",
+  "status_who_are_you": "Identity unclear",
+  "status_reapply": "Application rejected, please re-apply",
+  "filter_all": "All",
+  "submit_cooldown": "Please submit a new application in {{minutes}} minutes"
+}
