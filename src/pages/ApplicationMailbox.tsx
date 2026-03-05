@@ -21,7 +21,7 @@ import {
 import { ApplyMail } from '../types';
 import { formatDate } from '../utils';
 
-type ApplicationSubject = 'leave' | 'tier_change' | 'reserved_seat' | 'id_change' | 'other';
+type ApplicationSubject = 'leave' | 'tier_change' | 'reserved_seat' | 'id_change';
 type ApplicationStatus = 'pending' | 'acknowledged' | 'rejected' | 'discuss' | 'unclear' | 'who_are_you';
 
 export default function ApplicationMailbox() {
@@ -72,7 +72,6 @@ export default function ApplicationMailbox() {
       case 'tier_change': return t('mailbox:subject_tier_change', '升降梯隊');
       case 'reserved_seat': return t('mailbox:subject_reserved_seat', '保留席');
       case 'id_change': return t('mailbox:subject_id_change', 'ID更改/修正');
-      case 'other': return t('mailbox:subject_other', '其他');
       default: return subject;
     }
   };
@@ -82,7 +81,7 @@ export default function ApplicationMailbox() {
       'pending': { label: t('mailbox:status_pending', '待處理'), color: 'text-stone-400', icon: <Clock className="w-4 h-4" /> },
       'acknowledged': { label: t('mailbox:status_acknowledged', '已知悉'), color: 'text-green-600', icon: <CheckCircle className="w-4 h-4" /> },
       'rejected': { label: t('mailbox:status_rejected', '拒絕'), color: 'text-red-600', icon: <XCircle className="w-4 h-4" /> },
-      'discuss': { label: t('mailbox:status_discuss', '聯絡總長'), color: 'text-amber-600', icon: <MessageCircle className="w-4 h-4" /> },
+      'discuss': { label: t('mailbox:status_discuss_full', '請到 Discord 聯絡總長'), color: 'text-amber-600', icon: <MessageCircle className="w-4 h-4" /> },
       'unclear': { label: t('mailbox:status_reapply', '不受理，請重新申請'), color: 'text-purple-600', icon: <HelpCircle className="w-4 h-4" /> },
       'who_are_you': { label: t('mailbox:status_reapply', '不受理，請重新申請'), color: 'text-purple-600', icon: <HelpCircle className="w-4 h-4" /> },
     };
@@ -185,7 +184,7 @@ export default function ApplicationMailbox() {
           <button onClick={() => setFilter('pending')} className={`px-3 py-1 rounded-full text-sm ${filter === 'pending' ? 'bg-amber-600 text-white' : 'bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300'}`}>
             {t('mailbox:status_pending', '待處理')} ({applications.filter(a => a.status === 'pending').length})
           </button>
-          {['leave', 'tier_change', 'reserved_seat', 'id_change', 'other'].map(subject => (
+          {['leave', 'tier_change', 'reserved_seat', 'id_change'].map(subject => (
             <button key={subject} onClick={() => setFilter(subject)} className={`px-3 py-1 rounded-full text-sm ${filter === subject ? 'bg-amber-600 text-white' : 'bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300'}`}>
               {getSubjectLabel(subject)}
             </button>
@@ -301,7 +300,6 @@ export default function ApplicationMailbox() {
                   <option value="tier_change">{t('mailbox:subject_tier_change', '升降梯隊')}</option>
                   <option value="reserved_seat">{t('mailbox:subject_reserved_seat', '保留席')}</option>
                   <option value="id_change">{t('mailbox:subject_id_change', 'ID更改/修正')}</option>
-                  <option value="other">{t('mailbox:subject_other', '其他')}</option>
                 </select>
               </div>
 

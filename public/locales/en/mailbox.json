@@ -3,6 +3,7 @@
   "status_acknowledged": "Noted",
   "status_rejected": "Rejected",
   "status_discuss": "Find ZoarS",
+  "status_discuss_full": "Please Contact ZoarS on Discord",
   "status_unclear": "Unknown meaning",
   "status_who_are_you": "Identity unclear",
   "status_reapply": "Application rejected, please re-apply",

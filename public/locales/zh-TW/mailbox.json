@@ -3,6 +3,7 @@
   "status_acknowledged": "已知悉",
   "status_rejected": "拒絕",
   "status_discuss": "聯絡總長",
+  "status_discuss_full": "請到 Discord 聯絡總長",
   "status_unclear": "意義不明",
   "status_who_are_you": "你是誰？",
   "status_reapply": "不受理，請重新申請",
