@@ -140,7 +140,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .single(); // 我們預期只會有一筆
 
       if (error) {
-        console.error("無法取得使用者權限:", error);
+        // PGRST116 means no rows found, which is expected for regular users not in admin_users table
+        if (error.code !== 'PGRST116') {
+          console.error("無法取得使用者權限:", error);
+        } else {
+          // For regular users, we can set a default 'member' role in local state if they are logged in
+          setDbState(prev => ({
+            ...prev,
+            users: {
+              ...prev.users,
+              [username]: { username, role: 'member' }
+            }
+          }));
+        }
         return;
       }
 

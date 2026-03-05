@@ -212,7 +212,7 @@ export default function Header() {
               <span className="hidden sm:inline">{t('header.costume_list')}</span>
             </button>
 
-            {userRole && ['manager', 'admin', 'creator'].includes(userRole) && (
+            {currentUser && (
               <button
                 onClick={() => setCurrentView({ type: 'application_mailbox' })}
                 disabled={currentView?.type === 'application_mailbox'}

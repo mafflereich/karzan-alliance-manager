@@ -18,7 +18,7 @@
   "status_who_are_you": "你是誰？",
   "status_reapply": "不受理，請重新申請",
   "submit_hint": "請在內容中註明您的公會名稱和遊戲暱稱，以便管理員處理。",
-  "submit_cooldown": "您剛剛提交了申請，請稍後再試。",
+  "submit_cooldown": "請在 {{minutes}} 分鐘後再提出新的申請",
   "content_placeholder": "請輸入申請內容...",
   "submit_success": "提交成功",
   "submit_failed": "提交失敗",

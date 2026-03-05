@@ -16,37 +16,37 @@ import ToastContainer from './components/Toast';
 const AppContent = () => {
   const { db, currentView, currentUser, setCurrentView } = useAppContext();
 
-  if (!currentView) {
+  const userRole = currentUser ? db.users[currentUser]?.role : null;
+  const canAccessAdmin = userRole === 'admin' || userRole === 'creator';
+  const canAccessArcade = userRole === 'creator';
+  const canAccessMailbox = !!currentUser;
+
+  React.useEffect(() => {
+    if (currentView?.type === 'admin' && !canAccessAdmin) {
+      setCurrentView(null);
+    }
+    if (currentView?.type === 'application_mailbox' && !canAccessMailbox) {
+      setCurrentView(null);
+    }
+    if (currentView?.type === 'arcade' && !canAccessArcade) {
+      setCurrentView(null);
+    }
+  }, [currentView, canAccessAdmin, canAccessMailbox, canAccessArcade, setCurrentView]);
+
+  if (!currentView || !currentUser) {
     return <Login />;
   }
 
   if (currentView.type === 'admin') {
-    const userRole = currentUser ? db.users[currentUser]?.role : null;
-    const canAccessAdmin = userRole === 'admin' || userRole === 'creator';
-    
-    if (!canAccessAdmin) {
-      setCurrentView(null);
-      return <Login />;
-    }
-    return <AdminDashboard />;
+    return canAccessAdmin ? <AdminDashboard /> : <Login />;
   }
 
   if (currentView.type === 'application_mailbox') {
-    const userRole = currentUser ? db.users[currentUser]?.role : null;
-    if (userRole !== 'creator' && userRole !== 'manager' && userRole !== 'admin') {
-      setCurrentView(null);
-      return <Login />;
-    }
-    return <ApplicationMailbox />;
+    return canAccessMailbox ? <ApplicationMailbox /> : <Login />;
   }
 
   if (currentView.type === 'arcade') {
-    const userRole = currentUser ? db.users[currentUser]?.role : null;
-    if (userRole !== 'creator') {
-      setCurrentView(null);
-      return <Login />;
-    }
-    return <Arcade />;
+    return canAccessArcade ? <Arcade /> : <Login />;
   }
 
   return <GuildDashboard guildId={currentView.guildId} />;
