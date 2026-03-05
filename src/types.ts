@@ -47,7 +47,7 @@ export interface Costume {
 
 export interface User {
   username: string;
-  role: 'creator' | 'admin' | 'manager';
+  role: 'creator' | 'admin' | 'manager' | 'member';
 }
 
 export interface Setting {

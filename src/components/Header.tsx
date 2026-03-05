@@ -223,7 +223,7 @@ export default function Header() {
               </button>
             )}
 
-            {userRole === 'creator' && (
+            {canSeeAllGuilds && (
               <button
                 onClick={() => setCurrentView({ type: 'arcade' })}
                 disabled={currentView?.type === 'arcade'}

@@ -1,6 +1,30 @@
 {
-  "title": "Arcade",
-  "refining_race": "Refining Race",
-  "refining_race_desc": "Coming soon...",
-  "back_to_login": "Back to Homepage"
+  "title": "Arcade Center",
+  "back_to_homepage": "Back to Homepage",
+  "back_to_arcade": "Back to Arcade",
+  "refining_race": "Speed Refining",
+  "refining_race_desc": "Test your reflexes! Click numbers 0-24 in order as fast as you can. Watch out for penalties!",
+  "play_now": "Play Now",
+  "speedRefining": {
+    "title": "Speed Refining",
+    "time": "Time",
+    "topRefiners": "Top Refiners",
+    "readyToRefine": "Ready to Refine?",
+    "instructions": "Click numbers 0-24 in order as fast as possible!",
+    "playerNameLabel": "Player Name",
+    "enterNamePlaceholder": "Enter your name",
+    "nameRequired": "Please enter player name to start!",
+    "start": "Start Refining",
+    "complete": "Refining Complete!",
+    "greatJob": "Great job, {{name}}!",
+    "totalTime": "Total Time",
+    "playTime": "Play Time",
+    "penalty": "Penalty",
+    "forecast": "Refining Forecast",
+    "nextRefining": "Next refining probability for",
+    "probabilityBoost": "increased by",
+    "perfectRun": "✨ PERFECT RUN! ✨",
+    "back": "Back",
+    "save_failed": "Failed to save score: {{error}}"
+  }
 }

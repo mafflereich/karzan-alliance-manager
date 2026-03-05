@@ -1,6 +1,30 @@
 {
-  "title": "街機遊戲",
+  "title": "遊樂場",
+  "back_to_homepage": "返回主頁面",
+  "back_to_arcade": "返回遊樂場",
   "refining_race": "煉製競速",
-  "refining_race_desc": "Coming soon...",
-  "back_to_login": "返回主頁面"
+  "refining_race_desc": "測試你的反應速度！盡快按順序點擊數字 0-24。小心失誤懲罰！",
+  "play_now": "立即遊玩",
+  "speedRefining": {
+    "title": "煉製競速",
+    "time": "時間",
+    "topRefiners": "煉製排行榜",
+    "readyToRefine": "準備好煉製了嗎？",
+    "instructions": "盡快按順序點擊數字 0-24！",
+    "playerNameLabel": "玩家名稱",
+    "enterNamePlaceholder": "輸入你的名字",
+    "nameRequired": "請輸入玩家名稱以開始遊戲！",
+    "start": "開始煉製",
+    "complete": "煉製完成!",
+    "greatJob": "做得好, {{name}}!",
+    "totalTime": "總耗時",
+    "playTime": "遊戲時間",
+    "penalty": "失誤加時",
+    "forecast": "煉製預測",
+    "nextRefining": "接下來你煉製到",
+    "probabilityBoost": "的機率提升了",
+    "perfectRun": "✨ PERFECT RUN! ✨",
+    "back": "返回",
+    "save_failed": "儲存分數失敗: {{error}}"
+  }
 }

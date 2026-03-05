@@ -18,7 +18,7 @@ const AppContent = () => {
 
   const userRole = currentUser ? db.users[currentUser]?.role : null;
   const canAccessAdmin = userRole === 'admin' || userRole === 'creator';
-  const canAccessArcade = userRole === 'creator';
+  const canAccessArcade = userRole === 'admin' || userRole === 'creator' || userRole === 'manager';
   const canAccessMailbox = !!currentUser;
 
   React.useEffect(() => {
