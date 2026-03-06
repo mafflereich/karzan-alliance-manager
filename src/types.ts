@@ -67,6 +67,11 @@ export interface ApplyMail {
   loginId: string;
 }
 
+export interface AccessControl {
+  page: string;
+  roles: ('member' | 'manager' | 'admin' | 'creator')[];
+}
+
 export interface Database {
   guilds: Record<string, Guild>;
   guildOrder?: string[];
@@ -76,6 +81,7 @@ export interface Database {
   users: Record<string, User>;
   settings: Record<string, Setting>;
   applyMails: Record<string, ApplyMail>;
+  accessControl: Record<string, AccessControl>;
 }
 export interface ArchiveHistory {
   id: string;

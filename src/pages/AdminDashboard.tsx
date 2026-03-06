@@ -10,6 +10,7 @@ import Header from '../components/Header';
 import SinglePasswordUpdate from '../components/SinglePasswordUpdate';
 import BulkPasswordUpdate from '../components/BulkPasswordUpdate';
 import ArchivedMembersManager from '../components/ArchivedMembersManager';
+import AccessControlManager from '../components/AccessControlManager';
 import { Reorder } from "motion/react";
 import { useTranslation } from 'react-i18next';
 import { logEvent } from '../analytics';
@@ -17,7 +18,7 @@ import { logEvent } from '../analytics';
 export default function AdminDashboard() {
   const { t } = useTranslation(['admin', 'translation']);
   const { db, setDb, setCurrentView, currentUser, setCurrentUser, fetchAllMembers } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived' | 'settings'>('guilds');
+  const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived' | 'settings' | 'access'>('guilds');
 
   const userRole = currentUser ? db.users[currentUser]?.role : null;
 
@@ -26,7 +27,7 @@ export default function AdminDashboard() {
     setCurrentView(null);
   };
 
-  const handleTabChange = (tab: 'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived' | 'settings') => {
+  const handleTabChange = (tab: 'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived' | 'settings' | 'access') => {
     logEvent('AdminDashboard', 'Switch Tab', tab);
     setActiveTab(tab);
   };
@@ -52,6 +53,7 @@ export default function AdminDashboard() {
               <TabButton active={activeTab === 'passwords'} onClick={() => handleTabChange('passwords')} icon={<Key />} label={t('nav.change_password')} />
               <TabButton active={activeTab === 'backup'} onClick={() => handleTabChange('backup')} icon={<Save />} label={t('nav.backup_restore')} />
               <TabButton active={activeTab === 'tools'} onClick={() => handleTabChange('tools')} icon={<Wand2 />} label={t('nav.tools')} />
+              <TabButton active={activeTab === 'access'} onClick={() => handleTabChange('access')} icon={<Lock />} label={t('nav.access_control')} />
               <TabButton active={activeTab === 'settings'} onClick={() => handleTabChange('settings')} icon={<Settings />} label={t('nav.settings')} />
             </>
           )}
@@ -96,6 +98,7 @@ export default function AdminDashboard() {
           )}
           {activeTab === 'backup' && userRole !== 'manager' && <BackupManager />}
           {activeTab === 'tools' && userRole !== 'manager' && <ToolsManager />}
+          {activeTab === 'access' && userRole !== 'manager' && <AccessControlManager />}
           {activeTab === 'settings' && userRole !== 'manager' && <SettingsManager />}
         </div>
       </main>

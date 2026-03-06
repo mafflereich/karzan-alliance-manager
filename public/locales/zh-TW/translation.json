@@ -254,7 +254,10 @@
   "roles": {
     "leader": "會長",
     "coleader": "副會長",
-    "member": "成員"
+    "member": "成員",
+    "manager": "管理者",
+    "admin": "管理員",
+    "creator": "建立者"
   },
   "nav": {
     "guild_management": "公會管理",
@@ -263,6 +266,7 @@
     "change_password": "修改密碼",
     "backup_restore": "備份與還原",
     "tools": "便利小功能",
+    "access_control": "存取控制",
     "settings": "網頁設定",
     "costume_db": "服裝資料庫"
   },

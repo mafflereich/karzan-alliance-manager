@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail } from './types';
+import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl } from './types';
 import { supabase, supabaseInsert, supabaseUpdate, supabaseUpsert, toCamel } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +17,8 @@ const defaultData: Database = {
     "manager": { username: "manager", role: "manager" }
   },
   settings: {},
-  applyMails: {}
+  applyMails: {},
+  accessControl: {}
 };
 
 type ViewState = { type: 'admin' } | { type: 'guild', guildId: string } | { type: 'application_mailbox' } | { type: 'arcade' } | { type: 'alliance_raid_record' } | null;
@@ -74,6 +75,9 @@ interface AppContextType {
   addApplyMail: (subject: string, content: string) => Promise<void>;
   updateApplyMail: (id: string, data: Partial<ApplyMail>) => Promise<void>;
   deleteApplyMail: (id: string) => Promise<void>;
+
+  // Access control functions
+  updateAccessControl: (page: string, roles: AccessControl['roles']) => Promise<void>;
 
   // Data management
   restoreData: (data: Partial<Database>) => Promise<void>;
@@ -289,22 +293,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchInitialData = async () => {
       try {
-        const [guildsRes, charactersRes, costumesRes, settingsRes] = await Promise.all([
+        const [guildsRes, charactersRes, costumesRes, settingsRes, accessControlRes] = await Promise.all([
           supabase.from('guilds').select('*'),
           supabase.from('characters').select('*'),
           supabase.from('costumes').select('*'),
           supabase.from('settings').select('*'),
+          supabase.from('access_control').select('*'),
         ]);
 
         if (guildsRes.error) throw guildsRes.error;
         if (charactersRes.error) throw charactersRes.error;
         if (costumesRes.error) throw costumesRes.error;
         if (settingsRes.error) throw settingsRes.error;
+        // access_control might not exist yet, handle gracefully
+        const accessControlData = accessControlRes.error ? [] : accessControlRes.data;
 
         const guilds = guildsRes.data.reduce((acc, guild) => ({ ...acc, [guild.id]: toCamel(guild) }), {});
         const characters = charactersRes.data.reduce((acc, char) => ({ ...acc, [char.id]: toCamel(char) }), {});
         const costumes = costumesRes.data.reduce((acc, costume) => ({ ...acc, [costume.id]: toCamel(costume) }), {});
         const settings = settingsRes.data.reduce((acc, setting) => ({ ...acc, [setting.id]: toCamel(setting) }), {});
+        const accessControl = accessControlData.reduce((acc, ac) => ({ ...acc, [ac.page]: toCamel(ac) }), {});
 
         setDbState(prev => ({
           ...prev,
@@ -312,6 +320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           characters,
           costumes,
           settings,
+          accessControl,
         }));
 
         setLoadedStates({ global: true, guilds: true, costumes: true, characters: true, users: true });
@@ -448,6 +457,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // This function is now primarily for local state updates and might be simplified or removed.
   const setDb = (value: React.SetStateAction<Database>) => {
     setDbState(value);
+  };
+
+  const updateAccessControl = async (page: string, roles: AccessControl['roles']) => {
+    const existing = db.accessControl[page];
+    let error;
+
+    if (existing) {
+      const res = await supabaseUpdate('access_control', { roles }, { page });
+      error = res.error;
+    } else {
+      const res = await supabaseInsert('access_control', { page, roles });
+      error = res.error;
+    }
+
+    if (error) {
+      console.error('Error updating access control:', error);
+      showToast(t('common.update_failed'), 'error');
+    } else {
+      setDbState(prev => ({
+        ...prev,
+        accessControl: {
+          ...prev.accessControl,
+          [page]: { page, roles }
+        }
+      }));
+      showToast(t('common.update_success'), 'success');
+    }
   };
 
   const addMember = async (guildId: string, name: string, role: Role = 'member', note: string = '') => {
@@ -1083,6 +1119,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addCostume, updateCostume, deleteCostume, updateCostumesOrder,
       updateUserPassword, updateUserRole, addUser, deleteUser, updateSetting, fetchSettings,
       fetchApplyMails, addApplyMail, updateApplyMail, deleteApplyMail,
+      updateAccessControl,
       restoreData, toasts, showToast, removeToast,
       userVolume, setUserVolume, isRoleLoading, isMembersLoading
     }}>

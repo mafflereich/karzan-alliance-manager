@@ -172,6 +172,23 @@ export default function Header() {
   const userRole = currentUser ? db.users[currentUser]?.role : null;
   const canSeeAllGuilds = userRole === 'admin' || userRole === 'creator' || userRole === 'manager';
   const canAccessAdmin = userRole === 'admin' || userRole === 'creator';
+
+  const getDefaultRoles = (pageId: string): ('member' | 'manager' | 'admin' | 'creator')[] => {
+    switch (pageId) {
+      case 'costume_list': return ['member', 'manager', 'admin', 'creator'];
+      case 'application_mailbox': return ['member', 'manager', 'admin', 'creator'];
+      case 'arcade': return ['manager', 'admin', 'creator'];
+      case 'alliance_raid_record': return ['creator'];
+      default: return ['creator', 'admin'];
+    }
+  };
+
+  const canAccessPage = (pageId: string) => {
+    const roles = db.accessControl?.[pageId]?.roles || getDefaultRoles(pageId);
+    if (!currentUser) return false;
+    return roles.includes(userRole as any);
+  };
+
   const userGuildId = !canSeeAllGuilds && currentUser ? Object.entries(db.guilds).find(([_, g]) => g.username === currentUser)?.[0] : null;
 
   const topGuildId = canSeeAllGuilds ? (sortedGuilds.length > 0 ? sortedGuilds[0][0] : null) : userGuildId;
@@ -213,13 +230,13 @@ export default function Header() {
                 }
               }}
               disabled={isCostumeListActive || !topGuildId}
-              className={`flex items-center gap-2 transition-colors ${isCostumeListActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed'}`}
+              className={`flex items-center gap-2 transition-colors ${isCostumeListActive ? 'text-amber-500 cursor-default' : 'hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed'} ${!canAccessPage('costume_list') ? 'hidden' : ''}`}
             >
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">{t('header.costume_list')}</span>
             </button>
 
-            {currentUser && (
+            {canAccessPage('application_mailbox') && (
               <button
                 onClick={() => {
                   logEvent('Navigation', 'Click', 'Application Mailbox');
@@ -233,7 +250,7 @@ export default function Header() {
               </button>
             )}
 
-            {canSeeAllGuilds && (
+            {canAccessPage('arcade') && (
               <button
                 onClick={() => {
                   logEvent('Navigation', 'Click', 'Arcade');
@@ -249,7 +266,7 @@ export default function Header() {
 
             {currentUser ? (
               <div className="flex items-center gap-6">
-                {userRole === 'creator' && (
+                {canAccessPage('alliance_raid_record') && (
                   <button
                     onClick={() => {
                       logEvent('Navigation', 'Click', 'Alliance Raid Record');

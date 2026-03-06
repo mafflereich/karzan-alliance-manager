@@ -20,9 +20,27 @@ const AppContent = () => {
 
   const userRole = currentUser ? db.users[currentUser]?.role : null;
   const canAccessAdmin = userRole === 'admin' || userRole === 'creator';
-  const canAccessArcade = userRole === 'admin' || userRole === 'creator' || userRole === 'manager';
-  const canAccessMailbox = !!currentUser;
-  const canAccessAllianceRaidRecord = userRole === 'creator';
+
+  const getDefaultRoles = (pageId: string): ('member' | 'manager' | 'admin' | 'creator')[] => {
+    switch (pageId) {
+      case 'costume_list': return ['member', 'manager', 'admin', 'creator'];
+      case 'application_mailbox': return ['member', 'manager', 'admin', 'creator'];
+      case 'arcade': return ['manager', 'admin', 'creator'];
+      case 'alliance_raid_record': return ['creator'];
+      default: return ['creator', 'admin'];
+    }
+  };
+
+  const canAccessPage = (pageId: string) => {
+    const roles = db.accessControl?.[pageId]?.roles || getDefaultRoles(pageId);
+    if (!currentUser) return false;
+    return roles.includes(userRole as any);
+  };
+
+  const canAccessArcade = canAccessPage('arcade');
+  const canAccessMailbox = canAccessPage('application_mailbox');
+  const canAccessAllianceRaidRecord = canAccessPage('alliance_raid_record');
+  const canAccessCostumeList = canAccessPage('costume_list');
 
   React.useEffect(() => {
     let path = '/login';
@@ -57,7 +75,10 @@ const AppContent = () => {
     if (currentView?.type === 'alliance_raid_record' && !canAccessAllianceRaidRecord) {
       setCurrentView(null);
     }
-  }, [currentView, canAccessAdmin, canAccessMailbox, canAccessArcade, canAccessAllianceRaidRecord, setCurrentView]);
+    if (currentView?.type === 'guild' && !canAccessCostumeList) {
+      setCurrentView(null);
+    }
+  }, [currentView, canAccessAdmin, canAccessMailbox, canAccessArcade, canAccessAllianceRaidRecord, canAccessCostumeList, setCurrentView]);
 
   if (!currentView || !currentUser) {
     return <Login />;
@@ -79,7 +100,7 @@ const AppContent = () => {
     return canAccessAllianceRaidRecord ? <AllianceRaidRecord /> : <Login />;
   }
 
-  return <GuildDashboard guildId={currentView.guildId} />;
+  return canAccessCostumeList ? <GuildDashboard guildId={currentView.guildId} /> : <Login />;
 };
 
 const CACHE_NAME = 'bgm-cache-v1';

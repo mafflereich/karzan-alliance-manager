@@ -205,5 +205,9 @@
     "message": "訊息",
     "message_placeholder": "輸入顯示在主頁面的訊息...",
     "bgm_default_volume": "背景音樂預設音量"
+  },
+  "access": {
+    "page": "頁面",
+    "notice": "勾選後該職位的使用者將能在 Header 看到連結並進入該頁面。"
   }
 }

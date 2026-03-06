@@ -254,7 +254,10 @@
   "roles": {
     "leader": "Leader",
     "coleader": "Co-leader",
-    "member": "Member"
+    "member": "Member",
+    "manager": "Manager",
+    "admin": "Admin",
+    "creator": "Creator"
   },
   "nav": {
     "guild_management": "Guild Management",
@@ -263,6 +266,7 @@
     "change_password": "Change Password",
     "backup_restore": "Backup & Restore",
     "tools": "Tools",
+    "access_control": "Access Control",
     "settings": "Settings",
     "costume_db": "Costume Database"
   },

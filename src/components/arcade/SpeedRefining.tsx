@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabase';
-import { Trophy, Timer, AlertTriangle, RotateCcw, Play, Medal, ArrowLeft, X } from 'lucide-react';
+import { Gamepad2, Timer, AlertTriangle, RotateCcw, Play, Medal, ArrowLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { logEvent } from '../../analytics';
 
@@ -223,7 +223,7 @@ export default function SpeedRefining() {
       <div className="w-full flex justify-between items-start mb-6 px-4">
         <div className="flex flex-col">
           <h2 className="text-2xl font-bold text-amber-500 flex items-center gap-2">
-            <Trophy className="w-6 h-6" /> {t('speedRefining.title')}
+            <Gamepad2 className="w-6 h-6" /> {t('speedRefining.title')}
           </h2>
           {gameState === 'playing' && (
             <div className="text-xl mt-2 font-mono">
@@ -397,7 +397,7 @@ export default function SpeedRefining() {
                         idx === 1 ? 'bg-stone-300 text-stone-900' : 
                         'bg-amber-700 text-stone-100'
                       }`}>
-                        <Trophy className="w-4 h-4" />
+                        <Gamepad2 className="w-4 h-4" />
                       </div>
                     ) : (
                       <span className="w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold bg-stone-700 text-stone-300">

@@ -205,5 +205,9 @@
     "message": "Message",
     "message_placeholder": "Enter message to display on main page...",
     "bgm_default_volume": "Default BGM Volume"
+  },
+  "access": {
+    "page": "Page",
+    "notice": "Selected roles will be able to see the link in the header and access the page."
   }
 }

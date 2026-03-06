@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Trophy } from 'lucide-react';
+import { ArrowLeft, Gamepad2 } from 'lucide-react';
 import { useAppContext } from '../store';
 import SpeedRefining from '../components/arcade/SpeedRefining';
 import RefineSimulator from '../components/arcade/RefineSimulator';
@@ -58,7 +58,7 @@ export default function Arcade() {
       </button>
 
       <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-6 flex items-center gap-2">
-        <Trophy className="w-8 h-8 text-amber-500" />
+        <Gamepad2 className="w-8 h-8 text-amber-500" />
         {t('title', 'Arcade Games')}
       </h1>
 
@@ -72,7 +72,7 @@ export default function Arcade() {
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-20 bg-[url('https://image-bd2db.souseha.com/common/pngs/UR_rank.webp')] bg-cover bg-center"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900 to-transparent"></div>
-            <Trophy className="w-16 h-16 text-amber-500 drop-shadow-lg group-hover:scale-110 transition-transform duration-300" />
+            <Gamepad2 className="w-16 h-16 text-amber-500 drop-shadow-lg group-hover:scale-110 transition-transform duration-300" />
           </div>
           <div className="p-6">
             <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
@@ -95,7 +95,7 @@ export default function Arcade() {
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-20 bg-[url('https://image-bd2db.souseha.com/common/pngs/UR_rank.webp')] bg-cover bg-center"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900 to-transparent"></div>
-            <Trophy className="w-16 h-16 text-amber-500 drop-shadow-lg group-hover:scale-110 transition-transform duration-300" />
+            <Gamepad2 className="w-16 h-16 text-amber-500 drop-shadow-lg group-hover:scale-110 transition-transform duration-300" />
           </div>
           <div className="p-6">
             <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100 mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
