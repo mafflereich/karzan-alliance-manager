@@ -11,6 +11,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import GuildDashboard from './pages/GuildDashboard';
 import ApplicationMailbox from './pages/ApplicationMailbox';
 import Arcade from './pages/Arcade';
+import AllianceRaidRecord from './pages/AllianceRaidRecord';
 import ToastContainer from './components/Toast';
 import { initGA, logPageView } from './analytics';
 
@@ -21,6 +22,7 @@ const AppContent = () => {
   const canAccessAdmin = userRole === 'admin' || userRole === 'creator';
   const canAccessArcade = userRole === 'admin' || userRole === 'creator' || userRole === 'manager';
   const canAccessMailbox = !!currentUser;
+  const canAccessAllianceRaidRecord = userRole === 'creator';
 
   React.useEffect(() => {
     let path = '/login';
@@ -33,6 +35,8 @@ const AppContent = () => {
         path = '/mailbox';
       } else if (currentView.type === 'arcade') {
         path = '/arcade';
+      } else if (currentView.type === 'alliance_raid_record') {
+        path = '/alliance_raid_record';
       } else if (currentView.type === 'guild') {
         path = `/guild/${currentView.guildId}`;
       }
@@ -50,7 +54,10 @@ const AppContent = () => {
     if (currentView?.type === 'arcade' && !canAccessArcade) {
       setCurrentView(null);
     }
-  }, [currentView, canAccessAdmin, canAccessMailbox, canAccessArcade, setCurrentView]);
+    if (currentView?.type === 'alliance_raid_record' && !canAccessAllianceRaidRecord) {
+      setCurrentView(null);
+    }
+  }, [currentView, canAccessAdmin, canAccessMailbox, canAccessArcade, canAccessAllianceRaidRecord, setCurrentView]);
 
   if (!currentView || !currentUser) {
     return <Login />;
@@ -66,6 +73,10 @@ const AppContent = () => {
 
   if (currentView.type === 'arcade') {
     return canAccessArcade ? <Arcade /> : <Login />;
+  }
+
+  if (currentView.type === 'alliance_raid_record') {
+    return canAccessAllianceRaidRecord ? <AllianceRaidRecord /> : <Login />;
   }
 
   return <GuildDashboard guildId={currentView.guildId} />;

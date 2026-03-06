@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
-import { Shield, LogIn, LogOut, Settings, Users, User, Lock, AlertCircle, X, Globe, Volume2, VolumeX, Sun, Moon, Monitor, Layout, Mail, Gamepad2 } from 'lucide-react';
+import { Shield, LogIn, LogOut, Settings, Users, User, Lock, AlertCircle, X, Globe, Volume2, VolumeX, Sun, Moon, Monitor, Layout, Mail, Gamepad2, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../ThemeContext';
 import { logEvent } from '../analytics';
@@ -249,6 +249,20 @@ export default function Header() {
 
             {currentUser ? (
               <div className="flex items-center gap-6">
+                {userRole === 'creator' && (
+                  <button
+                    onClick={() => {
+                      logEvent('Navigation', 'Click', 'Alliance Raid Record');
+                      setCurrentView({ type: 'alliance_raid_record' });
+                    }}
+                    disabled={currentView?.type === 'alliance_raid_record'}
+                    className={`flex items-center gap-2 transition-colors ${currentView?.type === 'alliance_raid_record' ? 'text-amber-500 cursor-default' : 'hover:text-amber-400'}`}
+                  >
+                    <Trophy className="w-4 h-4" />
+                    <span className="hidden sm:inline">{t('header.alliance_raid_record', '聯盟成績記錄')}</span>
+                  </button>
+                )}
+
                 {canAccessAdmin && (
                   <button
                     onClick={() => {
