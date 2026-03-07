@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calculator, AlertCircle } from 'lucide-react';
+import { Calculator, AlertCircle, Copy, Check } from 'lucide-react';
 import { logEvent } from '../analytics';
 
 interface CalculationResult {
@@ -13,6 +13,36 @@ interface ScoreCalculatorProps {
   label?: string;
   enableDefenseScore?: boolean;
 }
+
+const ResultItem = ({ item, t }: { item: CalculationResult, t: any }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = `${item.turn}T 借${item.borrow}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    logEvent('Toolbox', 'Copy Result', text);
+  };
+
+  return (
+    <li className="text-sm text-stone-700 dark:text-stone-300 flex items-center justify-between px-2 py-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded group">
+      <div className="flex items-center gap-2">
+        <span className="font-mono font-medium">{item.turn}T </span>
+        <span className="text-stone-500 dark:text-stone-400 text-xs">
+          {t('toolbox:score_calculator.borrow', '借 {{count}}', { count: item.borrow })}
+        </span>
+      </div>
+      <button
+        onClick={handleCopy}
+        className="p-1 text-stone-400 hover:text-amber-500 transition-colors opacity-100"
+        title={t('common.copy', 'Copy')}
+      >
+        {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+      </button>
+    </li>
+  );
+};
 
 const ScoreCalculator: React.FC<ScoreCalculatorProps> = ({ label, enableDefenseScore = false }) => {
   const { t } = useTranslation(['toolbox', 'translation']);
@@ -147,12 +177,7 @@ const ScoreCalculator: React.FC<ScoreCalculatorProps> = ({ label, enableDefenseS
                     <div className="p-3 max-h-60 overflow-y-auto custom-scrollbar">
                       <ul className="space-y-1">
                         {items.sort((a, b) => a.turn - b.turn).map((item, idx) => (
-                          <li key={idx} className="text-sm text-stone-700 dark:text-stone-300 flex items-center px-2 py-1 hover:bg-stone-100 dark:hover:bg-stone-800 rounded gap-1">
-                            <span className="font-mono font-medium">{item.turn}T</span>
-                            <span className="text-stone-500 dark:text-stone-400 text-xs">
-                              {t('toolbox:score_calculator.borrow', '借 {{count}}', { count: item.borrow })}
-                            </span>
-                          </li>
+                          <ResultItem key={idx} item={item} t={t} />
                         ))}
                       </ul>
                     </div>
