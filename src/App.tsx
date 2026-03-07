@@ -16,9 +16,8 @@ import ToastContainer from './components/Toast';
 import { initGA, logPageView } from './analytics';
 
 const AppContent = () => {
-  const { db, currentView, currentUser, setCurrentView } = useAppContext();
+  const { db, currentView, currentUser, setCurrentView, userRole } = useAppContext();
 
-  const userRole = currentUser ? db.users[currentUser]?.role : null;
   const canAccessAdmin = userRole === 'admin' || userRole === 'creator';
 
   const getDefaultRoles = (pageId: string): ('member' | 'manager' | 'admin' | 'creator')[] => {

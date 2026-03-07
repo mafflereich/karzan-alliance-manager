@@ -25,7 +25,7 @@ interface GuildRaidRecord {
 
 export default function AllianceRaidRecord() {
   const { t } = useTranslation();
-  const { db, currentUser } = useAppContext();
+  const { db, currentUser, userRole } = useAppContext();
   
   const [seasons, setSeasons] = useState<RaidSeason[]>([]);
   const [records, setRecords] = useState<GuildRaidRecord[]>([]);
@@ -56,7 +56,6 @@ export default function AllianceRaidRecord() {
   const [editingCell, setEditingCell] = useState<{ guild_id: string, season_id: string } | null>(null);
   const [editRecordData, setEditRecordData] = useState<{ score: number | '', rank: string }>({ score: '', rank: '' });
 
-  const userRole = currentUser ? db.users[currentUser]?.role : null;
   const canManage = userRole === 'manager' || userRole === 'admin' || userRole === 'creator';
 
   const fetchRaidData = async () => {

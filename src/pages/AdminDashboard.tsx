@@ -17,15 +17,8 @@ import { logEvent } from '../analytics';
 
 export default function AdminDashboard() {
   const { t } = useTranslation(['admin', 'translation']);
-  const { db, setDb, setCurrentView, currentUser, setCurrentUser, fetchAllMembers } = useAppContext();
+  const { db, setDb, setCurrentView, currentUser, setCurrentUser, fetchAllMembers, userRole } = useAppContext();
   const [activeTab, setActiveTab] = useState<'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived' | 'settings' | 'access'>('guilds');
-
-  const userRole = currentUser ? db.users[currentUser]?.role : null;
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setCurrentView(null);
-  };
 
   const handleTabChange = (tab: 'guilds' | 'costumes' | 'backup' | 'tools' | 'passwords' | 'archived' | 'settings' | 'access') => {
     logEvent('AdminDashboard', 'Switch Tab', tab);
@@ -42,7 +35,6 @@ export default function AdminDashboard() {
           <span>{t('common.member')}: {Object.values(db.members).filter(m => m.status === 'active').length}</span>
           <span>{t('common.character')}: {Object.keys(db.characters).length}</span>
           <span>{t('common.costume')}: {Object.keys(db.costumes).length}</span>
-          <span>{t('common.user')}: {Object.keys(db.users).length}</span>
         </div>
         <div className="flex gap-4 mb-6 border-b border-stone-300 dark:border-stone-700 pb-2 overflow-x-auto">
           <TabButton active={activeTab === 'guilds'} onClick={() => handleTabChange('guilds')} icon={<Shield />} label={t('nav.guild_management')} />
