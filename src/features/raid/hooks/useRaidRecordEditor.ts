@@ -157,6 +157,70 @@ export function useRaidRecordEditor({
     }
   }, [updateMember, updateGuildMedian]); // draftRecordsRef/recordsRef/dbMembersRef are stable refs
 
+  /**
+   * Write the same score to many members at once.
+   * Single upsert + single median recompute. Returns true on success.
+   */
+  const handleBulkScoreFill = useCallback(async (
+    guildId: string,
+    score: number,
+    memberIds: string[],
+  ): Promise<boolean> => {
+    if (!selectedSeasonId || memberIds.length === 0) return false;
+
+    const clamped = Math.min(Math.max(Number(score) || 0, 0), 10000);
+
+    setSaving(true);
+    try {
+      const payloads = memberIds.map(memberId => {
+        // `note` lives in member_notes — strip it from both sources.
+        const committed: Partial<MemberRaidRecord> = { ...recordsRef.current[memberId] };
+        const draft: Partial<MemberRaidRecord> = { ...draftRecordsRef.current[memberId] };
+        delete committed.note;
+        delete draft.note;
+        const merged = {
+          season_note: '',
+          ...committed,
+          ...draft,           // keep unsaved season_note / overkill edits
+          season_id: selectedSeasonId,
+          member_id: memberId,
+          score: clamped,
+        };
+        return {
+          ...merged,
+          overkill: merged.overkill != null && !isNaN(Number(merged.overkill))
+            ? Number(merged.overkill)
+            : null,
+        };
+      });
+
+      const { error } = await supabase
+        .from('member_raid_records')
+        .upsert(payloads, { onConflict: 'season_id, member_id' });
+
+      if (error) throw error;
+
+      const nextRecords = { ...recordsRef.current };
+      payloads.forEach(p => { nextRecords[p.member_id] = p as MemberRaidRecord; });
+      setRecords(nextRecords);
+
+      setDraftRecords(prev => {
+        const next = { ...prev };
+        memberIds.forEach(id => { delete next[id]; });
+        return next;
+      });
+
+      await updateGuildMedian(guildId, nextRecords);
+      return true;
+    } catch (err: any) {
+      console.error('Bulk score fill failed:', err);
+      setError(err.message);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedSeasonId, updateGuildMedian]); // recordsRef/draftRecordsRef are stable refs
+
   const handleAutoSave = useCallback((memberId: string, guildId: string) => {
     clearTimeout(saveTimersRef.current[memberId]);
     saveTimersRef.current[memberId] = setTimeout(() => {
@@ -190,6 +254,7 @@ export function useRaidRecordEditor({
     error,
     handleRecordChange,
     handleAutoSave,
+    handleBulkScoreFill,
     updateGuildMedian,
     handleGuildNoteChange,
   };
