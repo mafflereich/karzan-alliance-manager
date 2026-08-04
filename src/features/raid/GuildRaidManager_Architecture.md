@@ -122,6 +122,7 @@ interface GuildRaidRecord {
 **函式**
 - `handleRecordChange(memberId, field, value)` — 寫入 draftRecords，score 限制 0–10000
 - `handleAutoSave(memberId, guildId)` — diff draft vs committed；有變更才 upsert；note 有變更另存 updateMember；score 有變更重算 guild median
+- `handleBulkScoreFill(guildId, score, memberIds)` — 一鍵批次填分：合併既有紀錄與未儲存草稿（剔除 note），單次 upsert `member_raid_records`，清除該批草稿，重算一次公會中位數。回傳 `boolean` 表示成功與否
 - `updateGuildMedian(guildId, customRecords?)` — 計算非零分數中位數，upsert guild_raid_records
 - `handleGuildNoteChange(guildId, note)` — upsert guild note
 
@@ -243,12 +244,16 @@ GuildRaidManager
 └── [grid: grid-cols-1 或 grid-cols-N（比較模式，最多 4）]
     └── GuildRaidTable × selectedGuildIds.length
           成員列表、分數輸入、排序、公會備註、幽靈成員
+          └── BulkScoreFillModal（conditional）
+                一鍵輸入分數：兩步 Modal（輸入分數 + 勾選成員 → 確認摘要），
+                按鈕位於表格底部中位數列下方，僅非歸檔且非比較模式時顯示
 └── MemberStatsModal（conditional）
       點擊成員後顯示歷史統計
 ```
 
 **Props 傳遞重點**
 - `GuildRaidTable.onBlur: (memberId, guildId) => void` → 直接傳 `editor.handleAutoSave`（useCallback 穩定引用）
+- `GuildRaidTable.onBulkScoreFill` → `editor.handleBulkScoreFill`；未傳時按鈕不渲染
 - `GuildRaidTable.onFetchGhostRecords` → `fetchGhostRecordsForMember`（modal 打開時懶載入，已拉過不重複請求）
 - `GuildRaidTable` 接收 `rowHeights / headerHeight / theadHeight` 及 onChange callback，實現跨表格行高同步
 - `SeasonActionsPanel` 改為接收 `archivedSeasonRecords`（當前已歸檔賽季）和 `nextSeasonRecords`（下一賽季），取代原本的單一 `records` prop
