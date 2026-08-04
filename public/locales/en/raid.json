@@ -98,6 +98,21 @@
     "guild_selection_title": "Select Guild",
     "guild_selection_copy_title": "Copy missing members by guild",
     "guild_selection_copy": "Copy missing members",
-    "guild_selection_copied": "Copied"
+    "guild_selection_copied": "Copied",
+    "bulk_fill_button": "Bulk Fill Scores",
+    "bulk_fill_title": "Bulk Fill Scores",
+    "bulk_fill_score_label": "Score",
+    "bulk_fill_score_placeholder": "Score to write",
+    "bulk_fill_select_all": "Select all",
+    "bulk_fill_select_none": "Clear",
+    "bulk_fill_select_empty": "Empty only",
+    "bulk_fill_count": "{{selected}} of {{total}} selected",
+    "bulk_fill_confirm_summary": "Write {{score}} points to {{count}} member(s) of [{{guild}}]",
+    "bulk_fill_overwrite_warning": "{{count}} of them already have a score and will be overwritten",
+    "bulk_fill_no_members": "This guild has no members",
+    "bulk_fill_next": "Next",
+    "bulk_fill_back": "Back",
+    "bulk_fill_confirm": "Confirm",
+    "bulk_fill_saving": "Writing..."
   }
 }
