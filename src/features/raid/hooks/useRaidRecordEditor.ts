@@ -189,25 +189,24 @@ export function useRaidRecordEditor({
         .filter((n): n is { id: string; note: string } =>
           n.note != null && n.note !== (dbMembersRef.current[n.id]?.note || ''));
 
+      // PostgREST requires every row of a batch upsert to carry the SAME set of columns —
+      // any column missing from one row is sent as NULL for that row. So build a fixed
+      // shape, and never include `id`: members without an existing record have none, which
+      // would make PostgREST send id=NULL and violate the not-null constraint. `onConflict`
+      // resolves insert-vs-update without it.
       const payloads = memberIds.map(memberId => {
-        // `note` lives in member_notes — strip it from both sources.
-        const committed: Partial<MemberRaidRecord> = { ...recordsRef.current[memberId] };
-        const draft: Partial<MemberRaidRecord> = { ...draftRecordsRef.current[memberId] };
-        delete committed.note;
-        delete draft.note;
-        const merged = {
-          season_note: '',
-          ...committed,
-          ...draft,           // keep unsaved season_note / overkill edits
+        const committed = recordsRef.current[memberId];
+        const draft = draftRecordsRef.current[memberId];
+        // `note` lives in member_notes, so it is never read from either source here.
+        const overkill = draft?.overkill ?? committed?.overkill ?? null;
+
+        return {
           season_id: selectedSeasonId,
           member_id: memberId,
           score: clamped,
-        };
-        return {
-          ...merged,
-          overkill: merged.overkill != null && !isNaN(Number(merged.overkill))
-            ? Number(merged.overkill)
-            : null,
+          season_note: draft?.season_note ?? committed?.season_note ?? '',
+          overkill: overkill != null && !isNaN(Number(overkill)) ? Number(overkill) : null,
+          season_guild: draft?.season_guild ?? committed?.season_guild ?? null,
         };
       });
 
@@ -221,8 +220,11 @@ export function useRaidRecordEditor({
         await updateMember(id, { note });
       }
 
+      // Merge onto the existing record so the row's `id` (absent from the payload) survives.
       const nextRecords = { ...recordsRef.current };
-      payloads.forEach(p => { nextRecords[p.member_id] = p as MemberRaidRecord; });
+      payloads.forEach(p => {
+        nextRecords[p.member_id] = { ...recordsRef.current[p.member_id], ...p } as MemberRaidRecord;
+      });
       setRecords(nextRecords);
 
       setDraftRecords(prev => {
