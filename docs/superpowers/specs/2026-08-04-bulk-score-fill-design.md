@@ -128,13 +128,22 @@ useRaidRecordEditor.handleBulkScoreFill(guildId, score, memberIds)
 
 ## 錯誤處理
 
-`handleBulkScoreFill` 以 try-catch 包住，失敗時：
+`handleBulkScoreFill` 以 try-catch 包住。
 
-- 寫入 `editor.error`，由 `GuildRaidManager` 既有的 error banner 呈現
-- Modal 保持開啟並停在 Step 2，讓用家重試
+**`member_raid_records` upsert 失敗**（唯一會導致整體失敗的情況）：
+
+- 寫入 `editor.error`，回傳 `false`
 - 不修改本地 `records` 與 `draftRecords`
+- Modal 保持開啟並停在 Step 2，並**在 Modal 內**顯示錯誤訊息 —— 頁面層的 error banner 位於 Modal 的 `z-50` overlay 之下，用家看不到
+- 因為是單一 request，分數不會出現部分寫入
 
-成功才關閉 Modal。因為是單一 request，不會出現部分成功的狀態。
+**中位數更新失敗**（`guild_raid_records` upsert）：分數此時已寫入成功，因此**不算整體失敗** —— 記錄 `editor.error` 但仍回傳 `true` 並關閉 Modal。誤報失敗會誘使用家重複寫入一個已成功的操作。
+
+### 與逐格自動儲存的競態
+
+`handleAutoSave` 有 300ms debounce。批次寫入前必須先 `clearTimeout` 這批成員的 pending timer，否則一個剛排入的逐格儲存可能在批次寫入之後才落地，把分數改回舊值並用舊值重算中位數。
+
+因為取消了 timer，該批成員未儲存的**成員備註**草稿也會被一併丟棄 —— 備註存在 `member_notes` 表，不在批次 upsert 的 payload 內。所以批次寫入時要另外把有變更的 note 透過 `updateMember` 補存，再清除草稿。
 
 ## i18n
 

@@ -27,6 +27,8 @@ interface GuildRaidTableProps {
   onGuildNoteChange?: (guildId: string, note: string) => void;
   onBlur: (memberId: string, guildId: string) => void;
   onBulkScoreFill?: (guildId: string, score: number, memberIds: string[]) => Promise<boolean>;
+  /** Editor error, forwarded to BulkScoreFillModal — the page banner is hidden behind its overlay. */
+  editorError?: string;
   onMemberClick: (member: Member) => void;
   rowHeights?: Record<number, number>;
   onRowHeightChange?: (index: number, height: number) => void;
@@ -63,6 +65,7 @@ function GuildRaidTable({
   onGuildNoteChange,
   onBlur,
   onBulkScoreFill,
+  editorError,
   onMemberClick,
   rowHeights,
   onRowHeightChange,
@@ -529,7 +532,7 @@ function GuildRaidTable({
           members={sortedMembers}
           records={records}
           draftRecords={draftRecords}
-          saving={saving}
+          error={editorError}
           onConfirm={onBulkScoreFill}
           onClose={() => setIsBulkFillOpen(false)}
         />

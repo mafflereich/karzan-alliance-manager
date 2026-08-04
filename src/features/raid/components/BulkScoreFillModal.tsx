@@ -10,7 +10,8 @@ interface BulkScoreFillModalProps {
   members: Member[];
   records: Record<string, MemberRaidRecord>;
   draftRecords: Record<string, MemberRaidRecord>;
-  saving: boolean;
+  /** Latest editor error, shown inside the modal — the page banner sits behind the overlay. */
+  error?: string;
   onConfirm: (guildId: string, score: number, memberIds: string[]) => Promise<boolean>;
   onClose: () => void;
 }
@@ -24,7 +25,7 @@ export default function BulkScoreFillModal({
   members,
   records,
   draftRecords,
-  saving,
+  error,
   onConfirm,
   onClose,
 }: BulkScoreFillModalProps) {
@@ -44,6 +45,10 @@ export default function BulkScoreFillModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [scoreInput, setScoreInput] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(emptyScoreIds));
+  // Local to this modal: the hook's `saving` is shared with per-member auto-saves and can
+  // flip back to false mid-write.
+  const [submitting, setSubmitting] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const score = Math.min(Math.max(Number(scoreInput) || 0, 0), 10000);
   const selectedMembers = members.filter(m => selectedIds.has(m.id!));
@@ -60,9 +65,20 @@ export default function BulkScoreFillModal({
   };
 
   const handleConfirm = async () => {
-    const ok = await onConfirm(guildId, score, selectedMembers.map(m => m.id!));
-    if (ok) onClose();
-    // On failure the page-level error banner shows the message and the modal stays on step 2.
+    const memberIds = selectedMembers.map(m => m.id!);
+    if (memberIds.length === 0) {
+      setFailed(true);
+      return;
+    }
+    setSubmitting(true);
+    setFailed(false);
+    try {
+      const ok = await onConfirm(guildId, score, memberIds);
+      if (ok) onClose();
+      else setFailed(true);   // stay on step 2 and show why
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -87,9 +103,19 @@ export default function BulkScoreFillModal({
         </div>
 
         {members.length === 0 ? (
-          <div className="p-8 text-center text-stone-500 dark:text-stone-400">
-            {t('raid.bulk_fill_no_members', '此公會沒有成員')}
-          </div>
+          <>
+            <div className="p-8 text-center text-stone-500 dark:text-stone-400">
+              {t('raid.bulk_fill_no_members', '此公會沒有成員')}
+            </div>
+            <div className="p-4 border-t border-stone-200 dark:border-stone-700 flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-1.5 text-sm rounded-lg border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700"
+              >
+                {t('common.close', '關閉')}
+              </button>
+            </div>
+          </>
         ) : step === 1 ? (
           <>
             <div className="p-4 border-b border-stone-200 dark:border-stone-700 flex flex-wrap items-center gap-3">
@@ -102,7 +128,15 @@ export default function BulkScoreFillModal({
                 max="10000"
                 autoFocus
                 value={scoreInput}
-                onChange={(e) => setScoreInput(e.target.value)}
+                onChange={(e) => {
+                  // Clamp as typed — min/max are not enforced for typed input, and the
+                  // field must not show a value different from what gets written.
+                  const v = e.target.value;
+                  if (v === '') { setScoreInput(''); return; }
+                  const n = Number(v);
+                  if (isNaN(n)) return;
+                  setScoreInput(String(Math.min(Math.max(n, 0), 10000)));
+                }}
                 placeholder={t('raid.bulk_fill_score_placeholder', '輸入要寫入的分數')}
                 className="w-40 px-3 py-1.5 text-sm border border-stone-300 dark:border-stone-600 rounded bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100 focus:ring-2 focus:ring-indigo-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
@@ -221,20 +255,26 @@ export default function BulkScoreFillModal({
               </div>
             </div>
 
+            {failed && (
+              <div className="mx-4 mb-2 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-400">
+                {error || t('raid.bulk_fill_failed', '寫入失敗，請重試')}
+              </div>
+            )}
+
             <div className="p-4 border-t border-stone-200 dark:border-stone-700 flex items-center justify-end gap-2">
               <button
                 onClick={() => setStep(1)}
-                disabled={saving}
+                disabled={submitting}
                 className="px-4 py-1.5 text-sm rounded-lg border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 disabled:opacity-40"
               >
                 {t('raid.bulk_fill_back', '上一步')}
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={saving}
+                disabled={submitting}
                 className="px-4 py-1.5 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {saving
+                {submitting
                   ? t('raid.bulk_fill_saving', '寫入中...')
                   : t('raid.bulk_fill_confirm', '確認寫入')}
               </button>

@@ -113,6 +113,7 @@
     "bulk_fill_next": "下一步",
     "bulk_fill_back": "上一步",
     "bulk_fill_confirm": "確認寫入",
-    "bulk_fill_saving": "寫入中..."
+    "bulk_fill_saving": "寫入中...",
+    "bulk_fill_failed": "寫入失敗，請重試"
   }
 }

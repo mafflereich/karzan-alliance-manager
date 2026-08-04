@@ -170,8 +170,25 @@ export function useRaidRecordEditor({
 
     const clamped = Math.min(Math.max(Number(score) || 0, 0), 10000);
 
+    // Cancel pending per-member auto-saves for these members, otherwise a debounced
+    // write armed just before the bulk fill can land afterwards and revert the score.
+    memberIds.forEach(id => {
+      if (saveTimersRef.current[id]) {
+        clearTimeout(saveTimersRef.current[id]);
+        delete saveTimersRef.current[id];
+      }
+    });
+
     setSaving(true);
     try {
+      // Member notes live in member_notes, not member_raid_records. Since we drop these
+      // members' drafts below, any unsaved note edit has to be flushed separately —
+      // otherwise cancelling their timers above would silently discard it.
+      const pendingNotes = memberIds
+        .map(id => ({ id, note: draftRecordsRef.current[id]?.note }))
+        .filter((n): n is { id: string; note: string } =>
+          n.note != null && n.note !== (dbMembersRef.current[n.id]?.note || ''));
+
       const payloads = memberIds.map(memberId => {
         // `note` lives in member_notes — strip it from both sources.
         const committed: Partial<MemberRaidRecord> = { ...recordsRef.current[memberId] };
@@ -200,6 +217,10 @@ export function useRaidRecordEditor({
 
       if (error) throw error;
 
+      for (const { id, note } of pendingNotes) {
+        await updateMember(id, { note });
+      }
+
       const nextRecords = { ...recordsRef.current };
       payloads.forEach(p => { nextRecords[p.member_id] = p as MemberRaidRecord; });
       setRecords(nextRecords);
@@ -210,7 +231,15 @@ export function useRaidRecordEditor({
         return next;
       });
 
-      await updateGuildMedian(guildId, nextRecords);
+      // The scores are already committed at this point, so a median failure must not
+      // report the whole operation as failed — surface it but keep the write.
+      try {
+        await updateGuildMedian(guildId, nextRecords);
+      } catch (medianErr: any) {
+        console.error('Bulk score fill: median update failed:', medianErr);
+        setError(medianErr.message);
+      }
+
       return true;
     } catch (err: any) {
       console.error('Bulk score fill failed:', err);
@@ -219,7 +248,7 @@ export function useRaidRecordEditor({
     } finally {
       setSaving(false);
     }
-  }, [selectedSeasonId, updateGuildMedian]); // recordsRef/draftRecordsRef are stable refs
+  }, [selectedSeasonId, updateGuildMedian, updateMember]); // recordsRef/draftRecordsRef/dbMembersRef are stable refs
 
   const handleAutoSave = useCallback((memberId: string, guildId: string) => {
     clearTimeout(saveTimersRef.current[memberId]);

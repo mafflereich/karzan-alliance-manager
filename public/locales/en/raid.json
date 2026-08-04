@@ -113,6 +113,7 @@
     "bulk_fill_next": "Next",
     "bulk_fill_back": "Back",
     "bulk_fill_confirm": "Confirm",
-    "bulk_fill_saving": "Writing..."
+    "bulk_fill_saving": "Writing...",
+    "bulk_fill_failed": "Write failed, please retry"
   }
 }

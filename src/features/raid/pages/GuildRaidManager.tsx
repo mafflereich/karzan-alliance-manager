@@ -443,6 +443,7 @@ export default function GuildRaidManager() {
               onGuildNoteChange={editor.handleGuildNoteChange}
               onBlur={editor.handleAutoSave}
               onBulkScoreFill={editor.handleBulkScoreFill}
+              editorError={editor.error}
               onMemberClick={setSelectedMemberStats}
               rowHeights={layout.rowHeights}
               onRowHeightChange={layout.handleRowHeightChange}
