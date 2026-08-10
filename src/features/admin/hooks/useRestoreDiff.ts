@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/shared/api/supabase';
+import { Logger } from '@/shared/utils/logger';
 
 export interface TableDiffSummary {
   tableName: string;
@@ -114,10 +115,12 @@ export function useRestoreDiff() {
           }
         }
       }
+      Logger.info({ source: 'data_management', action: 'restore_data', message: '還原備份資料', details: diffSummary.map(d => ({ table: d.tableName, add: d.addCount, update: d.updateCount, delete: d.deleteCount })) });
       setIsModalOpen(false);
       setDiffSummary([]);
     } catch (error) {
       console.error("Restore execution failed:", error);
+      Logger.error({ source: 'data_management', action: 'restore_data', message: '還原備份資料失敗', details: { error: error instanceof Error ? error.message : String(error) } });
       throw error;
     } finally {
       setIsRestoring(false);

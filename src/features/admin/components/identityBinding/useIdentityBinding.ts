@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '@/store';
 import { supabase } from '@/shared/api/supabase';
+import { Logger } from '@/shared/utils/logger';
 import { useTranslation } from 'react-i18next';
 import { Member } from '@/entities/member/types';
 import { Profile } from './types';
@@ -145,6 +146,7 @@ export function useIdentityBinding() {
         .eq('discord_id', selectedProfile.discord_id);
       if (updateError) throw updateError;
 
+      Logger.info({ source: 'admin_tools', action: 'bind_identity', message: '綁定單一身分', details: { discordId: selectedProfile.discord_id, memberId: member.id } });
       showToast(t('binding.bind_success', '身份綁定成功！'), 'success');
       setSelectedProfile(null);
       setSearchQuery('');
@@ -152,6 +154,7 @@ export function useIdentityBinding() {
       fetchAllProfiles();
     } catch (error: any) {
       console.error('Error binding profile:', error);
+      Logger.error({ source: 'admin_tools', action: 'bind_identity', message: '綁定單一身分失敗', details: { discordId: selectedProfile?.discord_id, memberId: member.id, error: error.message } });
       showToast(t('binding.bind_failed', { error: error.message }), 'error');
     } finally {
       setIsBinding(false);
@@ -174,11 +177,13 @@ export function useIdentityBinding() {
         .eq('discord_id', selectedProfile.discord_id);
       if (updateError) throw updateError;
 
+      Logger.info({ source: 'admin_tools', action: 'bind_identity', message: '綁定多成員身分', details: { discordId: selectedProfile.discord_id, memberIds: stagedIds } });
       showToast(t('binding.bind_success', '身份綁定成功！'), 'success');
       await fetchAllProfiles();
       setSelectedProfile({ ...selectedProfile, id: newIdString, discord_username: editingDiscordUsername });
     } catch (error: any) {
       console.error('Error saving multi-bind:', error);
+      Logger.error({ source: 'admin_tools', action: 'bind_identity', message: '綁定多成員身分失敗', details: { discordId: selectedProfile?.discord_id, memberIds: stagedIds, error: error.message } });
       showToast(t('binding.bind_failed', { error: error.message }), 'error');
     } finally {
       setIsBinding(false);
@@ -205,6 +210,7 @@ export function useIdentityBinding() {
         if (error) throw error;
       }
 
+      Logger.info({ source: 'admin_tools', action: 'bind_identity', message: '建立新身分綁定', details: { discordId, memberIds: stagedIds, created: !existingProfile } });
       showToast(t('binding.bind_success', '身份綁定成功！'), 'success');
       await fetchAllProfiles();
       setNewBindingMember(null);
@@ -213,6 +219,7 @@ export function useIdentityBinding() {
       setEditingDiscordUsername('');
     } catch (error: any) {
       console.error('Error creating new binding:', error);
+      Logger.error({ source: 'admin_tools', action: 'bind_identity', message: '建立新身分綁定失敗', details: { discordId: editingDiscordId.trim(), memberIds: stagedIds, error: error.message } });
       showToast(t('binding.bind_failed', { error: error.message }), 'error');
     } finally {
       setIsBinding(false);
@@ -236,11 +243,13 @@ export function useIdentityBinding() {
         .eq('discord_id', profile.discord_id);
       if (error) throw error;
 
+      Logger.warn({ source: 'admin_tools', action: 'delete_identity', message: '刪除身分綁定 Profile', details: { discordId: profile.discord_id, boundMemberIds: profile.id } });
       showToast(t('binding.delete_profile_success', '已刪除 Profile'), 'success');
       if (selectedProfile?.discord_id === profile.discord_id) setSelectedProfile(null);
       fetchAllProfiles();
     } catch (error: any) {
       console.error('Error deleting profile:', error);
+      Logger.error({ source: 'admin_tools', action: 'delete_identity', message: '刪除身分綁定 Profile 失敗', details: { discordId: profile.discord_id, error: error.message } });
       showToast(t('binding.delete_profile_failed', { error: error.message }), 'error');
     } finally {
       setIsBinding(false);

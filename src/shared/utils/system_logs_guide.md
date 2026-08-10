@@ -20,10 +20,31 @@
 - **寫入權限 (INSERT)**：開放給所有人（包含未登入者）。因為在登入失敗的當下，使用者尚未取得 Auth Token，必須允許匿名寫入錯誤日誌。
 - **讀取與管理權限 (SELECT, UPDATE, DELETE)**：嚴格限制僅限管理員。透過 `get_admin_role() IN ('creator', 'admin', 'manager')` 確保只有具備管理權限的人員可以查看日誌。
 
-## 4. 下一步：實作計畫
-- **Step 2: 前端 Logger 模組**
-  建立共用的 `Logger` 工具函式 (例如 `src/shared/utils/logger.ts`)，封裝 Supabase 的 `insert` 操作，讓各個 React 元件可以輕鬆呼叫 `Logger.info()` 或 `Logger.error()`。
-- **Step 3: Edge Function 整合**
-  修改 `sync-discord-roles` 等 Edge Functions，在 `catch` 區塊中捕捉錯誤，並將詳細的錯誤訊息與變數狀態寫入 `system_logs`。
-- **Step 4: 後台監控介面 (已實作)**
-  已在 Admin Panel 中新增「系統日誌」頁面，讓管理員直接在網頁上查看與篩選系統日誌。
+## 4. 前端 Logger 模組（已實作）
+共用的 `Logger` 工具位於 `src/shared/utils/logger.ts`，封裝 Supabase 的 `insert` 操作，並自動抓取目前登入者。各 React 元件可透過 `Logger.info()` / `Logger.warn()` / `Logger.error()` / `Logger.fatal()` 寫入日誌，寫入失敗不會影響主程式運行。
+
+## 5. 日誌覆蓋範圍（已實作）
+以下重要操作執行時皆會寫入 `system_logs`：
+
+| 模組 | 操作 | 說明 |
+|------|------|------|
+| 登入/登出 | `frontend_auth` | 未授權登入警告、登出紀錄 |
+| 成員管理 | `member_management` | 新增/編輯/刪除/封存/解除封存成員、更新服裝等級、專武、存取控制、成員看板批次儲存與批次歸檔 |
+| 公會管理 | `guild_management` | 新增/編輯/刪除公會 |
+| 角色/服裝管理 | `character_management` / `costume_management` | 新增/編輯/刪除/排序角色與服裝 |
+| 設定/資料管理 | `setting_management` / `data_management` | 更新設定、備份/還原資料 |
+| 申請信箱 | `apply_mail` | 新增/更新/刪除申請 |
+| 權限控制 | `access_control` | 更新頁面角色權限、更新使用者角色 |
+| 管理工具 | `admin_tools` | 身份綁定/解除、CSV 匯入、備份下載 |
+| 戰記管理 | `raid_manager` | 同盟戰記儲存、成員戰記自動儲存、賽季建立/封存/編輯/清除、幽靈紀錄新增/刪除、戰記備份 |
+
+## 6. 實作慣例
+- **source** 使用固定命名（見上方表格），**action** 為動作分類（如 `add_member`、`save_member_board`、`update_user_role`）。
+- **成功操作**用 `Logger.info`，**刪除類操作**用 `Logger.warn`，**失敗**用 `Logger.error`。
+- 在 try-catch 的 `catch` 區塊中記錄 `error.message`，並在成功路徑中附上變更內容摘要（如數量、id 清單）。
+
+## 7. 下一步：Edge Function 整合
+修改 `sync-discord-roles` 等 Edge Functions，在 `catch` 區塊中捕捉錯誤，並將詳細的錯誤訊息與變數狀態寫入 `system_logs`。
+
+## 8. 後台監控介面 (已實作)
+已在 Admin Panel 中新增「系統日誌」頁面，讓管理員直接在網頁上查看與篩選系統日誌。

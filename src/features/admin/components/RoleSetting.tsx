@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '@/store';
 import { supabase } from '@/shared/api/supabase';
+import { Logger } from '@/shared/utils/logger';
 import { Search, User as UserIcon, Loader2, Save, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Member } from '@/entities/member/types';
@@ -92,10 +93,12 @@ export default function RoleSetting() {
 
       if (error) throw error;
 
+      Logger.info({ source: 'access_control', action: 'update_user_role', message: '更新使用者權限', details: { discordId: selectedProfile.discord_id, role: selectedRole } });
       showToast(t('role_setting.save_success', '權限更新成功'), 'success');
       await fetchAllProfiles();
     } catch (error: any) {
       console.error('Error updating role:', error);
+      Logger.error({ source: 'access_control', action: 'update_user_role', message: '更新使用者權限失敗', details: { discordId: selectedProfile?.discord_id, role: selectedRole, error: error.message } });
       showToast(t('role_setting.save_failed', '權限更新失敗'), 'error');
     } finally {
       setIsSaving(false);

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { Member, Guild, Role } from '@entities/member/types';
 import { supabase } from '@/shared/api/supabase';
+import { Logger } from '@/shared/utils/logger';
 import { setNoteSegment, removeNoteSegment, PREV_GUILD_TAG } from '@/shared/lib/noteUtils';
 import type { MemberBoardStore, MemberMovePayload, MemberMovePayloadItem } from './types';
 
@@ -282,8 +283,10 @@ export const useMemberBoardStore = create<MemberBoardStore>((set, get) => ({
             });
 
             if (error) {
+                Logger.error({ source: 'member_management', action: 'archive_members', message: '批次歸檔成員失敗', details: { count: archivePayload.length, error: error.message } });
                 throw new Error(`歸檔失敗: ${error.message}`);
             }
+            Logger.info({ source: 'member_management', action: 'archive_members', message: '批次歸檔成員', details: { count: archivePayload.length, reasons: archiveReasons } });
         }
 
         const apiPayload = makeApiPayload(localMembers, membersToArchive, localGuilds, initialMemberStates);
@@ -294,6 +297,7 @@ export const useMemberBoardStore = create<MemberBoardStore>((set, get) => ({
         });
 
         sendApiAndNotify(set, apiPayload, localMembers.length, closeModal);
+        Logger.info({ source: 'member_management', action: 'save_member_board', message: '儲存成員看板變更', details: { memberCount: localMembers.length, moves: apiPayload.length } });
     },
 
     init: (members, guilds) => {
@@ -714,6 +718,7 @@ export const useMemberBoardStore = create<MemberBoardStore>((set, get) => ({
 
                 if (memberError) {
                     console.error('儲存成員失敗', memberError);
+                    Logger.error({ source: 'member_management', action: 'save_member_board', message: '儲存成員失敗', details: { count: membersToSave.length, error: memberError.message } });
                     set({
                         notification: {
                             isOpen: true,
@@ -724,6 +729,7 @@ export const useMemberBoardStore = create<MemberBoardStore>((set, get) => ({
                     });
                     return;
                 }
+                Logger.info({ source: 'member_management', action: 'save_member_board', message: '更新成員資料', details: { count: membersToSave.length } });
             }
 
             const notesChanged = (member: Member) => {
@@ -747,6 +753,7 @@ export const useMemberBoardStore = create<MemberBoardStore>((set, get) => ({
                     .from('member_notes')
                     .upsert(notesToSave, { onConflict: 'member_id' });
                 if (upsertNotesError) console.error('Error upserting member_notes:', upsertNotesError);
+                else Logger.info({ source: 'member_management', action: 'save_member_board', message: '更新成員備註', details: { count: notesToSave.length } });
             }
 
             if (deletedMembers.length > 0) {
@@ -773,7 +780,9 @@ export const useMemberBoardStore = create<MemberBoardStore>((set, get) => ({
 
             const apiPayload = makeApiPayload(localMembers, deletedMembers, localGuilds, initialMemberStates);
             sendApiAndNotify(set, apiPayload, changedMembers.length + membersWithChangedNotes.length + deletedMembers.length);
+            Logger.info({ source: 'member_management', action: 'save_member_board', message: '儲存成員看板變更', details: { changedMembers: changedMembers.length, changedNotes: membersWithChangedNotes.length, deletedMembers: deletedMembers.length } });
         } catch (err: unknown) {
+            Logger.error({ source: 'member_management', action: 'save_member_board', message: '儲存成員看板變更失敗', details: { error: err instanceof Error ? err.message : String(err) } });
             set({
                 notification: {
                     isOpen: true,

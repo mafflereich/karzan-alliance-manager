@@ -4,6 +4,7 @@ import { Download, FileUp } from 'lucide-react';
 import ConfirmModal from '@shared/ui/ConfirmModal';
 import { useTranslation } from 'react-i18next';
 import { supabase, fetchAllPaginated } from '@/shared/api/supabase';
+import { Logger } from '@/shared/utils/logger';
 
 export default function CsvTool({
   isProcessing,
@@ -173,9 +174,11 @@ export default function CsvTool({
       }
 
       showToast(t('tools.csv_import_success', { count: successCount, skip: skipCount }), 'success');
+      Logger.info({ source: 'admin_tools', action: 'csv_import', message: 'CSV 匯入戰記資料', details: { successCount, skipCount } });
       await fetchAllMembers();
     } catch (error: any) {
       console.error("CSV Import failed:", error);
+      Logger.error({ source: 'admin_tools', action: 'csv_import', message: 'CSV 匯入失敗', details: { parsedRows: parsedRows.length, error: error.message } });
       showToast(t('tools.csv_import_failed', { error: error.message }), 'error');
     } finally {
       setIsProcessing(false);
@@ -266,6 +269,7 @@ export default function CsvTool({
         }
       } catch (error: any) {
         console.error("CSV Parse failed:", error);
+        Logger.error({ source: 'admin_tools', action: 'csv_import', message: 'CSV 解析失敗', details: { error: error.message } });
         showToast(t('tools.csv_import_failed', { error: error.message }), 'error');
       } finally {
         setIsProcessing(false);

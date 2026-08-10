@@ -70,7 +70,7 @@ const MemberMoveAnnounceTab: React.FC<MemberMoveAnnounceTabProps> = ({ moveSumma
     setIsPosting(true);
     try {
       const payload = buildApiPayload();
-      const response = await fetch('https://chaosop.duckdns.org/api/memberMoveMessage', {
+      const response = await fetch('http://219.68.156.84:3000/api/memberMoveMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

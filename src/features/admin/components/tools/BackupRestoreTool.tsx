@@ -3,6 +3,7 @@ import { useAppContext } from '@/store';
 import { Download, Upload, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/shared/api/supabase';
+import { Logger } from '@/shared/utils/logger';
 import { useRestoreDiff } from '../../hooks/useRestoreDiff';
 import RestorePreviewModal from '../RestorePreviewModal';
 
@@ -64,8 +65,10 @@ export default function BackupRestoreTool({
       const results = await Promise.all(tables.map(table => fetchAllRows(table)));
       const backupData = Object.fromEntries(tables.map((table, i) => [table, results[i]]));
       triggerJsonDownload(backupData, filename);
+      Logger.info({ source: 'data_management', action: 'create_backup', message: '建立備份', details: { filename, tables: tables.map(t => ({ table: t, rows: results[tables.indexOf(t)].length })) } });
     } catch (error) {
       console.error('Backup failed:', error);
+      Logger.error({ source: 'data_management', action: 'create_backup', message: '建立備份失敗', details: { error: error instanceof Error ? error.message : String(error) } });
       showToast(t('backup.backup_failed'), 'error');
     } finally {
       setIsProcessing(false);
@@ -99,8 +102,10 @@ export default function BackupRestoreTool({
         { guild_raid_records: guildRaidRecords, member_raid_records: memberRaidRecords, raid_seasons: raidSeasons },
         `kazran_raid_backup_${new Date().toISOString().split('T')[0]}.json`
       );
+      Logger.info({ source: 'raid_manager', action: 'create_backup', message: '建立戰記備份', details: { seasons: raidSeasons.length, guildRecords: guildRaidRecords.length, memberRecords: memberRaidRecords.length } });
     } catch (error) {
       console.error('Raid backup failed:', error);
+      Logger.error({ source: 'raid_manager', action: 'create_backup', message: '建立戰記備份失敗', details: { error: error instanceof Error ? error.message : String(error) } });
       showToast(t('backup.backup_failed'), 'error');
     } finally {
       setIsProcessing(false);

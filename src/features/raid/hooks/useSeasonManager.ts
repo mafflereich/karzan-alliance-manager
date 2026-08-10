@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/shared/api/supabase';
 import { useAppContext } from '@/store';
+import { Logger } from '@/shared/utils/logger';
 import type { RaidSeason, MemberRaidRecord, GuildRaidRecord } from '../types';
 
 interface Options {
@@ -77,7 +78,6 @@ export function useSeasonManager({
         const createdSeason = data[0];
         setSeasons(prev => [createdSeason, ...prev].sort((a, b) => b.season_number - a.season_number));
         setSelectedSeasonId(String(createdSeason.id));
-
         // Copy previous season's guild notes
         const previousSeason = seasons.length > 0 ? seasons[0] : null;
         if (previousSeason) {
@@ -132,6 +132,13 @@ export function useSeasonManager({
         setKeepScores(true);
         setKeepSeasonNotes(true);
         setKeepOverkill(true);
+
+        Logger.info({
+          source: 'raid_manager',
+          action: 'create_season',
+          message: '建立新賽季',
+          details: { seasonId: createdSeason.id, seasonNumber: createdSeason.season_number, periodText: createdSeason.period_text, keepScores, keepSeasonNotes, keepOverkill },
+        });
       }
     } catch (err: any) {
       console.error('Error saving season:', err);
@@ -190,8 +197,11 @@ export function useSeasonManager({
       setIsSeasonPanelOpen(false);
 
       fetchRecords();
+
+      Logger.warn({ source: 'raid_manager', action: 'archive_season', message: '封存賽季', details: { seasonId: selectedSeasonId, recordCount: recordsToUpsert.length } });
     } catch (err: any) {
       console.error('Error archiving season:', err);
+      Logger.error({ source: 'raid_manager', action: 'archive_season', message: '封存賽季失敗', details: { seasonId: selectedSeasonId, error: err.message } });
       setError(err.message);
     } finally {
       setArchiving(false);
@@ -224,8 +234,11 @@ export function useSeasonManager({
         ).sort((a, b) => b.season_number - a.season_number)
       );
       setIsSeasonPanelOpen(false);
+
+      Logger.info({ source: 'raid_manager', action: 'edit_season', message: '編輯賽季', details: { seasonId: selectedSeasonId, ...editSeason } });
     } catch (err: any) {
       console.error('Error editing season:', err);
+      Logger.error({ source: 'raid_manager', action: 'edit_season', message: '編輯賽季失敗', details: { seasonId: selectedSeasonId, error: err.message } });
       setError(`Error editing season: ${err.message}`);
     } finally {
       setEditSaving(false);
@@ -245,8 +258,11 @@ export function useSeasonManager({
       if (error) throw error;
 
       fetchRecords();
+
+      Logger.warn({ source: 'raid_manager', action: 'delete_season_records', message: '清除賽季紀錄', details: { seasonId: selectedSeasonId, type, updateData } });
     } catch (err: any) {
       console.error('Error deleting records:', err);
+      Logger.error({ source: 'raid_manager', action: 'delete_season_records', message: '清除賽季紀錄失敗', details: { seasonId: selectedSeasonId, type, error: err.message } });
       setError(`Error deleting records: ${err.message}`);
     } finally {
       setIsDeleting(false);
