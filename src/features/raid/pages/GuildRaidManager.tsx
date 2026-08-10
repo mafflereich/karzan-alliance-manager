@@ -442,6 +442,8 @@ export default function GuildRaidManager() {
               onRecordChange={editor.handleRecordChange}
               onGuildNoteChange={editor.handleGuildNoteChange}
               onBlur={editor.handleAutoSave}
+              onBulkScoreFill={editor.handleBulkScoreFill}
+              editorError={editor.error}
               onMemberClick={setSelectedMemberStats}
               rowHeights={layout.rowHeights}
               onRowHeightChange={layout.handleRowHeightChange}

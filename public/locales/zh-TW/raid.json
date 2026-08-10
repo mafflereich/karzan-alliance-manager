@@ -98,6 +98,22 @@
     "guild_selection_title": "選擇公會",
     "guild_selection_copy_title": "複製各公會缺少人數",
     "guild_selection_copy": "複製缺少人數",
-    "guild_selection_copied": "已複製"
+    "guild_selection_copied": "已複製",
+    "bulk_fill_button": "一鍵輸入分數",
+    "bulk_fill_title": "一鍵輸入分數",
+    "bulk_fill_score_label": "分數",
+    "bulk_fill_score_placeholder": "輸入要寫入的分數",
+    "bulk_fill_select_all": "全選",
+    "bulk_fill_select_none": "全不選",
+    "bulk_fill_select_empty": "只選空白",
+    "bulk_fill_count": "已選 {{selected}} / 共 {{total}} 位",
+    "bulk_fill_confirm_summary": "將寫入 {{score}} 分給【{{guild}}】的 {{count}} 位成員",
+    "bulk_fill_overwrite_warning": "其中 {{count}} 位已有分數，將被覆蓋",
+    "bulk_fill_no_members": "此公會沒有成員",
+    "bulk_fill_next": "下一步",
+    "bulk_fill_back": "上一步",
+    "bulk_fill_confirm": "確認寫入",
+    "bulk_fill_saving": "寫入中...",
+    "bulk_fill_failed": "寫入失敗，請重試"
   }
 }

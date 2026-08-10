@@ -173,6 +173,101 @@ export function useRaidRecordEditor({
     }
   }, [updateMember, updateGuildMedian]); // draftRecordsRef/recordsRef/dbMembersRef are stable refs
 
+  /**
+   * Write the same score to many members at once.
+   * Single upsert + single median recompute. Returns true on success.
+   */
+  const handleBulkScoreFill = useCallback(async (
+    guildId: string,
+    score: number,
+    memberIds: string[],
+  ): Promise<boolean> => {
+    if (!selectedSeasonId || memberIds.length === 0) return false;
+
+    const clamped = Math.min(Math.max(Number(score) || 0, 0), 10000);
+
+    // Cancel pending per-member auto-saves for these members, otherwise a debounced
+    // write armed just before the bulk fill can land afterwards and revert the score.
+    memberIds.forEach(id => {
+      if (saveTimersRef.current[id]) {
+        clearTimeout(saveTimersRef.current[id]);
+        delete saveTimersRef.current[id];
+      }
+    });
+
+    setSaving(true);
+    try {
+      // Member notes live in member_notes, not member_raid_records. Since we drop these
+      // members' drafts below, any unsaved note edit has to be flushed separately —
+      // otherwise cancelling their timers above would silently discard it.
+      const pendingNotes = memberIds
+        .map(id => ({ id, note: draftRecordsRef.current[id]?.note }))
+        .filter((n): n is { id: string; note: string } =>
+          n.note != null && n.note !== (dbMembersRef.current[n.id]?.note || ''));
+
+      // PostgREST requires every row of a batch upsert to carry the SAME set of columns —
+      // any column missing from one row is sent as NULL for that row. So build a fixed
+      // shape, and never include `id`: members without an existing record have none, which
+      // would make PostgREST send id=NULL and violate the not-null constraint. `onConflict`
+      // resolves insert-vs-update without it.
+      const payloads = memberIds.map(memberId => {
+        const committed = recordsRef.current[memberId];
+        const draft = draftRecordsRef.current[memberId];
+        // `note` lives in member_notes, so it is never read from either source here.
+        const overkill = draft?.overkill ?? committed?.overkill ?? null;
+
+        return {
+          season_id: selectedSeasonId,
+          member_id: memberId,
+          score: clamped,
+          season_note: draft?.season_note ?? committed?.season_note ?? '',
+          overkill: overkill != null && !isNaN(Number(overkill)) ? Number(overkill) : null,
+          season_guild: draft?.season_guild ?? committed?.season_guild ?? null,
+        };
+      });
+
+      const { error } = await supabase
+        .from('member_raid_records')
+        .upsert(payloads, { onConflict: 'season_id, member_id' });
+
+      if (error) throw error;
+
+      for (const { id, note } of pendingNotes) {
+        await updateMember(id, { note });
+      }
+
+      // Merge onto the existing record so the row's `id` (absent from the payload) survives.
+      const nextRecords = { ...recordsRef.current };
+      payloads.forEach(p => {
+        nextRecords[p.member_id] = { ...recordsRef.current[p.member_id], ...p } as MemberRaidRecord;
+      });
+      setRecords(nextRecords);
+
+      setDraftRecords(prev => {
+        const next = { ...prev };
+        memberIds.forEach(id => { delete next[id]; });
+        return next;
+      });
+
+      // The scores are already committed at this point, so a median failure must not
+      // report the whole operation as failed — surface it but keep the write.
+      try {
+        await updateGuildMedian(guildId, nextRecords);
+      } catch (medianErr: any) {
+        console.error('Bulk score fill: median update failed:', medianErr);
+        setError(medianErr.message);
+      }
+
+      return true;
+    } catch (err: any) {
+      console.error('Bulk score fill failed:', err);
+      setError(err.message);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedSeasonId, updateGuildMedian, updateMember]); // recordsRef/draftRecordsRef/dbMembersRef are stable refs
+
   const handleAutoSave = useCallback((memberId: string, guildId: string) => {
     clearTimeout(saveTimersRef.current[memberId]);
     saveTimersRef.current[memberId] = setTimeout(() => {
@@ -209,6 +304,7 @@ export function useRaidRecordEditor({
     error,
     handleRecordChange,
     handleAutoSave,
+    handleBulkScoreFill,
     updateGuildMedian,
     handleGuildNoteChange,
   };

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Pencil, ArrowDownWideNarrow, ArrowDownNarrowWide, Copy, Check, Ghost, X } from 'lucide-react';
+import { Search, Pencil, ArrowDownWideNarrow, ArrowDownNarrowWide, Copy, Check, Ghost, X, ListPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Member, Guild } from '@/entities/member/types';
 import { deduceScore } from '../utils/scoreDeduction';
 import { getPrevGuildName, getCustomNote, setNoteSegment, removeNoteSegment, PREV_GUILD_TAG } from '@/shared/lib/noteUtils';
 import GhostRecordModal from './GhostRecordModal';
+import BulkScoreFillModal from './BulkScoreFillModal';
 import type { MemberRaidRecord, GuildRaidRecord } from '../types';
 
 interface GuildRaidTableProps {
@@ -25,6 +26,9 @@ interface GuildRaidTableProps {
   onRecordChange: (memberId: string, field: 'score' | 'note' | 'season_note' | 'overkill', value: string | number | null) => void;
   onGuildNoteChange?: (guildId: string, note: string) => void;
   onBlur: (memberId: string, guildId: string) => void;
+  onBulkScoreFill?: (guildId: string, score: number, memberIds: string[]) => Promise<boolean>;
+  /** Editor error, forwarded to BulkScoreFillModal — the page banner is hidden behind its overlay. */
+  editorError?: string;
   onMemberClick: (member: Member) => void;
   rowHeights?: Record<number, number>;
   onRowHeightChange?: (index: number, height: number) => void;
@@ -60,6 +64,8 @@ function GuildRaidTable({
   onRecordChange,
   onGuildNoteChange,
   onBlur,
+  onBulkScoreFill,
+  editorError,
   onMemberClick,
   rowHeights,
   onRowHeightChange,
@@ -89,6 +95,7 @@ function GuildRaidTable({
   const [guildNoteInput, setGuildNoteInput] = useState('');
   const [copiedMemberId, setCopiedMemberId] = useState<string | null>(null);
   const [ghostModalMember, setGhostModalMember] = useState<Member | null>(null);
+  const [isBulkFillOpen, setIsBulkFillOpen] = useState(false);
   const displayGuildNote = guildRaidRecord?.note || '';
 
   const handleCopyName = (e: React.MouseEvent, name: string, memberId: string) => {
@@ -504,6 +511,32 @@ function GuildRaidTable({
           </table>
         )}
       </div>
+
+      {!isArchived && !isComparisonMode && onBulkScoreFill && (
+        <div className="px-4 py-2 border-t border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800">
+          <button
+            onClick={() => setIsBulkFillOpen(true)}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ListPlus className="w-3.5 h-3.5" />
+            {t('raid.bulk_fill_button', '一鍵輸入分數')}
+          </button>
+        </div>
+      )}
+
+      {isBulkFillOpen && onBulkScoreFill && (
+        <BulkScoreFillModal
+          guildId={guildId}
+          guildDisplayName={displayGuildName}
+          members={sortedMembers}
+          records={records}
+          draftRecords={draftRecords}
+          error={editorError}
+          onConfirm={onBulkScoreFill}
+          onClose={() => setIsBulkFillOpen(false)}
+        />
+      )}
 
       {ghostModalMember && (
         <GhostRecordModal
