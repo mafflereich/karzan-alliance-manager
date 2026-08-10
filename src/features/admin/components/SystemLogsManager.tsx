@@ -30,7 +30,7 @@ export default function SystemLogsManager() {
     try {
       let query = supabase
         .from('system_logs')
-        .select('*')
+        .select('id, created_at, level, source, action, user_id, discord_id, message')
         .order('created_at', { ascending: false })
         .limit(100);
         
@@ -50,6 +50,27 @@ export default function SystemLogsManager() {
       console.error('Error fetching logs:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openLogDetails = async (log: SystemLog) => {
+    try {
+      const { data, error } = await supabase
+        .from('system_logs')
+        .select('*')
+        .eq('id', log.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to fetch log details:', error);
+        return;
+      }
+
+      if (data) {
+        setSelectedLog(data as SystemLog);
+      }
+    } catch (err) {
+      console.error('Error fetching log details:', err);
     }
   };
 
@@ -188,7 +209,7 @@ export default function SystemLogsManager() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       <button 
-                        onClick={() => setSelectedLog(log)}
+                        onClick={() => openLogDetails(log)}
                         className="p-1.5 text-stone-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
                         title={t('system_logs.view_details', '查看詳情')}
                       >
