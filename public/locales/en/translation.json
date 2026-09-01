@@ -406,6 +406,8 @@
     "no_members": "This guild has no members yet.",
     "reload_members": "Reload Members",
     "load_failed": "Failed to load member data. Please check your connection or permissions and try again.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "filter_guild": "Guild Filter",
+    "selected_guilds": "{{count}} selected"
   }
 }

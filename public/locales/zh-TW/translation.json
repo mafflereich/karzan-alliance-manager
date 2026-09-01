@@ -406,6 +406,8 @@
     "no_members": "此公會目前沒有成員。",
     "reload_members": "重整成員",
     "load_failed": "成員資料載入失敗，請檢查網路或權限後重試。",
-    "retry": "重新載入"
+    "retry": "重新載入",
+    "filter_guild": "公會篩選",
+    "selected_guilds": "已選 {{count}} 個公會"
   }
 }
