@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import camelcaseKeys from 'camelcase-keys';
 import snakecaseKeys from 'snakecase-keys';
+import type { Database } from '@entities/database.types';
+
+/** public schema 的資料表名稱，由 `npm run db:types` 產生的型別推導而來 */
+export type TableName = keyof Database['public']['Tables'];
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 export const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -37,7 +41,7 @@ export const toSnake = (data: any): any => {
 };
 
 export async function supabaseInsert<T>(
-    table: string,
+    table: TableName,
     values: T | T[],
     returning: 'minimal' | 'representation' = 'representation'
 ) {
@@ -57,7 +61,7 @@ export async function supabaseInsert<T>(
 }
 
 export async function supabaseUpdate<T>(
-    table: string,
+    table: TableName,
     values: Partial<T>,
     filters: Record<string, any>,  // e.g. { id: 'uuid', email: 'test@example.com' }
     returning: 'minimal' | 'representation' = 'representation'
@@ -83,7 +87,7 @@ export async function supabaseUpdate<T>(
 }
 
 export async function supabaseUpsert<T>(
-    table: string,
+    table: TableName,
     values: T | T[],
     options: { onConflict?: string; ignoreDuplicates?: boolean } = {},
     returning: 'minimal' | 'representation' = 'representation'
@@ -105,7 +109,7 @@ export async function supabaseUpsert<T>(
 
 /** Helper to fetch all rows from a table with automatic pagination (Supabase/PostgREST default limit is 1000). */
 export async function fetchAllPaginated<T = any>(
-  table: string,
+  table: TableName,
   selectQuery: string,
   applyFilters?: (query: any) => any,
 ): Promise<T[]> {
