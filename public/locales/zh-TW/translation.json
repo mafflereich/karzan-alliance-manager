@@ -255,7 +255,7 @@
     "discord_login_desc": "請使用已加入聯盟 Discord 頻道的帳號登入系統",
     "login_with_discord": "使用 Discord 登入",
     "equipment_list": "裝備表",
-    "my_costumes": "我的輸出服裝"
+    "my_costumes": "服裝表"
   },
   "login": {
     "no_login_account": "此公會尚未設定登入帳號",
@@ -374,8 +374,8 @@
     "hide_desc": "開啟後，一般成員無法看到你的裝備表，僅管理者可查看。遊玩傾向與備註不隱藏。"
   },
   "my_costumes": {
-    "title": "我的輸出服裝",
-    "desc": "填寫你的輸出服裝練度與 UR 專用武器，資料僅供管理查看。",
+    "title": "服裝表",
+    "desc": "填寫你的輸出服裝練度與 UR 專用武器；管理者可檢視全部成員的服裝狀態。",
     "search_placeholder": "搜尋角色或服裝...",
     "no_member": "尚未找到你的成員資料，請聯絡管理者綁定。",
     "no_results": "找不到符合的角色或服裝。",
@@ -393,6 +393,10 @@
     "attr_wind": "風",
     "attr_light": "光",
     "attr_dark": "暗",
-    "reset_filters": "清除篩選"
+    "reset_filters": "清除篩選",
+    "view_matrix": "服裝表",
+    "view_my": "我的服裝",
+    "select_guild": "選擇公會",
+    "no_members": "此公會目前沒有成員。"
   }
 }

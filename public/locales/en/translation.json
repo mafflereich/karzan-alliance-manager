@@ -255,7 +255,7 @@
     "discord_login_desc": "Please log in with your account eligible to Kazran Alliance Discord Channel",
     "login_with_discord": "Login with Discord",
     "equipment_list": "Equipment",
-    "my_costumes": "My Costumes"
+    "my_costumes": "Costume Table"
   },
   "login": {
     "no_login_account": "This guild has not set up a login account",
@@ -374,8 +374,8 @@
     "hide_desc": "When enabled, regular members cannot see your equipment; only managers can. Play preference and note stay visible."
   },
   "my_costumes": {
-    "title": "My Output Costumes",
-    "desc": "Fill in your output costume levels and UR exclusive weapons. Data is only visible to managers.",
+    "title": "Costume Table",
+    "desc": "Fill in your output costume levels and UR exclusive weapons. Managers can view all members' costume status.",
     "search_placeholder": "Search character or costume...",
     "no_member": "No member data found for you. Please ask an admin to bind your account.",
     "no_results": "No matching characters or costumes.",
@@ -393,6 +393,10 @@
     "attr_wind": "Wind",
     "attr_light": "Light",
     "attr_dark": "Dark",
-    "reset_filters": "Clear Filters"
+    "reset_filters": "Clear Filters",
+    "view_matrix": "Costume Table",
+    "view_my": "My Costumes",
+    "select_guild": "Select Guild",
+    "no_members": "This guild has no members yet."
   }
 }
