@@ -17,8 +17,8 @@ i18n
             'zh': ['zh-TW'],
             'default': ['zh-TW']
         },
-        supportedLngs: ['zh-TW', 'en'],   // 僅列實際存在的語言資料夾；zh 系列變體透過 fallbackLng 轉為 zh-TW
-        nonExplicitSupportedLngs: true, // 允許非精確匹配（如 en-US 匹配 en）
+        supportedLngs: ['zh-TW', 'en', 'zh', 'zh-HK', 'zh-MO', 'zh-CN'],   // 需保留 zh 系列變體，fallbackLng 才能正確解析；否則 t() 會回傳原始 key
+        nonExplicitSupportedLngs: true, // 允許非精確匹配（如 en-US 匹配 en、zh-HK 匹配 zh）
         ns: ['translation', 'admin', 'arcade', 'mailbox', 'common', 'toolbox', 'raid'],
         defaultNS: 'translation',
         fallbackNS: 'translation',
