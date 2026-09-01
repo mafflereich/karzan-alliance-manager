@@ -18,7 +18,7 @@ interface CostumeFilters {
 
 export default function MyCostumesPage() {
   const { t, i18n } = useTranslation();
-  const { db, userProfileId, updateMember, showToast } = useAppContext();
+  const { db, userProfileId, updateMember, showToast, isRoleLoading } = useAppContext();
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<CostumeFilters>({});
@@ -91,6 +91,18 @@ export default function MyCostumesPage() {
       });
     }
   };
+
+  if (isRoleLoading) {
+    return (
+      <div className="min-h-screen bg-stone-100 dark:bg-stone-900">
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-8 flex items-center justify-center text-stone-500 dark:text-stone-400">
+            {t('common.loading')}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-900">
