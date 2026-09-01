@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '@/store';
 import { useTranslation } from 'react-i18next';
 import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, RefreshCw, Loader2 } from 'lucide-react';
@@ -21,7 +21,7 @@ interface CostumeFilters {
 
 export default function MyCostumesPage() {
   const { t, i18n } = useTranslation();
-  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchAllMembers, isMembersLoading } = useAppContext();
+  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchMembers, isMembersLoading } = useAppContext();
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<CostumeFilters>({});
@@ -31,31 +31,6 @@ export default function MyCostumesPage() {
   const [view, setView] = useState<'matrix' | 'my'>(() => (isManagerRole(userRole) ? 'matrix' : 'my'));
   const [loadingFailed, setLoadingFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const fetchInFlightRef = useRef(false);
-
-  useEffect(() => {
-    if (isRoleLoading) return;
-    if (!isManager) {
-      setView('my');
-      return;
-    }
-    setView('matrix');
-    (async () => {
-      if (fetchInFlightRef.current) return;
-      fetchInFlightRef.current = true;
-      setLoadingFailed(false);
-      const ok = await fetchAllMembers(true);
-      setLoadingFailed(!ok);
-      fetchInFlightRef.current = false;
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isManager, isRoleLoading, reloadKey]);
-
-  const myMemberIds = useMemo(() => {
-    return userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : [];
-  }, [userProfileId]);
-
-  const myMembers = myMemberIds.map(id => db.members[id]).filter(Boolean);
 
   // 全部公會（含沒有成員的公會），依梯次/管理順序排序
   const allGuilds = useMemo(() => {
@@ -74,6 +49,61 @@ export default function MyCostumesPage() {
     });
     return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
   }, [allGuilds]);
+
+  useEffect(() => {
+    if (isRoleLoading) return;
+    if (!isManager) {
+      setView('my');
+      return;
+    }
+    setView('matrix');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isManager, isRoleLoading]);
+
+  // 預設以第一公會作為進入點
+  useEffect(() => {
+    if (isRoleLoading || !isManager) return;
+    if (selectedGuildIds.length > 0) return;
+    const firstId = allGuilds[0]?.id;
+    if (firstId) setSelectedGuildIds([firstId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isManager, isRoleLoading, allGuilds]);
+
+  // 為已選但尚未載入的公會抓取成員（點選公會時觸發）
+  useEffect(() => {
+    if (!isManager || selectedGuildIds.length === 0) return;
+    let failed = false;
+    (async () => {
+      for (const gid of selectedGuildIds) {
+        const hasCached = Object.values(db.members).some(m => m.guildId === gid);
+        if (hasCached) continue;
+        const ok = await fetchMembers(gid, undefined, true);
+        if (!ok) failed = true;
+      }
+      setLoadingFailed(failed);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isManager, selectedGuildIds, reloadKey, db.members]);
+
+  // 「重整成員」：強制重新載入目前選取的公會
+  useEffect(() => {
+    if (!isManager || reloadKey === 0 || selectedGuildIds.length === 0) return;
+    let failed = false;
+    (async () => {
+      for (const gid of selectedGuildIds) {
+        const ok = await fetchMembers(gid, undefined, true);
+        if (!ok) failed = true;
+      }
+      setLoadingFailed(failed);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadKey]);
+
+  const myMemberIds = useMemo(() => {
+    return userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : [];
+  }, [userProfileId]);
+
+  const myMembers = myMemberIds.map(id => db.members[id]).filter(Boolean);
 
   const matrixMembers = useMemo(() => {
     let list = Object.values(db.members).filter(m => m && m.status !== 'archived');
@@ -138,7 +168,10 @@ export default function MyCostumesPage() {
 
   const toggleGuild = (guildId: string) => {
     setSelectedGuildIds(prev => {
-      return prev.includes(guildId) ? prev.filter(id => id !== guildId) : [...prev, guildId];
+      const selected = prev.includes(guildId) ? prev.filter(id => id !== guildId) : [...prev, guildId];
+      // 至少保留一個公會
+      if (selected.length === 0) return prev;
+      return selected;
     });
   };
 
@@ -180,39 +213,39 @@ export default function MyCostumesPage() {
           <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-8 flex items-center justify-center text-stone-500 dark:text-stone-400">
             {t('common.loading')}
           </div>
-</div>
-    </div>
-  );
-}
-
-interface FilterChipGroupProps {
-  label: string;
-  options: { value: string; label: string }[];
-  selected: string[];
-  onToggle: (value: string) => void;
-}
-
-function FilterChipGroup({ label, options, selected, onToggle }: FilterChipGroupProps) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs font-bold text-stone-500 dark:text-stone-400 whitespace-nowrap">{label}</span>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map(opt => {
-          const active = selected.includes(opt.value);
-          return (
-            <button
-              key={opt.value}
-              onClick={() => onToggle(opt.value)}
-              className={`px-2.5 py-1 text-xs font-bold rounded-full border transition-all ${active ? 'bg-amber-500 border-amber-500 text-white shadow-sm' : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:border-amber-400'}`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+
+  interface FilterChipGroupProps {
+    label: string;
+    options: { value: string; label: string }[];
+    selected: string[];
+    onToggle: (value: string) => void;
+  }
+
+  function FilterChipGroup({ label, options, selected, onToggle }: FilterChipGroupProps) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold text-stone-500 dark:text-stone-400 whitespace-nowrap">{label}</span>
+        <div className="flex flex-wrap gap-1.5">
+          {options.map(opt => {
+            const active = selected.includes(opt.value);
+            return (
+              <button
+                key={opt.value}
+                onClick={() => onToggle(opt.value)}
+                className={`px-2.5 py-1 text-xs font-bold rounded-full border transition-all ${active ? 'bg-amber-500 border-amber-500 text-white shadow-sm' : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:border-amber-400'}`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-stone-100 dark:bg-stone-900">
@@ -291,16 +324,10 @@ function FilterChipGroup({ label, options, selected, onToggle }: FilterChipGroup
                     {t('my_costumes.filter_guild')}
                   </span>
                   <span className="text-[11px] text-stone-400 dark:text-stone-500">
-                    {selectedGuildIds.length === 0 ? t('my_costumes.all_guilds') : t('my_costumes.selected_guilds', { count: selectedGuildIds.length })}
+                    {t('my_costumes.selected_guilds', { count: selectedGuildIds.length })}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setSelectedGuildIds([])}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all ${selectedGuildIds.length === 0 ? 'bg-amber-500 border-amber-500 text-white shadow-sm' : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:border-amber-400'}`}
-                  >
-                    {t('my_costumes.all_guilds')}
-                  </button>
                   {guildsByTier.map(([tier, guilds]) => (
                     <div key={tier} className="flex flex-wrap items-center gap-1.5">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getTierColor(tier)}`}>T{tier}</span>

@@ -46,7 +46,7 @@ interface AppContextType {
   fetchInitialData: () => Promise<void>;
 
   // Member functions
-  fetchMembers: (guildId: string, columns?: string, force?: boolean) => void;
+  fetchMembers: (guildId: string, columns?: string, force?: boolean) => Promise<boolean>;
   fetchAllMembers: (force?: boolean) => Promise<boolean>;
   searchMembers: (query: string, includeArchived?: boolean, page?: number, pageSize?: number) => Promise<{ data: Member[], total: number }>;
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
@@ -486,8 +486,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false) => {
-    if (isOffline && !force) return;
+  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false): Promise<boolean> => {
+    if (isOffline && !force) return false;
     if (force) setIsOffline(false);
 
     // Check if we already have members for this guild
@@ -541,7 +541,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsOffline(true);
       showToast(t('common.fetch_members_failed'), 'error');
       setIsMembersLoading(false);
-      return;
+      return false;
     }
 
     const newMembers = data.reduce((acc, member) => {
@@ -591,9 +591,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (isOffline) setIsOffline(false);
     setIsMembersLoading(false);
+    return true;
   };
 
-    const fetchAllMembers = async (force: boolean = false): Promise<boolean> => {
+  const fetchAllMembers = async (force: boolean = false): Promise<boolean> => {
     if (isOffline && !force) return false;
     if (force) setIsOffline(false);
     setIsMembersLoading(true);
