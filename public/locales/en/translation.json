@@ -108,6 +108,7 @@
     "api": "API",
     "session_expired": "Login expired after 24 hours, please log in again.",
     "fetch_members_failed": "Failed to fetch members: Insufficient permissions. Switching to offline mode.",
+    "fetch_failed": "Failed to load data. Please try again.",
     "member_exists": "Active member named {{name}} already exists",
     "offline_warning": "This action cannot be performed in offline mode",
     "unknown_time": "Unknown time",
@@ -402,6 +403,9 @@
     "select_guild": "Select Guild",
     "all_guilds": "All Guilds",
     "characters_count": "{{count}} characters",
-    "no_members": "This guild has no members yet."
+    "no_members": "This guild has no members yet.",
+    "reload_members": "Reload Members",
+    "load_failed": "Failed to load member data. Please check your connection or permissions and try again.",
+    "retry": "Retry"
   }
 }

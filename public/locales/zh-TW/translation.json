@@ -108,6 +108,7 @@
     "api": "API",
     "session_expired": "登入已超過 24 小時，請重新登入。",
     "fetch_members_failed": "讀取成員列表失敗：權限不足。將切換至離線模式。",
+    "fetch_failed": "資料載入失敗，請稍後重試。",
     "member_exists": "已存在名為 {{name}} 的活躍成員",
     "offline_warning": "離線模式無法執行此操作",
     "unknown_time": "未知時間",
@@ -402,6 +403,9 @@
     "select_guild": "選擇公會",
     "all_guilds": "全部公會",
     "characters_count": "{{count}} 位角色",
-    "no_members": "此公會目前沒有成員。"
+    "no_members": "此公會目前沒有成員。",
+    "reload_members": "重整成員",
+    "load_failed": "成員資料載入失敗，請檢查網路或權限後重試。",
+    "retry": "重新載入"
   }
 }

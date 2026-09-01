@@ -46,8 +46,8 @@ interface AppContextType {
   fetchInitialData: () => Promise<void>;
 
   // Member functions
-  fetchMembers: (guildId: string, columns?: string) => void;
-  fetchAllMembers: () => Promise<void>;
+  fetchMembers: (guildId: string, columns?: string, force?: boolean) => void;
+  fetchAllMembers: (force?: boolean) => Promise<boolean>;
   searchMembers: (query: string, includeArchived?: boolean, page?: number, pageSize?: number) => Promise<{ data: Member[], total: number }>;
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
@@ -486,8 +486,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)') => {
-    if (isOffline) return;
+  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false) => {
+    if (isOffline && !force) return;
+    if (force) setIsOffline(false);
 
     // Check if we already have members for this guild
     const hasCachedMembers = Object.values(db.members).some(m => m.guildId === guildId);
@@ -588,111 +589,136 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
+    if (isOffline) setIsOffline(false);
     setIsMembersLoading(false);
   };
 
-  const fetchAllMembers = async () => {
-    if (isOffline) return;
+    const fetchAllMembers = async (force: boolean = false): Promise<boolean> => {
+    if (isOffline && !force) return false;
+    if (force) setIsOffline(false);
+    setIsMembersLoading(true);
+    let success = true;
 
-    // First, get the max ID from raid_seasons
-    const { data: seasonData, error: seasonError } = await supabase
-      .from('raid_seasons')
-      .select('id')
-      .order('id', { ascending: false })
-      .limit(1);
+    try {
+      // First, get the max ID from raid_seasons
+      const { data: seasonData, error: seasonError } = await supabase
+        .from('raid_seasons')
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1);
 
-    if (seasonError) {
-      console.error("Error fetching raid seasons:", seasonError);
-    }
-
-    const maxSeasonId = seasonData?.[0]?.id || null;
-
-    // Fetch raid records for the latest season in parallel with members
-    const raidRecordsQuery = maxSeasonId
-      ? supabase
-        .from('member_raid_records')
-        .select('member_id, score, season_note, overkill')
-        .eq('season_id', maxSeasonId)
-      : Promise.resolve({ data: [] as any[], error: null });
-
-    // Fetch members with pagination to handle >1000 rows (PostgREST default limit)
-    const PAGE_SIZE = 1000;
-    let allMembersData: any[] = [];
-    let offset = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data: pageData, error: pageError } = await supabase
-        .from('members')
-        .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
-        .range(offset, offset + PAGE_SIZE - 1);
-
-      if (pageError) {
-        console.error("Error fetching all members:", pageError);
-        isDebugMode().then(enabled => {
-          if (!enabled) return;
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            console.error("=== DETAILED ERROR LOG FOR MEMBERS FETCH (fetchAllMembers) ===", JSON.stringify({
-              errorDetails: pageError,
-              errorMessage: pageError.message,
-              errorCode: (pageError as any).code,
-              errorDetails2: (pageError as any).details,
-              errorHint: (pageError as any).hint,
-              userSession: session?.user ? {
-                id: session.user.id,
-                email: session.user.email,
-                role: session.user.role,
-                app_metadata: session.user.app_metadata,
-                user_metadata: session.user.user_metadata
-              } : null,
-              query: "select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')"
-            }, null, 2));
-          });
-        });
-        return;
+      if (seasonError) {
+        console.error("Error fetching raid seasons:", seasonError);
       }
 
-      if (!pageData || pageData.length === 0) {
-        hasMore = false;
-      } else {
-        allMembersData = allMembersData.concat(pageData);
-        offset += PAGE_SIZE;
-        if (pageData.length < PAGE_SIZE) {
+      const maxSeasonId = seasonData?.[0]?.id || null;
+
+      // Fetch raid records for the latest season in parallel with members
+      const raidRecordsQuery = maxSeasonId
+        ? supabase
+          .from('member_raid_records')
+          .select('member_id, score, season_note, overkill')
+          .eq('season_id', maxSeasonId)
+        : Promise.resolve({ data: [] as any[], error: null });
+
+      // Fetch members with pagination to handle >1000 rows (PostgREST default limit)
+      const PAGE_SIZE = 1000;
+      let allMembersData: any[] = [];
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: pageData, error: pageError } = await supabase
+          .from('members')
+          .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
+          .range(offset, offset + PAGE_SIZE - 1);
+
+        if (pageError) {
+          console.error("Error fetching all members:", pageError);
+          isDebugMode().then(enabled => {
+            if (!enabled) return;
+            supabase.auth.getSession().then(({ data: { session } }) => {
+              console.error("=== DETAILED ERROR LOG FOR MEMBERS FETCH (fetchAllMembers) ===", JSON.stringify({
+                errorDetails: pageError,
+                errorMessage: pageError.message,
+                errorCode: (pageError as any).code,
+                errorDetails2: (pageError as any).details,
+                errorHint: (pageError as any).hint,
+                userSession: session?.user ? {
+                  id: session.user.id,
+                  email: session.user.email,
+                  role: session.user.role,
+                  app_metadata: session.user.app_metadata,
+                  user_metadata: session.user.user_metadata
+                } : null,
+                query: "select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')"
+              }, null, 2));
+            });
+          });
+          success = false;
+          break;
+        }
+
+        if (!pageData || pageData.length === 0) {
           hasMore = false;
+        } else {
+          allMembersData = allMembersData.concat(pageData);
+          offset += PAGE_SIZE;
+          if (pageData.length < PAGE_SIZE) {
+            hasMore = false;
+          }
         }
       }
+
+      const [{ data: raidRecordsData }] = await Promise.all([raidRecordsQuery]);
+
+      // Always apply whatever pages we managed to fetch so a partial failure doesn't wipe existing data
+      if (success || allMembersData.length > 0) {
+        const raidRecordsByMemberId = (raidRecordsData || []).reduce((acc, record) => ({ ...acc, [record.member_id]: record }), {});
+
+        const allMembers: Record<string, Member> = allMembersData.reduce((acc, member) => {
+          const camelMember = toCamel<any>(member);
+          const memberNotes = Array.isArray(camelMember.memberNotes) ? camelMember.memberNotes[0] : camelMember.memberNotes;
+
+          const memberRaidRecord = raidRecordsByMemberId[camelMember.id];
+          // member_notes keys are in snake_case since toCamel uses { deep: false }
+          const note = memberNotes?.note || '';
+          const isReserved = memberNotes?.is_reserved || false;
+          const archiveRemark = memberNotes?.archive_remark || '';
+          const seasonNote = memberRaidRecord?.season_note || '';
+          const overkill = memberRaidRecord?.overkill ?? null;
+          const score = memberRaidRecord?.score ?? 0;
+          const mappedMember: Member = {
+            ...camelMember,
+            note,
+            isReserved,
+            archiveRemark,
+            seasonNote,
+            overkill,
+            score,
+          };
+          delete (mappedMember as any).memberNotes;
+          delete (mappedMember as any).memberRaidRecords;
+          return { ...acc, [mappedMember.id!]: mappedMember };
+        }, {});
+        setDbState(prev => ({ ...prev, members: allMembers }));
+      }
+
+      if (success) {
+        if (isOffline) setIsOffline(false);
+      } else {
+        setIsOffline(true);
+        showToast(t('common.fetch_failed'), 'error');
+      }
+      setIsMembersLoading(false);
+      return success;
+    } catch (error) {
+      console.error("Error fetching all members:", error);
+      setIsOffline(true);
+      showToast(t('common.fetch_failed'), 'error');
+      setIsMembersLoading(false);
+      return false;
     }
-
-    const [{ data: raidRecordsData }] = await Promise.all([raidRecordsQuery]);
-
-    const raidRecordsByMemberId = (raidRecordsData || []).reduce((acc, record) => ({ ...acc, [record.member_id]: record }), {});
-
-    const allMembers: Record<string, Member> = allMembersData.reduce((acc, member) => {
-      const camelMember = toCamel<any>(member);
-      const memberNotes = Array.isArray(camelMember.memberNotes) ? camelMember.memberNotes[0] : camelMember.memberNotes;
-
-      const memberRaidRecord = raidRecordsByMemberId[camelMember.id];
-      // member_notes keys are in snake_case since toCamel uses { deep: false }
-      const note = memberNotes?.note || '';
-      const isReserved = memberNotes?.is_reserved || false;
-      const archiveRemark = memberNotes?.archive_remark || '';
-      const seasonNote = memberRaidRecord?.season_note || '';
-      const overkill = memberRaidRecord?.overkill ?? null;
-      const score = memberRaidRecord?.score ?? 0;
-      const mappedMember: Member = {
-        ...camelMember,
-        note,
-        isReserved,
-        archiveRemark,
-        seasonNote,
-        overkill,
-        score,
-      };
-      delete (mappedMember as any).memberNotes;
-      delete (mappedMember as any).memberRaidRecords;
-      return { ...acc, [mappedMember.id!]: mappedMember };
-    }, {});
-    setDbState(prev => ({ ...prev, members: allMembers }));
   };
 
   const searchMembers = async (query: string, includeArchived: boolean = false, page: number = 1, pageSize: number = 20): Promise<{ data: Member[], total: number }> => {

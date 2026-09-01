@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '@/store';
 import { useTranslation } from 'react-i18next';
-import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, ChevronDown } from 'lucide-react';
+import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, ChevronDown, RefreshCw, Loader2 } from 'lucide-react';
 import { getImageUrl } from '@/shared/lib/utils';
 import { isManagerRole } from '@/shared/lib/equipment';
 import { getSortedCostumes } from '../utils/sort';
@@ -21,7 +21,7 @@ interface CostumeFilters {
 
 export default function MyCostumesPage() {
   const { t, i18n } = useTranslation();
-  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchAllMembers } = useAppContext();
+  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchAllMembers, isMembersLoading } = useAppContext();
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<CostumeFilters>({});
@@ -29,16 +29,27 @@ export default function MyCostumesPage() {
 
   const isManager = isManagerRole(userRole);
   const [view, setView] = useState<'matrix' | 'my'>(() => (isManagerRole(userRole) ? 'matrix' : 'my'));
+  const [loadingFailed, setLoadingFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const fetchInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (isManager) {
-      setView('matrix');
-      if (Object.values(db.members).length === 0) fetchAllMembers();
-    } else {
+    if (isRoleLoading) return;
+    if (!isManager) {
       setView('my');
+      return;
     }
+    setView('matrix');
+    (async () => {
+      if (fetchInFlightRef.current) return;
+      fetchInFlightRef.current = true;
+      setLoadingFailed(false);
+      const ok = await fetchAllMembers(true);
+      setLoadingFailed(!ok);
+      fetchInFlightRef.current = false;
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isManager]);
+  }, [isManager, isRoleLoading, reloadKey]);
 
   const myMemberIds = useMemo(() => {
     return userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : [];
@@ -54,7 +65,7 @@ export default function MyCostumesPage() {
   }, [db.guilds]);
 
   const matrixMembers = useMemo(() => {
-    let list = Object.values(db.members);
+    let list = Object.values(db.members).filter(m => m && m.status !== 'archived');
     if (selectedGuildId !== 'all') {
       list = list.filter(m => m.guildId === selectedGuildId);
     }
@@ -141,7 +152,7 @@ export default function MyCostumesPage() {
 
   if (isRoleLoading) {
     return (
-      <div className="min-h-screen bg-stone-100 dark:bg-stone-900">
+      <div className="bg-stone-100 dark:bg-stone-900">
         <div className="max-w-6xl mx-auto p-6">
           <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-8 flex items-center justify-center text-stone-500 dark:text-stone-400">
             {t('common.loading')}
@@ -154,7 +165,7 @@ export default function MyCostumesPage() {
   const filterSelectClass = "px-3 py-2 text-sm border border-stone-300 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-stone-700 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all";
 
   return (
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-900">
+    <div className="bg-stone-100 dark:bg-stone-900">
       <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
         <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -264,6 +275,16 @@ export default function MyCostumesPage() {
               <FilterX className="w-4 h-4" />
               {t('my_costumes.reset_filters')}
             </button>
+            {view === 'matrix' && (
+              <button
+                onClick={() => setReloadKey(k => k + 1)}
+                disabled={isMembersLoading}
+                className={`px-3 py-2 text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5 ${isMembersLoading ? 'bg-stone-100 dark:bg-stone-700 text-stone-400 dark:text-stone-500 cursor-not-allowed' : 'bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-300'}`}
+              >
+                <RefreshCw className={`w-4 h-4 ${isMembersLoading ? 'animate-spin' : ''}`} />
+                {t('my_costumes.reload_members')}
+              </button>
+            )}
           </div>
 
           {view === 'matrix' ? (
@@ -271,6 +292,27 @@ export default function MyCostumesPage() {
               <div className="mt-3 text-xs text-stone-500 dark:text-stone-400">
                 {t('common.member')} {matrixMembers.length} • {t('my_costumes.characters_count', { count: characterIds.size })}
               </div>
+              {isMembersLoading && (
+                <div className="mt-3 bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-6 flex items-center justify-center gap-2 text-stone-500 dark:text-stone-400 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {t('common.loading')}
+                </div>
+              )}
+              {loadingFailed && (
+                <div className="mt-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <p className="text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
+                    <Shield className="w-4 h-4 shrink-0" />
+                    {t('my_costumes.load_failed')}
+                  </p>
+                  <button
+                    onClick={() => setReloadKey(k => k + 1)}
+                    className="px-3 py-1.5 text-sm font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-1.5 shrink-0"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isMembersLoading ? 'animate-spin' : ''}`} />
+                    {t('my_costumes.retry')}
+                  </button>
+                </div>
+              )}
               <div className="mt-2">
                 <CostumeMatrixTable
                   members={matrixMembers}
