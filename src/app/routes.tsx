@@ -5,6 +5,7 @@ import { useAppContext } from '@/store';
 
 const Login = lazy(() => import('@features/auth/pages/Login'));
 const GuildDashboard = lazy(() => import('@features/guild/pages/GuildDashboard'));
+const MyCostumes = lazy(() => import('@features/guild/pages/MyCostumes'));
 const AdminDashboard = lazy(() => import('@features/admin/pages/AdminDashboard'));
 const TeamManagementPage = lazy(() => import('@features/member/pages/TeamManagementPage'));
 const AllianceRaidRecord = lazy(() => import('@features/raid/pages/AllianceRaidRecord'));
@@ -31,6 +32,11 @@ export default function AppRoutes() {
                 <Route path="/guild/:guildId" element={
                     <ProtectedRoute pageId="costume_list">
                         <GuildDashboardWrapper />
+                    </ProtectedRoute>
+                } />
+                <Route path="/costumes" element={
+                    <ProtectedRoute pageId="my_costumes">
+                        <MyCostumes />
                     </ProtectedRoute>
                 } />
                 <Route path="/admin" element={

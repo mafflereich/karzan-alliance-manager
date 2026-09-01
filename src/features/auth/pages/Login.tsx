@@ -22,9 +22,6 @@ export default function Login() {
 
   const handleGuildSelect = async (guildId: string) => {
     if (userRole) {
-      const guild = db.guilds[guildId];
-      const hasAccess = canSeeAllGuilds || userGuildRoles.includes(guild?.username) || userGuildRoles.includes(guild?.name);
-      if (!hasAccess) return;
       navigate(`/guild/${guildId}`);
       return;
     }
@@ -103,7 +100,7 @@ export default function Login() {
                       <div key={tier} className="space-y-3">
                         <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>{t('guilds.tier')} {tier}</h3>
                         {tierGuilds.map(([id, guild]: [string, any]) => {
-                          const isDisabled = userRole && !canSeeAllGuilds && !userGuildRoles.includes(guild.username) && !userGuildRoles.includes(guild.name);
+                          const isDisabled = false;
                           const stats = guildStats[id] || { rate: 0, is100: false, count: 0 };
                           const { rate: percentShown, is100 } = stats;
 

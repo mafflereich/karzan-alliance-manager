@@ -3,6 +3,7 @@ import { AccessControl } from '@/entities/member/types';
 export const getDefaultRoles = (pageId: string): ('member' | 'manager' | 'admin' | 'creator')[] => {
   switch (pageId) {
     case 'costume_list': return ['member', 'manager', 'admin', 'creator'];
+    case 'my_costumes': return ['member', 'manager', 'admin', 'creator'];
     case 'application_mailbox': return ['member', 'manager', 'admin', 'creator'];
     case 'arcade': return ['manager', 'admin', 'creator'];
     case 'alliance_raid_record': return ['creator'];

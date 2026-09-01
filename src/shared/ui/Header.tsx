@@ -77,13 +77,14 @@ export default function Header() {
     return canUserAccessPage(pageId, userRole || undefined, db.accessControl);
   };
 
-  const userGuilds = !canSeeAllGuilds && userGuildRoles.length > 0 ? Object.entries(db.guilds).filter(([_, g]) => userGuildRoles.includes(g.username || '') || userGuildRoles.includes(g.name || '')) : [];
+  const userGuilds = Object.entries(db.guilds);
   const userGuildId = userGuilds.length > 0 ? userGuilds[0][0] : null;
 
   const topGuildId = canSeeAllGuilds ? (sortedGuilds.length > 0 ? sortedGuilds[0][0] : null) : userGuildId;
 
   const navItems = [
-    { id: 'costume_list', icon: Users, label: t('header.costume_list'), path: topGuildId ? `/guild/${topGuildId}` : null, active: location.pathname.startsWith('/guild') },
+    { id: 'costume_list', icon: Users, label: t('header.equipment_list'), path: topGuildId ? `/guild/${topGuildId}` : null, active: location.pathname.startsWith('/guild') },
+    { id: 'my_costumes', icon: User, label: t('header.my_costumes'), path: '/costumes', active: location.pathname === '/costumes' },
     { id: 'application_mailbox', icon: Mail, label: t('header.application_mailbox'), path: '/mailbox', active: location.pathname === '/mailbox' },
     { id: 'arcade', icon: Gamepad2, label: t('header.arcade'), path: '/arcade', active: location.pathname === '/arcade' },
     { id: 'member_board', icon: BookUser, label: t('header.member_board', "Team Assign Board"), path: '/team', active: location.pathname === '/team' },

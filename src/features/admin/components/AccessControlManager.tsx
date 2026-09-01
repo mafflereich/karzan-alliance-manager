@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '@/store';
-import { Lock, Check, Users, Mail, Gamepad2, Trophy, AlertCircle, BookUser, Wrench, Save, RotateCcw, Settings } from 'lucide-react';
+import { Lock, Check, Users, Mail, Gamepad2, Trophy, AlertCircle, BookUser, Wrench, Save, RotateCcw, Settings, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function AccessControlManager() {
@@ -14,7 +14,8 @@ export default function AccessControlManager() {
   const roles: ('member' | 'manager' | 'admin' | 'creator')[] = ['member', 'manager', 'admin', 'creator'];
 
   const pages = [
-    { id: 'costume_list', label: t('header.costume_list'), icon: <Users className="w-5 h-5" /> },
+    { id: 'costume_list', label: t('header.equipment_list', '裝備表'), icon: <Users className="w-5 h-5" /> },
+    { id: 'my_costumes', label: t('header.my_costumes', '我的輸出服裝'), icon: <User className="w-5 h-5" /> },
     { id: 'application_mailbox', label: t('header.application_mailbox'), icon: <Mail className="w-5 h-5" /> },
     { id: 'arcade', label: t('header.arcade'), icon: <Gamepad2 className="w-5 h-5" /> },
     { id: 'guild_raid_manager', label: t('header.guild_raid_manager', '公會聯合戰管理'), icon: <Trophy className="w-5 h-5" /> },
@@ -26,6 +27,7 @@ export default function AccessControlManager() {
   const getDefaultRoles = (pageId: string): ('member' | 'manager' | 'admin' | 'creator')[] => {
     switch (pageId) {
       case 'costume_list': return ['member', 'manager', 'admin', 'creator'];
+      case 'my_costumes': return ['member', 'manager', 'admin', 'creator'];
       case 'application_mailbox': return ['member', 'manager', 'admin', 'creator'];
       case 'arcade': return ['manager', 'admin', 'creator'];
       case 'guild_raid_manager': return ['manager', 'admin', 'creator'];

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl } from '@/entities/member/types';
+import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl, Equipment, PlayPreferences } from '@/entities/member/types';
 import { supabase, supabaseInsert, supabaseKey, supabaseUpdate, supabaseUpsert, toCamel, fetchAllPaginated } from '@/shared/api/supabase';
 import { isDebugMode } from '@/shared/api/debugMode';
 import { Logger } from '@/shared/utils/logger';
@@ -56,6 +56,7 @@ interface AppContextType {
   unarchiveMember: (memberId: string, targetGuildId: string) => Promise<void>;
   updateMemberCostumeLevel: (memberId: string, costumeId: string, level: number) => Promise<void>;
   updateMemberExclusiveWeapon: (memberId: string, characterId: string, hasWeapon: boolean) => Promise<void>;
+  updateMemberProfile: (memberId: string, data: { equipment?: Equipment; playPreferences?: PlayPreferences; equipmentNote?: string; isEquipmentHidden?: boolean }) => Promise<void>;
 
   // Guild functions
   addGuild: (name: string) => Promise<string | null>;
@@ -485,7 +486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)') => {
+  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)') => {
     if (isOffline) return;
 
     // Check if we already have members for this guild
@@ -623,7 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     while (hasMore) {
       const { data: pageData, error: pageError } = await supabase
         .from('members')
-        .select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
+        .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
         .range(offset, offset + PAGE_SIZE - 1);
 
       if (pageError) {
@@ -702,7 +703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let queryBuilder = supabase
       .from('members')
-      .select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
+      .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
       .ilike('name', `%${query}%`)
       .order('status', { ascending: true }) // active comes before archived
       .order('name', { ascending: true })
@@ -1169,6 +1170,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateMemberProfile = async (
+    memberId: string,
+    data: {
+      equipment?: Equipment;
+      playPreferences?: PlayPreferences;
+      equipmentNote?: string;
+      isEquipmentHidden?: boolean;
+    }
+  ) => {
+    const now = Date.now();
+    const { error } = await supabaseUpdate('members', { ...data, updatedAt: now }, { id: memberId });
+
+    if (error) {
+      console.error('Error updating member profile:', error);
+      Logger.error({ source: 'member_management', action: 'update_member_profile', message: '更新成員個人資料失敗', details: { memberId, data, error: error.message } });
+      showToast(t('common.save_failed'), 'error');
+      return;
+    }
+    Logger.info({ source: 'member_management', action: 'update_member_profile', message: '更新成員個人資料', details: { memberId, data } });
+    setDbState(prev => ({
+      ...prev,
+      members: { ...prev.members, [memberId]: { ...prev.members[memberId], ...data, updatedAt: now } }
+    }));
+  };
+
   const addCharacter = async (name: string, order: number, nameE: string = '') => {
     const newChar = { id: uuidv4(), name, nameE, orderNum: order };
     const { data, error } = await supabaseInsert('characters', newChar);
@@ -1481,7 +1507,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser, currentAvatar, userGuildRoles, setuserGuildRoles, userRole, userProfileId,
-      fetchMembers, fetchAllMembers, searchMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon,
+      fetchMembers, fetchAllMembers, searchMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon, updateMemberProfile,
       loadDiscordRoles,
       fetchInitialData,
       addGuild, updateGuild, deleteGuild,
