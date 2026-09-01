@@ -31,6 +31,12 @@ npm run build        # 建置（先執行 generate-meta.js 產生版本資訊）
 npm run lint         # TypeScript 型別檢查（tsc --noEmit）
 npm run test:e2e     # Playwright E2E 測試
 npm run deploy       # 部署至 GitHub Pages
+
+npm run db:link      # 連結遠端 Supabase 專案（首次需輸入資料庫密碼）
+npm run db:pull      # 從遠端拉取 schema，產生 supabase/migrations/
+npm run db:diff      # 比對本地 migrations 與遠端 schema 的差異
+npm run db:push      # 將本地 migrations 套用至遠端
+npm run db:types     # 產生 TypeScript 型別至 src/entities/database.types.ts
 ```
 
 ## 目錄結構
