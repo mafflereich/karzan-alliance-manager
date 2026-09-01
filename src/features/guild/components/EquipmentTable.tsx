@@ -91,20 +91,35 @@ export default function EquipmentTable({
                   )}
                 </div>
               </th>
-              {EQUIPMENT_CATEGORIES.map(cat => (
-                <th
-                  key={cat.key}
-                  className="p-3 font-semibold text-center text-xs border-r border-b-2 border-stone-200 dark:border-stone-600 last:border-r-0 sticky top-0 bg-stone-50 dark:bg-stone-700 z-20"
-                >
-                  {t(`equipment.categories.${cat.key}`)}
-                </th>
-              ))}
               <th className="p-3 font-semibold text-center text-xs border-r border-b-2 border-stone-200 dark:border-stone-600 sticky top-0 bg-stone-50 dark:bg-stone-700 z-20">
                 {t('equipment.play_preference')}
               </th>
-              <th className="p-3 font-semibold text-center text-xs border-r border-b-2 border-stone-200 dark:border-stone-600 last:border-r-0 sticky top-0 bg-stone-50 dark:bg-stone-700 z-20">
+              <th className="p-3 font-semibold text-center text-xs border-r border-b-2 border-stone-200 dark:border-stone-600 sticky top-0 bg-stone-50 dark:bg-stone-700 z-20">
                 {t('equipment.note')}
               </th>
+              {EQUIPMENT_CATEGORIES.map(cat => (
+                <th
+                  key={cat.key}
+                  className="p-2 font-semibold text-center text-xs border-r border-b-2 border-stone-200 dark:border-stone-600 last:border-r-0 sticky top-0 bg-stone-50 dark:bg-stone-700 z-20 align-top"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center justify-center gap-0.5" title={cat.icons?.map(i => i.name).join(' / ')}>
+                      {cat.icons?.slice(0, 3).map((ico : any, idx : number) => (
+                        <img
+                          key={idx}
+                          src={ico.thumb}
+                          alt={ico.name}
+                          className={`w-7 h-7 object-contain rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-600 ${cat.icons && cat.icons.length > 1 && idx === 0 ? '-mr-2 z-10' : ''}`}
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ))}
+                    </div>
+                    <span>{t(`equipment.categories.${cat.key}`)}</span>
+                  </div>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -144,27 +159,6 @@ export default function EquipmentTable({
                     )}
                   </div>
                 </td>
-                {EQUIPMENT_CATEGORIES.map(cat => {
-                  const item = equipment[cat.key];
-                  return (
-                    <td key={cat.key} className="p-0 text-center border-r border-stone-100 dark:border-stone-700 last:border-r-0 h-full">
-                      <div className="flex flex-col items-center justify-center h-full min-h-[60px] py-2 gap-0.5">
-                        {item.c23 > 0 || item.c24 > 0 ? (
-                          <>
-                            <span className="font-bold text-sm text-red-600 dark:text-red-400">
-                              {i18n.language === 'en' ? '23C' : '23C'}: {item.c23}
-                            </span>
-                            <span className="font-bold text-sm text-purple-600 dark:text-purple-400">
-                              {i18n.language === 'en' ? '24C' : '24C'}: {item.c24}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-sm text-stone-300 dark:text-stone-600">-</span>
-                        )}
-                      </div>
-                    </td>
-                  );
-                })}
                 <td className="p-3 text-center border-r border-stone-100 dark:border-stone-700 align-top">
                   <div className="flex flex-col items-center gap-1.5">
                     {playPrefs.modes.length > 0 && (
@@ -195,6 +189,27 @@ export default function EquipmentTable({
                     <span className="text-sm text-stone-300 dark:text-stone-600">-</span>
                   )}
                 </td>
+                {EQUIPMENT_CATEGORIES.map(cat => {
+                  const item = equipment[cat.key];
+                  return (
+                    <td key={cat.key} className="p-0 text-center border-r border-stone-100 dark:border-stone-700 last:border-r-0 h-full">
+                      <div className="flex flex-col items-center justify-center h-full min-h-[60px] py-2 gap-0.5">
+                        {item.c23 > 0 || item.c24 > 0 ? (
+                          <>
+                            <span className="font-bold text-sm text-red-600 dark:text-red-400">
+                              {i18n.language === 'en' ? '23C' : '23C'}: {item.c23}
+                            </span>
+                            <span className="font-bold text-sm text-purple-600 dark:text-purple-400">
+                              {i18n.language === 'en' ? '24C' : '24C'}: {item.c24}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm text-stone-300 dark:text-stone-600">-</span>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
               </tr>
               );
             })}

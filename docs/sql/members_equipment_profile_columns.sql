@@ -14,7 +14,7 @@
 
 -- ------------------------------------------------------------
 -- equipment：每項裝備類別的 23C / 24C 數量
--- 形如 { "universal_weapon": {"c23": 2, "c24": 1}, "venom_serpent": ... }
+-- 形如 { "phys_weapon": {"c23": 2, "c24": 1}, "magic_weapon": ... }
 -- ------------------------------------------------------------
 ALTER TABLE members
   ADD COLUMN IF NOT EXISTS equipment jsonb;

@@ -78,9 +78,26 @@ export default function MemberEquipmentModal({ memberId, onClose }: { memberId: 
                 const item = equipment[cat.key] || { c23: 0, c24: 0 };
                 return (
                   <div key={cat.key} className="p-4 flex items-center justify-between gap-4">
-                    <span className="font-medium text-stone-800 dark:text-stone-200">
-                      {t(`equipment.categories.${cat.key}`)}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={cat.icon}
+                        alt=""
+                        className="w-9 h-9 object-contain rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-600"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      <div>
+                        <div className="font-medium text-stone-800 dark:text-stone-200">
+                          {t(`equipment.categories.${cat.key}`)}
+                        </div>
+                        {cat.icons && cat.icons.length > 1 && (
+                          <div className="text-[11px] text-stone-400 dark:text-stone-500">
+                            {cat.icons.map(i => i.name).join(' / ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex items-center gap-4">
                       <label className="flex items-center gap-2 text-sm font-bold text-red-600 dark:text-red-400">
                         23C

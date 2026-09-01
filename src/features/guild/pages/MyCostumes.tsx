@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '@/store';
 import { useTranslation } from 'react-i18next';
-import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser } from 'lucide-react';
+import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, ChevronDown } from 'lucide-react';
 import { getImageUrl } from '@/shared/lib/utils';
 import { isManagerRole } from '@/shared/lib/equipment';
 import { getSortedCostumes } from '../utils/sort';
@@ -25,11 +25,11 @@ export default function MyCostumesPage() {
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<CostumeFilters>({});
+  const [selectedGuildId, setSelectedGuildId] = useState<string>('all');
 
   const isManager = isManagerRole(userRole);
   const [view, setView] = useState<'matrix' | 'my'>(() => (isManagerRole(userRole) ? 'matrix' : 'my'));
 
-  // 管理者進入時預設看「服裝表」矩陣，並確保有全體成員資料
   useEffect(() => {
     if (isManager) {
       setView('matrix');
@@ -46,17 +46,19 @@ export default function MyCostumesPage() {
 
   const myMembers = myMemberIds.map(id => db.members[id]).filter(Boolean);
 
-  // 服裝表資料：所有公會成員，依公會分組排序
-  const matrixGuilds = useMemo(() => {
-    const guildIds = new Set(Object.values(db.members).map(m => m.guildId).filter(Boolean));
-    return [...guildIds]
-      .map(id => db.guilds[id])
+  // 全部公會（含沒有成員的公會），依 orderNum/tier 排序
+  const allGuilds = useMemo(() => {
+    return Object.values(db.guilds)
       .filter(Boolean)
       .sort((a, b) => (a.orderNum ?? 99) - (b.orderNum ?? 99) || (a.tier ?? 99) - (b.tier ?? 99));
-  }, [db.members, db.guilds]);
+  }, [db.guilds]);
 
   const matrixMembers = useMemo(() => {
-    return Object.values(db.members).sort((a, b) => {
+    let list = Object.values(db.members);
+    if (selectedGuildId !== 'all') {
+      list = list.filter(m => m.guildId === selectedGuildId);
+    }
+    return list.sort((a, b) => {
       const orderA = db.guilds[a.guildId]?.orderNum ?? 99;
       const orderB = db.guilds[b.guildId]?.orderNum ?? 99;
       if (orderA !== orderB) return orderA - orderB;
@@ -66,9 +68,7 @@ export default function MyCostumesPage() {
       if (ra !== rb) return ra - rb;
       return a.name.localeCompare(b.name);
     });
-  }, [db.members, db.guilds]);
-
-  const matrixCostumes = useMemo(() => getSortedCostumes(db.costumes, db.characters), [db.costumes, db.characters]);
+  }, [db.members, db.guilds, selectedGuildId]);
 
   const characters = useMemo(() => {
     const list = Object.values(db.characters).sort((a, b) => {
@@ -92,6 +92,12 @@ export default function MyCostumesPage() {
       return cName.includes(q) || Object.values(db.costumes).some(co => co.characterId === c.id && (i18n.language === 'en' ? co.nameE || co.name : co.name).toLowerCase().includes(q));
     });
   }, [db.characters, db.costumes, searchQuery, filters, i18n.language]);
+
+  // 服裝表：只顯示通過搜尋/篩選的角色之服裝
+  const characterIds = useMemo(() => new Set(characters.map(c => c.id)), [characters]);
+  const matrixCostumes = useMemo(() => {
+    return getSortedCostumes(db.costumes, db.characters).filter(c => characterIds.has(c.characterId));
+  }, [db.costumes, db.characters, characterIds]);
 
   const setFilter = (key: keyof CostumeFilters, value: string) => {
     setFilters(prev => {
@@ -145,6 +151,8 @@ export default function MyCostumesPage() {
     );
   }
 
+  const filterSelectClass = "px-3 py-2 text-sm border border-stone-300 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-stone-700 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all";
+
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-900">
       <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
@@ -176,36 +184,94 @@ export default function MyCostumesPage() {
                   </button>
                 </div>
               )}
-              {view === 'my' && (
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="w-4 h-4 text-stone-400 dark:text-stone-500" />
-                  </div>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('my_costumes.search_placeholder')}
-                    className="w-full sm:w-64 pl-10 pr-4 py-2 border border-stone-300 dark:border-stone-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50 dark:bg-stone-700 focus:bg-white dark:focus:bg-stone-600 dark:text-stone-100 text-sm"
-                  />
-                </div>
-              )}
             </div>
+          </div>
+
+          {/* 搜尋 + 篩選（兩種檢視共用） */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {view === 'matrix' && allGuilds.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedGuildId}
+                  onChange={(e) => setSelectedGuildId(e.target.value)}
+                  className={`${filterSelectClass} pr-8 appearance-none`}
+                >
+                  <option value="all">{t('my_costumes.all_guilds')}</option>
+                  {allGuilds.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 pointer-events-none" />
+              </div>
+            )}
+            <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="w-4 h-4 text-stone-400 dark:text-stone-500" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('my_costumes.search_placeholder')}
+                className="w-full pl-10 pr-4 py-2 border border-stone-300 dark:border-stone-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50 dark:bg-stone-700 focus:bg-white dark:focus:bg-stone-600 dark:text-stone-100 text-sm"
+              />
+            </div>
+            <select
+              value={filters.gender ?? ''}
+              onChange={(e) => setFilter('gender', e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="">{t('my_costumes.filter_gender')} • {t('my_costumes.filter_all')}</option>
+              {GENDER_FILTERS.map(v => (
+                <option key={v} value={v}>{v === '男' ? t('my_costumes.gender_male') : t('my_costumes.gender_female')}</option>
+              ))}
+            </select>
+            <select
+              value={filters.atkType ?? ''}
+              onChange={(e) => setFilter('atkType', e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="">{t('my_costumes.filter_atk_type')} • {t('my_costumes.filter_all')}</option>
+              {ATK_TYPE_FILTERS.map(v => (
+                <option key={v} value={v}>{v === '物' ? t('my_costumes.atk_phys') : t('my_costumes.atk_magic')}</option>
+              ))}
+            </select>
+            <select
+              value={filters.star ?? ''}
+              onChange={(e) => setFilter('star', e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="">{t('my_costumes.filter_star')} • {t('my_costumes.filter_all')}</option>
+              {STAR_FILTERS.map(v => (
+                <option key={v} value={v}>{v}★</option>
+              ))}
+            </select>
+            <select
+              value={filters.attribute ?? ''}
+              onChange={(e) => setFilter('attribute', e.target.value)}
+              className={filterSelectClass}
+            >
+              <option value="">{t('my_costumes.filter_attribute')} • {t('my_costumes.filter_all')}</option>
+              {ATTRIBUTE_FILTERS.map(v => (
+                <option key={v} value={v}>{t(`my_costumes.attr_${v === '火' ? 'fire' : v === '水' ? 'water' : v === '風' ? 'wind' : v === '光' ? 'light' : 'dark'}`)}</option>
+              ))}
+            </select>
+            <button
+              onClick={resetFilters}
+              disabled={!hasActiveFilters}
+              className={`px-3 py-2 text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5 ${hasActiveFilters ? 'bg-stone-200 hover:bg-stone-300 text-stone-700 dark:bg-stone-600 dark:hover:bg-stone-500 dark:text-stone-200' : 'bg-stone-100 dark:bg-stone-700 text-stone-400 dark:text-stone-500 cursor-not-allowed'}`}
+            >
+              <FilterX className="w-4 h-4" />
+              {t('my_costumes.reset_filters')}
+            </button>
           </div>
 
           {view === 'matrix' ? (
             <>
-              {matrixGuilds.length > 0 && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
-                  {matrixGuilds.map(g => (
-                    <span key={g.id} className="px-2 py-1 bg-stone-100 dark:bg-stone-700 rounded-lg">{g.name}</span>
-                  ))}
-                  <span className="text-stone-400 dark:text-stone-500">
-                    {t('common.member')} {matrixMembers.length}
-                  </span>
-                </div>
-              )}
-              <div className="mt-4">
+              <div className="mt-3 text-xs text-stone-500 dark:text-stone-400">
+                {t('common.member')} {matrixMembers.length} • {t('my_costumes.characters_count', { count: characterIds.size })}
+              </div>
+              <div className="mt-2">
                 <CostumeMatrixTable
                   members={matrixMembers}
                   costumes={matrixCostumes}
@@ -214,57 +280,6 @@ export default function MyCostumesPage() {
             </>
           ) : (
             <>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <select
-                  value={filters.gender ?? ''}
-                  onChange={(e) => setFilter('gender', e.target.value)}
-                  className="px-3 py-2 text-sm border border-stone-300 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-stone-700 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                >
-                  <option value="">{t('my_costumes.filter_gender')} • {t('my_costumes.filter_all')}</option>
-                  {GENDER_FILTERS.map(v => (
-                    <option key={v} value={v}>{v === '男' ? t('my_costumes.gender_male') : t('my_costumes.gender_female')}</option>
-                  ))}
-                </select>
-                <select
-                  value={filters.atkType ?? ''}
-                  onChange={(e) => setFilter('atkType', e.target.value)}
-                  className="px-3 py-2 text-sm border border-stone-300 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-stone-700 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                >
-                  <option value="">{t('my_costumes.filter_atk_type')} • {t('my_costumes.filter_all')}</option>
-                  {ATK_TYPE_FILTERS.map(v => (
-                    <option key={v} value={v}>{v === '物' ? t('my_costumes.atk_phys') : t('my_costumes.atk_magic')}</option>
-                  ))}
-                </select>
-                <select
-                  value={filters.star ?? ''}
-                  onChange={(e) => setFilter('star', e.target.value)}
-                  className="px-3 py-2 text-sm border border-stone-300 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-stone-700 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                >
-                  <option value="">{t('my_costumes.filter_star')} • {t('my_costumes.filter_all')}</option>
-                  {STAR_FILTERS.map(v => (
-                    <option key={v} value={v}>{v}★</option>
-                  ))}
-                </select>
-                <select
-                  value={filters.attribute ?? ''}
-                  onChange={(e) => setFilter('attribute', e.target.value)}
-                  className="px-3 py-2 text-sm border border-stone-300 dark:border-stone-600 rounded-xl bg-stone-50 dark:bg-stone-700 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                >
-                  <option value="">{t('my_costumes.filter_attribute')} • {t('my_costumes.filter_all')}</option>
-                  {ATTRIBUTE_FILTERS.map(v => (
-                    <option key={v} value={v}>{t(`my_costumes.attr_${v === '火' ? 'fire' : v === '水' ? 'water' : v === '風' ? 'wind' : v === '光' ? 'light' : 'dark'}`)}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={resetFilters}
-                  disabled={!hasActiveFilters}
-                  className={`px-3 py-2 text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5 ${hasActiveFilters ? 'bg-stone-200 hover:bg-stone-300 text-stone-700 dark:bg-stone-600 dark:hover:bg-stone-500 dark:text-stone-200' : 'bg-stone-100 dark:bg-stone-700 text-stone-400 dark:text-stone-500 cursor-not-allowed'}`}
-                >
-                  <FilterX className="w-4 h-4" />
-                  {t('my_costumes.reset_filters')}
-                </button>
-              </div>
-
               {myMembers.length === 0 ? (
                 <div className="mt-8 p-8 text-center text-stone-500 dark:text-stone-400 flex flex-col items-center gap-3">
                   <User className="w-10 h-10 text-stone-300 dark:text-stone-600" />

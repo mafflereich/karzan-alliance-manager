@@ -38,19 +38,94 @@ export interface PlayPreferences {
   dedication?: Dedication;
 }
 
-// 裝備類別（每項都記錄 23C / 24C 數量）
+// 裝備類別（每項都記錄 23C / 24C 數量；icon = 代表圖示 thumb URL，icons = 該欄位涵蓋的所有裝備圖示）
 export interface EquipmentCategoryDef {
   key: string;
+  icon: string;
+  icons?: { thumb: string; name: string }[];
 }
 
+const WEAPONS_THUMB = (id: string) => `https://image-bd2db.souseha.com/weapons_new/thumbs/${id}_thumb.webp`;
+
 export const EQUIPMENT_CATEGORIES: EquipmentCategoryDef[] = [
-  { key: 'universal_weapon' }, // 通用物魔武器
-  { key: 'venom_serpent' },    // 毒蛇
-  { key: 'blood_ring' },       // 血戒
-  { key: 'blast_ornament' },   // 爆飾
-  { key: 'phys_magic_glove' }, // 物魔手手
-  { key: 'blast_glove' },      // 爆手手
-  { key: 'other' },            // 其他
+  {
+    key: 'phys_weapon',
+    icon: WEAPONS_THUMB('icon_equipment4101_61'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4101_61'), name: '惡龍的魔劍' },
+      { thumb: WEAPONS_THUMB('icon_equipment4102_62'), name: '雷霆槌子' },
+      { thumb: WEAPONS_THUMB('icon_equipment4103_63'), name: '必中之矛' },
+    ],
+  },
+  {
+    key: 'magic_weapon',
+    icon: WEAPONS_THUMB('icon_equipment4104_64'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4104_64'), name: '旅行之神的摯友' },
+      { thumb: WEAPONS_THUMB('icon_equipment4105_65'), name: '毀滅者之眼' },
+      { thumb: WEAPONS_THUMB('icon_equipment4106_66'), name: '魔王的禁書' },
+    ],
+  },
+  {
+    key: 'ur_exclusive',
+    icon: WEAPONS_THUMB('icon_equipment201_21'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment201_21'), name: '皇家石' },
+    ],
+  },
+  {
+    key: 'venom_serpent',
+    icon: WEAPONS_THUMB('icon_equipment4504_88'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4504_88'), name: '毒蛇之手' },
+    ],
+  },
+  {
+    key: 'life_crit_dmg',
+    icon: WEAPONS_THUMB('icon_equipment4505_89'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4505_89'), name: '湖水戒指' },
+      { thumb: WEAPONS_THUMB('icon_equipment4506_90'), name: '魅惑之眼' },
+    ],
+  },
+  {
+    key: 'life_crit_rate',
+    icon: WEAPONS_THUMB('icon_equipment4502_86'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4502_86'), name: '美學之巔' },
+      { thumb: WEAPONS_THUMB('icon_equipment4503_87'), name: '調和之約' },
+    ],
+  },
+  {
+    key: 'phys_glove',
+    icon: WEAPONS_THUMB('icon_equipment4201_79'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4201_79'), name: '神王的銀臂' },
+      { thumb: WEAPONS_THUMB('icon_equipment4203_81'), name: '主神的威嚴' },
+    ],
+  },
+  {
+    key: 'magic_glove',
+    icon: WEAPONS_THUMB('icon_equipment4206_84'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4206_84'), name: '背叛的束縛' },
+      { thumb: WEAPONS_THUMB('icon_equipment4205_83'), name: '守護的龍鱗' },
+    ],
+  },
+  {
+    key: 'phys_crit_glove',
+    icon: WEAPONS_THUMB('icon_equipment4202_80'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4202_80'), name: '造反的決心' },
+    ],
+  },
+  {
+    key: 'magic_crit_glove',
+    icon: WEAPONS_THUMB('icon_equipment4204_82'),
+    icons: [
+      { thumb: WEAPONS_THUMB('icon_equipment4204_82'), name: '憤怒之環' },
+    ],
+  },
 ];
 
 export interface EquipmentItem {

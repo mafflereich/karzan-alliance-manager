@@ -344,13 +344,16 @@
     "edit_title": "Edit: {{name}}",
     "edit_desc": "Fill in 23C/24C equipment counts, play preference and note (equipment can be hidden)",
     "categories": {
-      "universal_weapon": "Universal P/M Weapon",
+      "phys_weapon": "Phys Weapon",
+      "magic_weapon": "Magic Weapon",
+      "ur_exclusive": "5★ UR Exclusive",
       "venom_serpent": "Venom Serpent",
-      "blood_ring": "Blood Ring",
-      "blast_ornament": "Blast Ornament",
-      "phys_magic_glove": "P/M Glove",
-      "blast_glove": "Blast Glove",
-      "other": "Other"
+      "life_crit_dmg": "Life Crit DMG Ornament",
+      "life_crit_rate": "Life Crit Rate Ornament",
+      "phys_glove": "Phys Glove",
+      "magic_glove": "Magic Glove",
+      "phys_crit_glove": "Phys Crit Rate Glove",
+      "magic_crit_glove": "Magic Crit Rate Glove"
     },
     "play_preference": "Play Preference",
     "modes": "Game Modes",
@@ -397,6 +400,8 @@
     "view_matrix": "Costume Table",
     "view_my": "My Costumes",
     "select_guild": "Select Guild",
+    "all_guilds": "All Guilds",
+    "characters_count": "{{count}} characters",
     "no_members": "This guild has no members yet."
   }
 }
