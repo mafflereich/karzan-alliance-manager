@@ -3,7 +3,7 @@ import { User, EyeOff, ArrowDownNarrowWide, ArrowDownWideNarrow } from 'lucide-r
 import { useTranslation } from 'react-i18next';
 import { useAppContext } from '@/store';
 import { EQUIPMENT_CATEGORIES } from '@/entities/member/types';
-import { normalizeEquipment, isManagerRole } from '@/shared/lib/equipment';
+import { normalizeEquipment, normalizePlayPreferences, isManagerRole } from '@/shared/lib/equipment';
 
 interface EquipmentTableProps {
   members: [string, any][];
@@ -99,12 +99,19 @@ export default function EquipmentTable({
                   {t(`equipment.categories.${cat.key}`)}
                 </th>
               ))}
+              <th className="p-3 font-semibold text-center text-xs border-r border-b-2 border-stone-200 dark:border-stone-600 sticky top-0 bg-stone-50 dark:bg-stone-700 z-20">
+                {t('equipment.play_preference')}
+              </th>
+              <th className="p-3 font-semibold text-center text-xs border-r border-b-2 border-stone-200 dark:border-stone-600 last:border-r-0 sticky top-0 bg-stone-50 dark:bg-stone-700 z-20">
+                {t('equipment.note')}
+              </th>
             </tr>
           </thead>
           <tbody>
             {visibleMembers.map(([id, member]: [string, any]) => {
               const isCurrentUser = userProfileId && userProfileId.split(',').map(uid => uid.trim()).filter(Boolean).includes(id);
               const equipment = normalizeEquipment(member.equipment);
+              const playPrefs = normalizePlayPreferences(member.playPreferences);
               return (
               <tr key={id} className={`border-b border-stone-100 dark:border-stone-700 transition-colors group ${isCurrentUser ? 'hover:bg-stone-50 dark:hover:bg-stone-700' : ''}`}>
                 <td
@@ -158,12 +165,42 @@ export default function EquipmentTable({
                     </td>
                   );
                 })}
+                <td className="p-3 text-center border-r border-stone-100 dark:border-stone-700 align-top">
+                  <div className="flex flex-col items-center gap-1.5">
+                    {playPrefs.modes.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {playPrefs.modes.map(mode => (
+                          <span key={mode} className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 whitespace-nowrap">
+                            {t(`equipment.modes_opt.${mode}`)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {playPrefs.dedication && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 whitespace-nowrap">
+                        {t(`equipment.dedication_opt.${playPrefs.dedication}`)}
+                      </span>
+                    )}
+                    {playPrefs.modes.length === 0 && !playPrefs.dedication && (
+                      <span className="text-sm text-stone-300 dark:text-stone-600">-</span>
+                    )}
+                  </div>
+                </td>
+                <td className="p-3 text-center border-r border-stone-100 dark:border-stone-700 last:border-r-0 align-top">
+                  {member.equipmentNote ? (
+                    <span className="text-xs leading-relaxed text-stone-600 dark:text-stone-300 line-clamp-3 max-w-[220px] break-words inline-block text-left" title={member.equipmentNote}>
+                      {member.equipmentNote}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-stone-300 dark:text-stone-600">-</span>
+                  )}
+                </td>
               </tr>
               );
             })}
             {visibleMembers.length === 0 && (
               <tr>
-                <td colSpan={EQUIPMENT_CATEGORIES.length + 1} className="p-8 text-center text-stone-500 dark:text-stone-400">
+                <td colSpan={EQUIPMENT_CATEGORIES.length + 3} className="p-8 text-center text-stone-500 dark:text-stone-400">
                   {t('dashboard.no_members')}
                 </td>
               </tr>
