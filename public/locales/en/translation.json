@@ -253,7 +253,9 @@
     "theme_dark": "Dark Mode",
     "theme_system": "System Mode",
     "discord_login_desc": "Please log in with your account eligible to Kazran Alliance Discord Channel",
-    "login_with_discord": "Login with Discord"
+    "login_with_discord": "Login with Discord",
+    "equipment_list": "Equipment",
+    "my_costumes": "My Costumes"
   },
   "login": {
     "no_login_account": "This guild has not set up a login account",
@@ -336,5 +338,61 @@
     "tier": "Tier",
     "order": "Order",
     "member_count": "Members"
+  },
+  "equipment": {
+    "title": "Equipment",
+    "edit_title": "Edit: {{name}}",
+    "edit_desc": "Fill in 23C/24C equipment counts, play preference and note (equipment can be hidden)",
+    "categories": {
+      "universal_weapon": "Universal P/M Weapon",
+      "venom_serpent": "Venom Serpent",
+      "blood_ring": "Blood Ring",
+      "blast_ornament": "Blast Ornament",
+      "phys_magic_glove": "P/M Glove",
+      "blast_glove": "Blast Glove",
+      "other": "Other"
+    },
+    "play_preference": "Play Preference",
+    "modes": "Game Modes",
+    "modes_opt": {
+      "guild_raid": "Guild Raid",
+      "beast": "Beast",
+      "golden_mirror": "Golden Mirror",
+      "story": "Story"
+    },
+    "dedication": "Dedication",
+    "dedication_opt": {
+      "aggressive": "Aggressive",
+      "normal": "Normal",
+      "casual": "Casual"
+    },
+    "multi_select": "Multiple Select",
+    "single_select": "Single Select",
+    "note": "Note",
+    "note_placeholder": "Write your note here...",
+    "hide_toggle": "Hide My Equipment",
+    "hide_desc": "When enabled, regular members cannot see your equipment; only managers can. Play preference and note stay visible."
+  },
+  "my_costumes": {
+    "title": "My Output Costumes",
+    "desc": "Fill in your output costume levels and UR exclusive weapons. Data is only visible to managers.",
+    "search_placeholder": "Search character or costume...",
+    "no_member": "No member data found for you. Please ask an admin to bind your account.",
+    "no_results": "No matching characters or costumes.",
+    "filter_all": "All",
+    "filter_gender": "Gender",
+    "filter_atk_type": "Attack Type",
+    "filter_star": "Star",
+    "filter_attribute": "Attribute",
+    "gender_male": "Male",
+    "gender_female": "Female",
+    "atk_phys": "Phys.",
+    "atk_magic": "Magic",
+    "attr_fire": "Fire",
+    "attr_water": "Water",
+    "attr_wind": "Wind",
+    "attr_light": "Light",
+    "attr_dark": "Dark",
+    "reset_filters": "Clear Filters"
   }
 }

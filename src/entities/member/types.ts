@@ -16,6 +16,50 @@ export interface CostumeRecord {
   cValue?: number; // 6-24
 }
 
+// 遊玩傾向：可複選的內容模式
+export const PLAY_MODE_OPTIONS = [
+  'guild_raid',   // 公會聯合戰
+  'beast',        // 魔獸
+  'golden_mirror',// 黃金鏡中
+  'story',        // 劇情
+] as const;
+export type PlayMode = typeof PLAY_MODE_OPTIONS[number];
+
+// 遊玩傾向：只能選一的投入程度
+export const DEDICATION_OPTIONS = [
+  'aggressive',   // 進取
+  'normal',       // 平常
+  'casual',       // 休閒
+] as const;
+export type Dedication = typeof DEDICATION_OPTIONS[number];
+
+export interface PlayPreferences {
+  modes: PlayMode[];
+  dedication?: Dedication;
+}
+
+// 裝備類別（每項都記錄 23C / 24C 數量）
+export interface EquipmentCategoryDef {
+  key: string;
+}
+
+export const EQUIPMENT_CATEGORIES: EquipmentCategoryDef[] = [
+  { key: 'universal_weapon' }, // 通用物魔武器
+  { key: 'venom_serpent' },    // 毒蛇
+  { key: 'blood_ring' },       // 血戒
+  { key: 'blast_ornament' },   // 爆飾
+  { key: 'phys_magic_glove' }, // 物魔手手
+  { key: 'blast_glove' },      // 爆手手
+  { key: 'other' },            // 其他
+];
+
+export interface EquipmentItem {
+  c23: number; // 23C 數量
+  c24: number; // 24C 數量
+}
+
+export type Equipment = Record<string, EquipmentItem>;
+
 export interface Member {
   id?: string;
   name: string;
@@ -23,6 +67,10 @@ export interface Member {
   role: Role;
   records: Record<string, CostumeRecord>;
   exclusiveWeapons?: Record<string, boolean>; // characterId: boolean
+  equipment?: Equipment;
+  playPreferences?: PlayPreferences;
+  equipmentNote?: string;
+  isEquipmentHidden?: boolean;
   note?: string;
   seasonNote?: string;
   overkill?: number | null;
@@ -41,6 +89,10 @@ export interface Character {
   nameE?: string;
   orderNum: number;
   imageName?: string;
+  gender?: string;
+  atkType?: string;
+  star?: string;
+  attribute?: string;
 }
 
 export interface Costume {

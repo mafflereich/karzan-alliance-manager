@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/shared/api/supabase';
 import { isDebugMode } from '@/shared/api/debugMode';
+import { Logger } from '@/shared/utils/logger';
 
 export function useGhostRecords() {
   const [ghostRecords, setGhostRecords] = useState<Record<string, any[]>>({});
@@ -75,9 +76,11 @@ export function useGhostRecords() {
           ...prev,
           [memberId]: [data[0], ...(prev[memberId] || [])]
         }));
+        Logger.info({ source: 'raid_manager', action: 'add_ghost_record', message: '新增幽靈紀錄', details: { memberId, seasonNumber, recordId: data[0].id } });
       }
     } catch (err) {
       console.error('Error adding ghost record:', err);
+      Logger.error({ source: 'raid_manager', action: 'add_ghost_record', message: '新增幽靈紀錄失敗', details: { memberId, seasonNumber, error: (err as any).message } });
     }
   }, []);
 
@@ -152,8 +155,11 @@ export function useGhostRecords() {
           return r.created_at !== record.created_at;
         })
       }));
+
+      Logger.warn({ source: 'raid_manager', action: 'delete_ghost_record', message: '刪除幽靈紀錄', details: { memberId, recordId: record.id ?? record.uid } });
     } catch (err) {
       console.error('Error deleting ghost record:', err);
+      Logger.error({ source: 'raid_manager', action: 'delete_ghost_record', message: '刪除幽靈紀錄失敗', details: { memberId, error: (err as any).message } });
     }
   }, []);
 

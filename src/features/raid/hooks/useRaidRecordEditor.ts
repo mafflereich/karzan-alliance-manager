@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/shared/api/supabase';
 import { useAppContext } from '@/store';
+import { Logger } from '@/shared/utils/logger';
 import type { MemberRaidRecord, GuildRaidRecord } from '../types';
 
 interface Options {
@@ -149,8 +150,23 @@ export function useRaidRecordEditor({
       setDraftRecords(prev => { const next = { ...prev }; delete next[memberId]; return next; });
 
       if (scoreChanged) await updateGuildMedian(guildId, nextRecords);
+
+      Logger.info({
+        source: 'raid_manager',
+        action: 'auto_save_member_record',
+        message: '自動儲存成員戰記',
+        details: {
+          memberId,
+          guildId,
+          score: payload.score,
+          seasonNote: payload.season_note,
+          overkill: payload.overkill,
+          noteChanged,
+        },
+      });
     } catch (err: any) {
       console.error('Auto-save failed:', err);
+      Logger.error({ source: 'raid_manager', action: 'auto_save_member_record', message: '自動儲存成員戰記失敗', details: { memberId, guildId, error: err.message } });
       setError(err.message);
     } finally {
       setSaving(false);
@@ -269,12 +285,15 @@ export function useRaidRecordEditor({
 
       if (error) throw error;
 
+      Logger.info({ source: 'raid_manager', action: 'update_guild_note', message: '更新公會戰記備註', details: { guildId, seasonId: selectedSeasonId, note } });
+
       setGuildRaidRecords(prev => ({
         ...prev,
         [guildId]: { ...prev[guildId], season_id: selectedSeasonId, guild_id: guildId, note },
       }));
     } catch (err: any) {
       console.error('Error updating guild note:', err);
+      Logger.error({ source: 'raid_manager', action: 'update_guild_note', message: '更新公會戰記備註失敗', details: { guildId, seasonId: selectedSeasonId, error: err.message } });
       setError(err.message);
     }
   }, [selectedSeasonId]);

@@ -45,6 +45,17 @@ export const getSortedMembers = (
           if (orderA !== orderB) return orderA - orderB;
           return b[1].name.localeCompare(a[1].name);
         }
+      } else if (sortConfig.key.startsWith('eq.')) {
+        // Equipment sorting by category total
+        const category = sortConfig.key.slice(3);
+        const eqA = a[1].equipment?.[category] || { c23: 0, c24: 0 };
+        const eqB = b[1].equipment?.[category] || { c23: 0, c24: 0 };
+        const totalA = (Number(eqA.c23) || 0) + (Number(eqA.c24) || 0);
+        const totalB = (Number(eqB.c23) || 0) + (Number(eqB.c24) || 0);
+        if (totalA !== totalB) {
+          return sortConfig.order === 'asc' ? totalA - totalB : totalB - totalA;
+        }
+        return getTieBreak();
       } else {
         // Costume sorting
         const costumeId = sortConfig.key;
@@ -88,9 +99,7 @@ export const getSortedGuilds = (
   canSeeAllGuilds: boolean,
   userGuildRoles: string[]
 ) => {
-  const guildsToDisplay = canSeeAllGuilds
-    ? Object.entries(guildsData)
-    : Object.entries(guildsData).filter(([_, g]) => userGuildRoles.includes(g.username || '') || userGuildRoles.includes(g.name || ''));
+  const guildsToDisplay = Object.entries(guildsData);
 
   return (guildsToDisplay as [string, any][])
     .sort((a, b) => {

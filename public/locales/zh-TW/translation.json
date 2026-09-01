@@ -253,7 +253,9 @@
     "theme_dark": "深色模式",
     "theme_system": "跟隨系統",
     "discord_login_desc": "請使用已加入聯盟 Discord 頻道的帳號登入系統",
-    "login_with_discord": "使用 Discord 登入"
+    "login_with_discord": "使用 Discord 登入",
+    "equipment_list": "裝備表",
+    "my_costumes": "我的輸出服裝"
   },
   "login": {
     "no_login_account": "此公會尚未設定登入帳號",
@@ -330,11 +332,67 @@
     "disclaimer": "本網站與 Browndust2 無關，亦未獲得其認可。遊戲及其角色的所有商標和版權均歸其各自所有者所有。",
     "language": "語言"
   },
-    "guilds": {
+  "guilds": {
     "guild_name": "公會名稱",
     "serial": "序號",
     "tier": "梯隊",
     "order": "順序",
     "member_count": "成員數"
+  },
+  "equipment": {
+    "title": "裝備表",
+    "edit_title": "編輯: {{name}}",
+    "edit_desc": "填寫 23C/24C 裝備數量、遊玩傾向與備註（裝備表可選擇隱藏）",
+    "categories": {
+      "universal_weapon": "通用物魔武器",
+      "venom_serpent": "毒蛇",
+      "blood_ring": "血戒",
+      "blast_ornament": "爆飾",
+      "phys_magic_glove": "物魔手手",
+      "blast_glove": "爆手手",
+      "other": "其他"
+    },
+    "play_preference": "遊玩傾向",
+    "modes": "遊玩內容",
+    "modes_opt": {
+      "guild_raid": "公會聯合戰",
+      "beast": "魔獸",
+      "golden_mirror": "黃金鏡中",
+      "story": "劇情"
+    },
+    "dedication": "投入程度",
+    "dedication_opt": {
+      "aggressive": "進取",
+      "normal": "平常",
+      "casual": "休閒"
+    },
+    "multi_select": "可複選",
+    "single_select": "只能選一",
+    "note": "備註",
+    "note_placeholder": "寫下你的備註...",
+    "hide_toggle": "隱藏我的裝備表",
+    "hide_desc": "開啟後，一般成員無法看到你的裝備表，僅管理者可查看。遊玩傾向與備註不隱藏。"
+  },
+  "my_costumes": {
+    "title": "我的輸出服裝",
+    "desc": "填寫你的輸出服裝練度與 UR 專用武器，資料僅供管理查看。",
+    "search_placeholder": "搜尋角色或服裝...",
+    "no_member": "尚未找到你的成員資料，請聯絡管理者綁定。",
+    "no_results": "找不到符合的角色或服裝。",
+    "filter_all": "全部",
+    "filter_gender": "性別",
+    "filter_atk_type": "攻擊類型",
+    "filter_star": "星數",
+    "filter_attribute": "屬性",
+    "gender_male": "男",
+    "gender_female": "女",
+    "atk_phys": "物攻",
+    "atk_magic": "魔攻",
+    "attr_fire": "火",
+    "attr_water": "水",
+    "attr_wind": "風",
+    "attr_light": "光",
+    "attr_dark": "暗",
+    "reset_filters": "清除篩選"
   }
 }

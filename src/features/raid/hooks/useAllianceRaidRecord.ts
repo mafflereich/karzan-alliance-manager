@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/shared/api/supabase';
 import { useTranslation } from 'react-i18next';
 import { useAppContext } from '@/store';
+import { Logger } from '@/shared/utils/logger';
 import type { RaidSeason, GuildRaidLeaderboardRecord } from '../types';
 
 export type EditRecordData = { score: number | ''; rank: string; overkill: number | null };
@@ -66,9 +67,11 @@ export function useAllianceRaidRecord() {
         if (error) throw error;
         if (data && data.length > 0) setRecords(prev => [...prev, data[0]]);
       }
+      Logger.info({ source: 'raid_manager', action: 'save_alliance_raid_record', message: '儲存同盟戰記', details: { guild_id, season_id, score: scoreToSave, rank: rankToSave, overkill: overkillToSave, isUpdate: !!existingRecord } });
       setEditingCell(null);
     } catch (err: any) {
       setError(`Error saving record: ${err.message}`);
+      Logger.error({ source: 'raid_manager', action: 'save_alliance_raid_record', message: '儲存同盟戰記失敗', details: { guild_id, season_id, error: err.message } });
     }
   };
 

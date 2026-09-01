@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/store';
 import { Shield } from 'lucide-react';
-import MemberEditModal from '../components/MemberEditModal';
+import MemberEquipmentModal from '../components/MemberEquipmentModal';
 import MemberSearchModal from '../components/MemberSearchModal';
 import ConfirmModal from '@shared/ui/ConfirmModal';
 import { truncateName } from '@/shared/lib/utils';
@@ -11,18 +11,18 @@ import { logEvent } from '@/analytics';
 import { supabase } from '@/shared/api/supabase';
 import GuildSidebar from '../components/GuildSidebar';
 import GuildHeader from '../components/GuildHeader';
-import GuildCostumeTable from '../components/GuildCostumeTable';
-import { getSortedMembers, getSortedCostumes, getSortedGuilds } from '../utils/sort';
+import EquipmentTable from '../components/EquipmentTable';
+import { getSortedMembers, getSortedGuilds } from '../utils/sort';
 
 export default function GuildDashboard({ guildId }: { guildId: string }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { db, isMembersLoading, userGuildRoles, userRole, fetchMembers, userProfileId } = useAppContext();
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
-  const [sortConfig, setSortConfig] = useState<{ key: 'member' | string, order: 'asc' | 'desc' }>({ key: 'member', order: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ key: string, order: 'asc' | 'desc' }>({ key: 'member', order: 'asc' });
 
   useEffect(() => {
     setSortConfig({ key: 'member', order: 'asc' });
@@ -35,7 +35,6 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
       if (prev.key === key) {
         return { key, order: prev.order === 'asc' ? 'desc' : 'asc' };
       }
-      // Default for member is asc, default for costume is desc (+5 to -1)
       return { key, order: key === 'member' ? 'asc' : 'desc' };
     });
   };
@@ -72,38 +71,13 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
   const handleEditClick = (id: string, memberName: string) => {
     const isCurrentUser = userProfileId && userProfileId.split(',').map(uid => uid.trim()).filter(Boolean).includes(id);
     const canEdit = isCurrentUser;
-    
     if (!canEdit) return;
 
-    logEvent('GuildDashboard', 'Edit Member', memberName);
+    logEvent('GuildDashboard', 'Edit Member Equipment', memberName);
     setEditingMemberId(id);
   };
 
   const canSeeAllGuilds = userRole === 'admin' || userRole === 'creator' || userRole === 'manager';
-  const userGuilds = !canSeeAllGuilds && userGuildRoles.length > 0 ? Object.entries(db.guilds).filter(([_, g]) => userGuildRoles.includes(g.username || '') || userGuildRoles.includes(g.name || '')) : [];
-  const hasAccessToGuild = canSeeAllGuilds || userGuilds.some(([id, _]) => id === guildId);
-
-  // Redirect or block if trying to access another guild as a guild user
-  if (userRole && !hasAccessToGuild) {
-    const defaultGuildId = userGuilds.length > 0 ? userGuilds[0][0] : null;
-    return (
-      <div className="h-screen flex flex-col">
-        <div className="flex-1 flex items-center justify-center bg-stone-100 dark:bg-stone-900">
-          <div className="text-center p-8 bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 max-w-md">
-            <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-stone-800 dark:text-stone-200 mb-2">{t('errors.permission')}</h2>
-            <p className="text-stone-500 dark:text-stone-400 mb-6">{t('dashboard.no_permission')}</p>
-            <button
-              onClick={() => defaultGuildId && navigate(`/guild/${defaultGuildId}`)}
-              className="px-6 py-2 bg-stone-800 dark:bg-stone-600 text-white rounded-lg hover:bg-stone-700 dark:hover:bg-stone-500 transition-colors"
-            >
-              {t('dashboard.return_to_guild')}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Draggable scroll state
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -125,7 +99,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     if (!isDragging || !scrollRef.current) return;
     e.preventDefault();
     const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5; // Scroll speed multiplier
+    const walk = (x - startX) * 1.5;
     scrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
@@ -139,10 +113,6 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
     const userMemberIds = userProfileId.split(',').map(uid => uid.trim()).filter(Boolean);
     return members.some(([id]) => userMemberIds.includes(id));
   }, [members, userProfileId]);
-
-  const costumes = React.useMemo(() => {
-    return getSortedCostumes(db.costumes, db.characters);
-  }, [db.costumes, db.characters]);
 
   if (!guild) {
     return (
@@ -202,9 +172,8 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
           <main className="p-4">
             <div className="max-w-full mx-auto w-full">
               <div className="mb-2" />
-                <GuildCostumeTable
+                <EquipmentTable
                   members={members}
-                  costumes={costumes}
                   sortConfig={sortConfig}
                   handleSort={handleSort}
                   hasBoundMemberInGuild={hasBoundMemberInGuild}
@@ -227,7 +196,7 @@ export default function GuildDashboard({ guildId }: { guildId: string }) {
       </div>
 
       {editingMemberId && (
-        <MemberEditModal
+        <MemberEquipmentModal
           memberId={editingMemberId}
           onClose={() => setEditingMemberId(null)}
         />

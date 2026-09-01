@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl } from '@/entities/member/types';
+import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl, Equipment, PlayPreferences } from '@/entities/member/types';
 import { supabase, supabaseInsert, supabaseKey, supabaseUpdate, supabaseUpsert, toCamel, fetchAllPaginated } from '@/shared/api/supabase';
 import { isDebugMode } from '@/shared/api/debugMode';
+import { Logger } from '@/shared/utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '@/shared/lib/utils';
@@ -55,6 +56,7 @@ interface AppContextType {
   unarchiveMember: (memberId: string, targetGuildId: string) => Promise<void>;
   updateMemberCostumeLevel: (memberId: string, costumeId: string, level: number) => Promise<void>;
   updateMemberExclusiveWeapon: (memberId: string, characterId: string, hasWeapon: boolean) => Promise<void>;
+  updateMemberProfile: (memberId: string, data: { equipment?: Equipment; playPreferences?: PlayPreferences; equipmentNote?: string; isEquipmentHidden?: boolean }) => Promise<void>;
 
   // Guild functions
   addGuild: (name: string) => Promise<string | null>;
@@ -150,6 +152,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const handleLogout = async () => {
     logEvent('User', 'Logout', currentUser || 'unknown');
+    Logger.info({ source: 'frontend_auth', action: 'logout', message: '使用者登出', details: { username: currentUser } });
     await supabase.auth.signOut();
     setCurrentUser(null);
     window.location.href = window.location.origin + window.location.pathname;
@@ -168,6 +171,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setuserGuildRoles = (roles: string[]) => {
     setuserGuildRolesState(roles);
+  };
+
+  const applyProfileState = (profile: any, fallbackName: string, fallbackRole: User['role'] = 'member') => {
+    setCurrentAvatarState(profile.avatar_url);
+    setCurrentUser(profile.display_name || fallbackName);
+    setUserRole(profile.user_role || fallbackRole);
+    setuserGuildRolesState(profile.user_guilds ? profile.user_guilds.split(',').map((r: string) => r.trim()) : []);
+    setUserProfileId(profile.id);
+  };
+
+  // 即時重新讀取目前使用者的 profile（供 Realtime 收到 profiles 更新時呼叫）
+  const refreshProfile = async () => {
+    if (!supabase) return;
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session?.user) return;
+
+    const user = session.user;
+
+    if (user.app_metadata?.provider !== 'discord') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, user_role, user_guilds, display_name, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!profile) return;
+      applyProfileState(profile, user.email || 'Admin', 'admin');
+      return;
+    }
+
+    const discordId = user.identities?.find((i: any) => i.provider === 'discord')?.id || user.user_metadata?.sub;
+    if (!discordId) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, user_role, user_guilds, display_name, avatar_url')
+      .eq('discord_id', discordId)
+      .maybeSingle();
+
+    if (!profile) return;
+    applyProfileState(profile, user.user_metadata?.full_name || user.user_metadata?.name || 'User');
   };
 
   const loadDiscordRoles = async (forceSync: boolean = false) => {
@@ -193,11 +236,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.log('Admin Login Debug:', { userId: user.id, existingProfile, profileError });
 
         if (!profileError && existingProfile) {
-          setCurrentAvatarState(existingProfile.avatar_url);
-          setCurrentUser(existingProfile.display_name || user.email || 'Admin');
-          setUserRole(existingProfile.user_role || 'admin');
-          setuserGuildRolesState(existingProfile.user_guilds ? existingProfile.user_guilds.split(',').map((r: string) => r.trim()) : []);
-          setUserProfileId(existingProfile.id);
+          applyProfileState(existingProfile, user.email || 'Admin', 'admin');
         } else {
           // Fallback if no profile exists for the email user
           setCurrentUser(user.email || 'User');
@@ -256,18 +295,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (existingProfile) {
-        setCurrentAvatarState(existingProfile.avatar_url);
-        setCurrentUser(existingProfile.display_name || discordUsername || 'User');
-        setUserRole(existingProfile.user_role || 'member');
-        setuserGuildRolesState(existingProfile.user_guilds ? existingProfile.user_guilds.split(',').map((r: string) => r.trim()) : []);
-        setUserProfileId(existingProfile.id);
+        applyProfileState(existingProfile, discordUsername || 'User');
       } else {
         // 如果同步後還是沒有 profile，代表他不在公會內，或是發生了其他錯誤
         console.warn('Unauthorized login attempt: User not in guild or profile missing.');
 
         // 寫入系統日誌
-        await supabase.from('system_logs').insert({
-          level: 'warn',
+        Logger.warn({
           source: 'frontend_auth',
           action: 'unauthorized_login',
           message: '未授權的登入嘗試 (不在公會內)',
@@ -420,10 +454,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     fetchInitialData();
 
+    // 訂閱 profiles 更新：當目前使用者的 profile（例如 user_guilds）被
+    // sync_profile_guild_for_member trigger 更新時，即時刷新前端權限狀態，
+    // 讓成員轉移公會後不需重新登入即可看到新公會。
+    const profileChannel = supabase
+      .channel('profiles-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async (payload: any) => {
+        if (!supabase) return;
+        if (payload.eventType !== 'UPDATE') return;
+        const changedDiscordId = (payload as any).new?.discord_id;
+        if (!changedDiscordId) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        const sessionDiscordId = session?.user?.identities?.find((i: any) => i.provider === 'discord')?.id || session?.user?.user_metadata?.sub;
+        if (changedDiscordId === sessionDiscordId) {
+          refreshProfile();
+        }
+      })
+      .subscribe();
+
     return () => {
       if (subscription) {
         subscription.unsubscribe();
       }
+      supabase.removeChannel(profileChannel);
     };
   }, []);
 
@@ -433,7 +486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)') => {
+  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)') => {
     if (isOffline) return;
 
     // Check if we already have members for this guild
@@ -571,7 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     while (hasMore) {
       const { data: pageData, error: pageError } = await supabase
         .from('members')
-        .select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
+        .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
         .range(offset, offset + PAGE_SIZE - 1);
 
       if (pageError) {
@@ -650,7 +703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let queryBuilder = supabase
       .from('members')
-      .select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
+      .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
       .ilike('name', `%${query}%`)
       .order('status', { ascending: true }) // active comes before archived
       .order('name', { ascending: true })
@@ -759,6 +812,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('Error updating access control:', error);
+      Logger.error({ source: 'access_control', action: 'update_access_control', message: '更新頁面存取權限失敗', details: { page, roles, error: error.message } });
       showToast(t('common.update_failed'), 'error');
     } else {
       setDbState(prev => ({
@@ -768,6 +822,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           [page]: { page, roles }
         }
       }));
+      Logger.info({ source: 'access_control', action: 'update_access_control', message: '更新頁面存取權限', details: { page, roles } });
       showToast(t('common.update_success'), 'success');
     }
   };
@@ -825,6 +880,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('Error adding member:', error);
+      Logger.error({ source: 'member_management', action: 'add_member', message: '新增成員失敗', details: { guildId, name, role, note, error: error.message } });
       return;
     }
 
@@ -836,6 +892,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (data) {
       const addedMember = { ...data[0], note };
+      Logger.info({ source: 'member_management', action: 'add_member', message: '新增成員', details: { memberId: newMemberId, guildId, name, role, note, isReserved } });
       setDbState(prev => ({
         ...prev,
         members: { ...prev.members, [addedMember.id]: addedMember }
@@ -862,7 +919,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('Error updating member costume level:', error);
+      Logger.error({ source: 'member_management', action: 'update_member_costume_level', message: '更新成員服裝等級失敗', details: { memberId, costumeId, level, error: error.message } });
     } else {
+      Logger.info({ source: 'member_management', action: 'update_member_costume_level', message: '更新成員服裝等級', details: { memberId, costumeId, level } });
       setDbState(prev => ({
         ...prev,
         members: {
@@ -896,7 +955,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('Error updating member:', error);
+      Logger.error({ source: 'member_management', action: 'update_member', message: '更新成員資料失敗', details: { memberId, data, error: error.message } });
     } else {
+      Logger.info({ source: 'member_management', action: 'update_member', message: '更新成員資料', details: { memberId, data } });
       setDbState(prev => ({
         ...prev,
         members: { ...prev.members, [memberId]: { ...prev.members[memberId], ...data, updatedAt: now } }
@@ -910,9 +971,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data, error } = await supabaseInsert('guilds', newGuild);
     if (error) {
       console.error('Error adding guild:', error);
+      Logger.error({ source: 'guild_management', action: 'add_guild', message: '新增公會失敗', details: { name, error: error.message } });
       return null;
     } else if (data) {
       const addedGuild = data[0] as Guild;
+      Logger.info({ source: 'guild_management', action: 'add_guild', message: '新增公會', details: { guildId: addedGuild.id, name } });
       setDbState(prev => ({ ...prev, guilds: { ...prev.guilds, [addedGuild.id!]: addedGuild } }));
       return addedGuild.id;
     }
@@ -927,7 +990,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabaseUpdate('guilds', updateData, { id: guildId });
     if (error) {
       console.error('Error updating guild:', error);
+      Logger.error({ source: 'guild_management', action: 'update_guild', message: '更新公會失敗', details: { guildId, data: updateData, error: error.message } });
     } else {
+      Logger.info({ source: 'guild_management', action: 'update_guild', message: '更新公會', details: { guildId, data: updateData } });
       setDbState(prev => ({ ...prev, guilds: { ...prev.guilds, [guildId]: { ...prev.guilds[guildId], ...updateData } } }));
     }
   };
@@ -936,7 +1001,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from('guilds').delete().eq('id', guildId);
     if (error) {
       console.error('Error deleting guild:', error);
+      Logger.error({ source: 'guild_management', action: 'delete_guild', message: '刪除公會失敗', details: { guildId, error: error.message } });
     } else {
+      Logger.warn({ source: 'guild_management', action: 'delete_guild', message: '刪除公會', details: { guildId, name: db.guilds[guildId]?.name } });
       setDbState(prev => {
         const { [guildId]: _, ...rest } = prev.guilds;
         return { ...prev, guilds: rest };
@@ -948,7 +1015,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from('members').delete().eq('id', memberId);
     if (error) {
       console.error('Error deleting member:', error);
+      Logger.error({ source: 'member_management', action: 'delete_member', message: '刪除成員失敗', details: { memberId, error: error.message } });
     } else {
+      Logger.warn({ source: 'member_management', action: 'delete_member', message: '刪除成員', details: { memberId, name: db.members[memberId]?.name } });
       setDbState(prev => {
         const { [memberId]: _, ...rest } = prev.members;
         return { ...prev, members: rest };
@@ -987,6 +1056,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       delete newMembers[memberId];
       return { ...prev, members: newMembers };
     });
+
+    Logger.warn({ source: 'member_management', action: 'archive_member', message: '封存成員', details: { memberId, fromGuildId, reason, name: db.members[memberId]?.name } });
   };
 
   const unarchiveMember = async (memberId: string, targetGuildId: string) => {
@@ -1042,6 +1113,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (updateError) throw updateError;
 
+    Logger.info({ source: 'member_management', action: 'unarchive_member', message: '解除封存成員', details: { memberId, targetGuildId, name: archivedMember.name } });
+
     const { error: upsertNoteError } = await supabase
       .from('member_notes')
       .upsert({ member_id: memberId, archive_remark: remark }, { onConflict: 'member_id' });
@@ -1084,7 +1157,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('Error updating exclusive weapon:', error);
+      Logger.error({ source: 'member_management', action: 'update_member_exclusive_weapon', message: '更新成員專武失敗', details: { memberId, characterId, hasWeapon, error: error.message } });
     } else {
+      Logger.info({ source: 'member_management', action: 'update_member_exclusive_weapon', message: '更新成員專武', details: { memberId, characterId, hasWeapon } });
       setDbState(prev => ({
         ...prev,
         members: {
@@ -1095,13 +1170,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateMemberProfile = async (
+    memberId: string,
+    data: {
+      equipment?: Equipment;
+      playPreferences?: PlayPreferences;
+      equipmentNote?: string;
+      isEquipmentHidden?: boolean;
+    }
+  ) => {
+    const now = Date.now();
+    const { error } = await supabaseUpdate('members', { ...data, updatedAt: now }, { id: memberId });
+
+    if (error) {
+      console.error('Error updating member profile:', error);
+      Logger.error({ source: 'member_management', action: 'update_member_profile', message: '更新成員個人資料失敗', details: { memberId, data, error: error.message } });
+      showToast(t('common.save_failed'), 'error');
+      return;
+    }
+    Logger.info({ source: 'member_management', action: 'update_member_profile', message: '更新成員個人資料', details: { memberId, data } });
+    setDbState(prev => ({
+      ...prev,
+      members: { ...prev.members, [memberId]: { ...prev.members[memberId], ...data, updatedAt: now } }
+    }));
+  };
+
   const addCharacter = async (name: string, order: number, nameE: string = '') => {
     const newChar = { id: uuidv4(), name, nameE, orderNum: order };
     const { data, error } = await supabaseInsert('characters', newChar);
     if (error) {
       console.error('Error adding character:', error);
+      Logger.error({ source: 'character_management', action: 'add_character', message: '新增角色失敗', details: { name, nameE, order, error: error.message } });
     } else if (data) {
       const addedChar = data[0];
+      Logger.info({ source: 'character_management', action: 'add_character', message: '新增角色', details: { characterId: addedChar.id, name, nameE, order } });
       setDbState(prev => ({
         ...prev,
         characters: { ...prev.characters, [addedChar.id]: addedChar }
@@ -1113,7 +1215,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabaseUpdate('characters', data, { id: characterId });
     if (error) {
       console.error('Error updating character:', error);
+      Logger.error({ source: 'character_management', action: 'update_character', message: '更新角色失敗', details: { characterId, data, error: error.message } });
     } else {
+      Logger.info({ source: 'character_management', action: 'update_character', message: '更新角色', details: { characterId, data } });
       setDbState(prev => ({
         ...prev,
         characters: {
@@ -1128,7 +1232,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from('characters').delete().eq('id', characterId);
     if (error) {
       console.error('Error deleting character:', error);
+      Logger.error({ source: 'character_management', action: 'delete_character', message: '刪除角色失敗', details: { characterId, error: error.message } });
     } else {
+      Logger.warn({ source: 'character_management', action: 'delete_character', message: '刪除角色', details: { characterId, name: db.characters[characterId]?.name } });
       setDbState(prev => {
         const { [characterId]: _, ...rest } = prev.characters;
         return { ...prev, characters: rest };
@@ -1159,8 +1265,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await Promise.all(updates.map(u =>
         supabaseUpdate('characters', { orderNum: u.orderNum }, { id: u.id })
       ));
+      Logger.info({ source: 'character_management', action: 'update_characters_order', message: '更新角色順序', details: { updates } });
     } catch (error) {
       console.error('Error updating characters order:', error);
+      Logger.error({ source: 'character_management', action: 'update_characters_order', message: '更新角色順序失敗', details: { updates, error: (error as any).message } });
       // Revert by fetching fresh data
       const { data, error: fetchError } = await supabase.from('characters').select('*');
       if (!fetchError && data) {
@@ -1175,8 +1283,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data, error } = await supabaseInsert('costumes', newCostume);
     if (error) {
       console.error('Error adding costume:', error);
+      Logger.error({ source: 'costume_management', action: 'add_costume', message: '新增服裝失敗', details: { characterId, name, nameE, order, error: error.message } });
     } else if (data) {
       const addedCostume = data[0];
+      Logger.info({ source: 'costume_management', action: 'add_costume', message: '新增服裝', details: { costumeId: addedCostume.id, characterId, name, nameE, order } });
       setDbState(prev => ({
         ...prev,
         costumes: { ...prev.costumes, [addedCostume.id]: addedCostume }
@@ -1188,7 +1298,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabaseUpdate('costumes', data, { id: costumeId });
     if (error) {
       console.error('Error updating costume:', error);
+      Logger.error({ source: 'costume_management', action: 'update_costume', message: '更新服裝失敗', details: { costumeId, data, error: error.message } });
     } else {
+      Logger.info({ source: 'costume_management', action: 'update_costume', message: '更新服裝', details: { costumeId, data } });
       setDbState(prev => ({
         ...prev,
         costumes: {
@@ -1203,7 +1315,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from('costumes').delete().eq('id', costumeId);
     if (error) {
       console.error('Error deleting costume:', error);
+      Logger.error({ source: 'costume_management', action: 'delete_costume', message: '刪除服裝失敗', details: { costumeId, error: error.message } });
     } else {
+      Logger.warn({ source: 'costume_management', action: 'delete_costume', message: '刪除服裝', details: { costumeId, name: db.costumes[costumeId]?.name } });
       setDbState(prev => {
         const { [costumeId]: _, ...rest } = prev.costumes;
         return { ...prev, costumes: rest };
@@ -1234,8 +1348,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await Promise.all(updates.map((u) =>
         supabaseUpdate('costumes', { orderNum: u.orderNum }, { id: u.id })
       ));
+      Logger.info({ source: 'costume_management', action: 'update_costumes_order', message: '更新服裝順序', details: { updates } });
     } catch (error) {
       console.error('Error updating costumes order:', error);
+      Logger.error({ source: 'costume_management', action: 'update_costumes_order', message: '更新服裝順序失敗', details: { updates, error: (error as any).message } });
       // Revert by fetching fresh data
       const { data, error: fetchError } = await supabase.from('costumes').select('*');
       if (!fetchError && data) {
@@ -1270,9 +1386,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       showToast(t('common.restore_success_msg'), 'success');
+      Logger.warn({ source: 'data_management', action: 'restore_data', message: '還原備份資料', details: { tables: Object.keys(data) } });
       setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
       console.error('Error restoring data:', error);
+      Logger.error({ source: 'data_management', action: 'restore_data', message: '還原備份資料失敗', details: { error: (error as any).message } });
       throw error;
     }
   };
@@ -1284,6 +1402,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const { error } = await supabaseUpsert('settings', { id, ...updates });
     if (error) throw error;
+
+    Logger.info({ source: 'setting_management', action: 'update_setting', message: '更新系統設定', details: { id, updates } });
 
     setDbState(prev => ({
       ...prev,
@@ -1336,10 +1456,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data, error } = await supabaseInsert('apply_mail', newMail);
     if (error) {
       console.error('Error adding apply mail:', error);
+      Logger.error({ source: 'apply_mail', action: 'add_apply_mail', message: '新增申請信件失敗', details: { subject, error: error.message } });
       throw error;
     }
     if (data) {
       const addedMail = data[0] as ApplyMail;
+      Logger.info({ source: 'apply_mail', action: 'add_apply_mail', message: '新增申請信件', details: { mailId: addedMail.id, subject } });
       setDbState(prev => ({
         ...prev,
         applyMails: { [addedMail.id]: addedMail, ...prev.applyMails }
@@ -1351,8 +1473,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabaseUpdate('apply_mail', data, { id });
     if (error) {
       console.error('Error updating apply mail:', error);
+      Logger.error({ source: 'apply_mail', action: 'update_apply_mail', message: '更新申請信件失敗', details: { id, data, error: error.message } });
       throw error;
     }
+    Logger.info({ source: 'apply_mail', action: 'update_apply_mail', message: '更新申請信件', details: { id, data } });
     setDbState(prev => ({
       ...prev,
       applyMails: {
@@ -1366,8 +1490,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from('apply_mail').delete().eq('id', id);
     if (error) {
       console.error('Error deleting apply mail:', error);
+      Logger.error({ source: 'apply_mail', action: 'delete_apply_mail', message: '刪除申請信件失敗', details: { id, error: error.message } });
       throw error;
     }
+    Logger.warn({ source: 'apply_mail', action: 'delete_apply_mail', message: '刪除申請信件', details: { id, subject: db.applyMails[id]?.subject } });
     setDbState(prev => {
       const { [id]: _, ...rest } = prev.applyMails;
       return { ...prev, applyMails: rest };
@@ -1381,7 +1507,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser, currentAvatar, userGuildRoles, setuserGuildRoles, userRole, userProfileId,
-      fetchMembers, fetchAllMembers, searchMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon,
+      fetchMembers, fetchAllMembers, searchMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon, updateMemberProfile,
       loadDiscordRoles,
       fetchInitialData,
       addGuild, updateGuild, deleteGuild,
