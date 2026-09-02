@@ -48,10 +48,10 @@ function AppContent() {
   }, [isBindingError, location.pathname, navigate]);
 
   return (
-    <div className={`flex flex-col bg-stone-100 dark:bg-zinc-950 text-stone-800 dark:text-white ${isBindingError ? 'pointer-events-none overflow-hidden' : ''}`}>
+    <div className={`flex min-h-dvh flex-col bg-stone-100 dark:bg-zinc-950 text-stone-800 dark:text-white ${isBindingError ? 'pointer-events-none overflow-hidden' : ''}`}>
       <BgmPlayer />
       <Header />
-      <main>
+      <main className="flex-1">
         <AppRoutes />
       </main>
       <Footer />

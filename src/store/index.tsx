@@ -48,6 +48,7 @@ interface AppContextType {
   // Member functions
   fetchMembers: (guildId: string, columns?: string, force?: boolean) => Promise<boolean>;
   fetchAllMembers: (force?: boolean) => Promise<boolean>;
+  loadMembersByIds: (ids: string[], force?: boolean) => Promise<boolean>;
   searchMembers: (query: string, includeArchived?: boolean, page?: number, pageSize?: number) => Promise<{ data: Member[], total: number }>;
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
@@ -717,6 +718,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Error fetching all members:", error);
       setIsOffline(true);
       showToast(t('common.fetch_failed'), 'error');
+      setIsMembersLoading(false);
+      return false;
+    }
+  };
+
+  // 依成員 id 撈取並合併寫入 db.members（不覆蓋其他公會），供「我的服裝」等情境載入自己成員
+  const loadMembersByIds = async (ids: string[], force: boolean = false): Promise<boolean> => {
+    const uniqueIds = [...new Set(ids.filter(Boolean))];
+    if (uniqueIds.length === 0) return true;
+    if (isOffline && !force) return false;
+    if (force) setIsOffline(false);
+
+    try {
+      setIsMembersLoading(true);
+      const selectQuery = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status';
+      const data = await fetchAllPaginated<Member>('members', selectQuery, q => q.in('id', uniqueIds));
+
+      const newMembers: Record<string, Member> = data.reduce((acc, m) => ({ ...acc, [m.id!]: toCamel<Member>(m) }), {});
+
+      setDbState(prev => ({ ...prev, members: { ...prev.members, ...newMembers } }));
+
+      if (isOffline) setIsOffline(false);
+      setIsMembersLoading(false);
+      return true;
+    } catch (error) {
+      console.error("Error loading members by ids:", error);
+      setIsOffline(true);
       setIsMembersLoading(false);
       return false;
     }
@@ -1534,7 +1562,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser, currentAvatar, userGuildRoles, setuserGuildRoles, userRole, userProfileId,
-      fetchMembers, fetchAllMembers, searchMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon, updateMemberProfile,
+      fetchMembers, fetchAllMembers, loadMembersByIds, searchMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon, updateMemberProfile,
       loadDiscordRoles,
       fetchInitialData,
       addGuild, updateGuild, deleteGuild,

@@ -21,7 +21,7 @@ interface CostumeFilters {
 
 export default function MyCostumesPage() {
   const { t, i18n } = useTranslation();
-  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchMembers, isMembersLoading } = useAppContext();
+  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchMembers, loadMembersByIds, isMembersLoading } = useAppContext();
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<CostumeFilters>({});
@@ -102,6 +102,18 @@ export default function MyCostumesPage() {
   const myMemberIds = useMemo(() => {
     return userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : [];
   }, [userProfileId]);
+
+  // 非管理者：依綁定的 id 載入自己的成員資料，避免誤判為「未綁定」
+  useEffect(() => {
+    if (isRoleLoading || isManager || myMemberIds.length === 0) return;
+    const missing = myMemberIds.filter(id => !db.members[id]);
+    if (missing.length === 0) return;
+    const t = setTimeout(() => {
+      loadMembersByIds(myMemberIds, true);
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isManager, isRoleLoading, myMemberIds]);
 
   const myMembers = myMemberIds.map(id => db.members[id]).filter(Boolean);
 
@@ -248,8 +260,8 @@ export default function MyCostumesPage() {
   }
 
   return (
-    <div className="bg-stone-100 dark:bg-stone-900">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
+    <div className="bg-stone-100 dark:bg-stone-900 min-h-full flex flex-col">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 flex-1">
         <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -414,23 +426,31 @@ export default function MyCostumesPage() {
             </>
           ) : (
             <>
-              {myMembers.length === 0 ? (
+              {isMembersLoading && myMembers.length === 0 && (
+                <div className="mt-8 p-8 text-center text-stone-500 dark:text-stone-400 flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto" />
+                  <p>{t('common.loading')}</p>
+                </div>
+              )}
+              {!isMembersLoading && myMembers.length === 0 ? (
                 <div className="mt-8 p-8 text-center text-stone-500 dark:text-stone-400 flex flex-col items-center gap-3">
                   <User className="w-10 h-10 text-stone-300 dark:text-stone-600" />
                   <p>{t('my_costumes.no_member')}</p>
                 </div>
               ) : (
-                <div className="mt-6 space-y-6">
-                  {myMembers.map(member => (
-                    <MemberCostumeEditor
-                      key={member.id}
-                      member={member}
-                      characters={characters}
-                      saveState={saveState[member.id]}
-                      onSave={() => handleSave(member)}
-                    />
-                  ))}
-                </div>
+                myMembers.length > 0 && (
+                  <div className="mt-6 space-y-6">
+                    {myMembers.map(member => (
+                      <MemberCostumeEditor
+                        key={member.id}
+                        member={member}
+                        characters={characters}
+                        saveState={saveState[member.id]}
+                        onSave={() => handleSave(member)}
+                      />
+                    ))}
+                  </div>
+                )
               )}
             </>
           )}
