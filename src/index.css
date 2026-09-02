@@ -2,6 +2,20 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+html, body, #root {
+  height: auto;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100%;
+}
+
 @theme {
   --animate-flash-orange: flash-orange 2s ease-out;
 

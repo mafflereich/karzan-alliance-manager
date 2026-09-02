@@ -7,22 +7,19 @@ import { isManagerRole } from '@/shared/lib/equipment';
 import { getSortedCostumes } from '../utils/sort';
 import CostumeMatrixTable from '../components/CostumeMatrixTable';
 
-const GENDER_FILTERS = ['男', '女'];
 const ATK_TYPE_FILTERS = ['物', '魔'];
-const STAR_FILTERS = ['5', '4', '3'];
 const ATTRIBUTE_FILTERS = ['火', '水', '風', '光', '暗'];
 
 interface CostumeFilters {
-  gender?: string[];
   atkType?: string[];
-  star?: string[];
   attribute?: string[];
 }
 
 export default function MyCostumesPage() {
   const { t, i18n } = useTranslation();
-  const { db, userProfileId, userGuildRoles, updateMember, showToast, isRoleLoading, userRole, fetchMembers, loadMembersByIds, isMembersLoading } = useAppContext();
+  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchMembers, loadMembersByIds, isMembersLoading } = useAppContext();
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
+  const [drafts, setDrafts] = useState<Record<string, { records: any; exclusiveWeapons: any }>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<CostumeFilters>({});
   const [selectedGuildIds, setSelectedGuildIds] = useState<string[]>([]);
@@ -100,14 +97,13 @@ export default function MyCostumesPage() {
   }, [reloadKey]);
 
   const myMemberIds = useMemo(() => {
-    // userGuildRoles 才是該使用者管理的成員 id 列表（來自 profiles.user_guilds）
-    const ids = userGuildRoles.length > 0 ? userGuildRoles : (userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : []);
-    return [...new Set(ids)];
-  }, [userGuildRoles, userProfileId]);
+    // profiles.id 對 Discord 身份綁定而言，正是逗號分隔的 member_id 清單
+    return userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : [];
+  }, [userProfileId]);
 
-  // 非管理者：依綁定的 id 載入自己的成員資料，避免誤判為「未綁定」
+  // 依綁定的 id 載入自己的成員資料，避免誤判為「未綁定」（管理者與一般成員皆套用）
   useEffect(() => {
-    if (isRoleLoading || isManager || myMemberIds.length === 0) return;
+    if (isRoleLoading || myMemberIds.length === 0) return;
     const missing = myMemberIds.filter(id => !db.members[id]);
     if (missing.length === 0) return;
     const t = setTimeout(() => {
@@ -115,9 +111,34 @@ export default function MyCostumesPage() {
     }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isManager, isRoleLoading, myMemberIds]);
+  }, [isRoleLoading, myMemberIds]);
 
-  const myMembers = myMemberIds.map(id => db.members[id]).filter(Boolean);
+  const myMemberMap = useMemo(() => new Map(myMemberIds.map(id => [id, db.members[id]])), [db.members, myMemberIds]);
+  const myMembers = useMemo(() => Array.from(myMemberMap.values()).filter(Boolean), [myMemberMap]);
+
+  // 初始化/同步草稿：僅在成員資料真正改變時（新載入/儲存後）同步，避免每次 render 覆寫使用者的編輯
+  useEffect(() => {
+    setDrafts(prev => {
+      const next = { ...prev };
+      let changed = false;
+      myMembers.forEach(m => {
+        const current = prev[m.id];
+        if (!current || current.records !== m.records || current.exclusiveWeapons !== m.exclusiveWeapons) {
+          next[m.id] = { records: m.records ?? {}, exclusiveWeapons: m.exclusiveWeapons ?? {} };
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myMemberMap, reloadKey]);
+
+  const setDraft = (memberId: string, patch: Partial<{ records: any; exclusiveWeapons: any }>) => {
+    setDrafts(prev => ({
+      ...prev,
+      [memberId]: { records: prev[memberId]?.records ?? {}, exclusiveWeapons: prev[memberId]?.exclusiveWeapons ?? {}, ...patch }
+    }));
+  };
 
   const matrixMembers = useMemo(() => {
     let list = Object.values(db.members).filter(m => m && m.status !== 'archived');
@@ -145,9 +166,7 @@ export default function MyCostumesPage() {
       return a.orderNum - b.orderNum;
     });
     const filtered = list.filter(c => {
-      if (filters.gender?.length && !filters.gender.includes(c.gender)) return false;
       if (filters.atkType?.length && !filters.atkType.includes(c.atkType)) return false;
-      if (filters.star?.length && !filters.star.includes(c.star)) return false;
       if (filters.attribute?.length && !filters.attribute.includes(c.attribute)) return false;
       return true;
     });
@@ -199,9 +218,10 @@ export default function MyCostumesPage() {
   const handleSave = async (member: any) => {
     setSaveState(prev => ({ ...prev, [member.id]: 'saving' }));
     try {
+      const draft = drafts[member.id] ?? { records: member.records, exclusiveWeapons: member.exclusiveWeapons };
       await updateMember(member.id, {
-        records: member.records,
-        exclusiveWeapons: member.exclusiveWeapons
+        records: draft.records,
+        exclusiveWeapons: draft.exclusiveWeapons
       });
       setSaveState(prev => ({ ...prev, [member.id]: 'done' }));
       setTimeout(() => setSaveState(prev => {
@@ -223,7 +243,7 @@ export default function MyCostumesPage() {
   if (isRoleLoading) {
     return (
       <div className="bg-stone-100 dark:bg-stone-900">
-        <div className="max-w-6xl mx-auto p-6">
+        <div className="max-w-6xl mx-auto p-6 w-full">
           <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-8 flex items-center justify-center text-stone-500 dark:text-stone-400">
             {t('common.loading')}
           </div>
@@ -262,8 +282,8 @@ export default function MyCostumesPage() {
   }
 
   return (
-    <div className="bg-stone-100 dark:bg-stone-900 min-h-full flex flex-col">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 flex-1">
+    <div className="bg-stone-100 dark:bg-stone-900">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 w-full">
         <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -367,22 +387,10 @@ export default function MyCostumesPage() {
             {/* 其餘篩選：點按複選 */}
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <FilterChipGroup
-                label={t('my_costumes.filter_gender')}
-                options={GENDER_FILTERS.map(v => ({ value: v, label: v === '男' ? t('my_costumes.gender_male') : t('my_costumes.gender_female') }))}
-                selected={filters.gender ?? []}
-                onToggle={(v) => setFilter('gender', v)}
-              />
-              <FilterChipGroup
                 label={t('my_costumes.filter_atk_type')}
                 options={ATK_TYPE_FILTERS.map(v => ({ value: v, label: v === '物' ? t('my_costumes.atk_phys') : t('my_costumes.atk_magic') }))}
                 selected={filters.atkType ?? []}
                 onToggle={(v) => setFilter('atkType', v)}
-              />
-              <FilterChipGroup
-                label={t('my_costumes.filter_star')}
-                options={STAR_FILTERS.map(v => ({ value: v, label: `${v}★` }))}
-                selected={filters.star ?? []}
-                onToggle={(v) => setFilter('star', v)}
               />
               <FilterChipGroup
                 label={t('my_costumes.filter_attribute')}
@@ -449,6 +457,18 @@ export default function MyCostumesPage() {
                         characters={characters}
                         saveState={saveState[member.id]}
                         onSave={() => handleSave(member)}
+                        records={drafts[member.id]?.records ?? member.records ?? {}}
+                        exclusiveWeapons={drafts[member.id]?.exclusiveWeapons ?? member.exclusiveWeapons ?? {}}
+                        onLevelChange={(costumeId, level) => {
+                          const cur = drafts[member.id]?.records ?? member.records ?? {};
+                          setDraft(member.id, { records: { ...cur, [costumeId]: { ...(cur[costumeId] || { level: -1 }), level } } });
+                        }}
+                        onWeaponToggle={(characterId, has) => {
+                          const cur = drafts[member.id]?.exclusiveWeapons ?? member.exclusiveWeapons ?? {};
+                          setDraft(member.id, { exclusiveWeapons: { ...cur, [characterId]: has } });
+                        }}
+                        onFillAll5={(next) => setDraft(member.id, { records: next })}
+                        onGrantAllWeapons={(next) => setDraft(member.id, { exclusiveWeapons: next })}
                       />
                     ))}
                   </div>
@@ -467,37 +487,24 @@ interface EditorProps {
   characters: any[];
   saveState?: string;
   onSave: () => void;
+  records: any;
+  exclusiveWeapons: any;
+  onLevelChange: (costumeId: string, level: number) => void;
+  onWeaponToggle: (characterId: string, has: boolean) => void;
+  onFillAll5: (next: any) => void;
+  onGrantAllWeapons: (next: any) => void;
 }
 
-function MemberCostumeEditor({ member, characters, saveState, onSave }: EditorProps) {
+function MemberCostumeEditor({ member, characters, saveState, onSave, records, exclusiveWeapons, onLevelChange, onWeaponToggle, onFillAll5, onGrantAllWeapons }: EditorProps) {
   const { t, i18n } = useTranslation();
-  const { db, updateMemberCostumeLevel, updateMemberExclusiveWeapon } = useAppContext();
-  const [records, setRecords] = useState<any>(member.records ?? {});
-  const [exclusiveWeapons, setExclusiveWeapons] = useState<any>(member.exclusiveWeapons ?? {});
-
-  const changeLevel = (costumeId: string, level: number) => {
-    const next = { ...records, [costumeId]: { ...(records[costumeId] || { level: -1 }), level } };
-    setRecords(next);
-    updateMemberCostumeLevel(member.id, costumeId, level);
-  };
-
-  const toggleWeapon = (characterId: string, has: boolean) => {
-    const next = { ...exclusiveWeapons, [characterId]: has };
-    setExclusiveWeapons(next);
-    updateMemberExclusiveWeapon(member.id, characterId, has);
-  };
-
+  const { db } = useAppContext();
   const setAllLevels = (level: number) => {
     const costumeIds = Object.values(db.costumes).map(c => c.id);
     const next = { ...records };
     costumeIds.forEach(id => {
       next[id] = { ...(next[id] || { level: -1 }), level };
     });
-    setRecords(next);
-    // 依序持久化每個服裝（取最快路徑，失敗個別忽略）
-    costumeIds.forEach(costumeId => {
-      updateMemberCostumeLevel(member.id, costumeId, level);
-    });
+    onFillAll5(next);
   };
 
   const grantAllWeapons = (has: boolean) => {
@@ -506,10 +513,7 @@ function MemberCostumeEditor({ member, characters, saveState, onSave }: EditorPr
     characterIds.forEach(id => {
       next[id] = has;
     });
-    setExclusiveWeapons(next);
-    characterIds.forEach(characterId => {
-      updateMemberExclusiveWeapon(member.id, characterId, has);
-    });
+    onGrantAllWeapons(next);
   };
 
   return (
@@ -549,7 +553,7 @@ function MemberCostumeEditor({ member, characters, saveState, onSave }: EditorPr
         </div>
       </div>
 
-      <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+      <div className="p-5 space-y-5">
         {characters.length === 0 && (
           <p className="text-stone-500 dark:text-stone-400 text-center py-8">{t('my_costumes.no_results')}</p>
         )}
@@ -571,10 +575,10 @@ function MemberCostumeEditor({ member, characters, saveState, onSave }: EditorPr
                     type="checkbox"
                     className="peer sr-only"
                     checked={hasExclusiveWeapon}
-                    onChange={(e) => toggleWeapon(character.id, e.target.checked)}
+                    onChange={(e) => onWeaponToggle(character.id, e.target.checked)}
                   />
-                  <div className="w-9 h-5 bg-stone-200 dark:bg-stone-600 rounded-full peer peer-checked:bg-amber-500 transition-colors shadow-inner relative">
-                    <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4 shadow-md"></div>
+                  <div className="w-9 h-5 bg-stone-200 dark:bg-stone-600 rounded-full group-has-[:checked]:bg-amber-500 transition-colors shadow-inner relative">
+                    <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform group-has-[:checked]:translate-x-4 shadow-md"></div>
                   </div>
                 </label>
               </div>
@@ -615,7 +619,7 @@ function MemberCostumeEditor({ member, characters, saveState, onSave }: EditorPr
                           return (
                             <button
                               key={opt.val}
-                              onClick={() => changeLevel(costume.id, opt.val)}
+                              onClick={() => onLevelChange(costume.id, opt.val)}
                               className={`px-2.5 py-1 text-sm font-bold rounded-lg transition-all ${record.level == opt.val
                                 ? active
                                 : 'bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-stone-600'}`}

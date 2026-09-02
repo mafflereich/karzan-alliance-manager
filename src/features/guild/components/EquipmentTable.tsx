@@ -45,12 +45,11 @@ export default function EquipmentTable({
   const { t, i18n } = useTranslation();
   const manager = isManagerRole(userRole);
 
-  const visibleMembers = React.useMemo(() => {
-    const userMemberIds = userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : [];
-    return manager
-      ? members
-      : members.filter(([id, m]) => !m.isEquipmentHidden || userMemberIds.includes(id));
-  }, [members, manager, userProfileId]);
+  // 所有成員都顯示，但「隱藏裝備表」的成員對一般成員只隱藏裝備欄位，遊玩傾向仍保留
+  const visibleMembers = React.useMemo(() => members, [members]);
+
+  const canSeeMemberEquipment = (member: any, isCurrentUser: boolean) =>
+    manager || !member.isEquipmentHidden || isCurrentUser;
 
   return (
     <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden relative">
@@ -194,7 +193,9 @@ export default function EquipmentTable({
                   return (
                     <td key={cat.key} className="p-0 text-center border-r border-stone-100 dark:border-stone-700 last:border-r-0 h-full">
                       <div className="flex flex-col items-center justify-center h-full min-h-[60px] py-2 gap-0.5">
-                        {item.c23 > 0 || item.c24 > 0 ? (
+                        {!canSeeMemberEquipment(member, isCurrentUser) ? (
+                          <EyeOff className="w-3.5 h-3.5 text-stone-300 dark:text-stone-500" />
+                        ) : item.c23 > 0 || item.c24 > 0 ? (
                           <>
                             <span className="font-bold text-sm text-red-600 dark:text-red-400">
                               {i18n.language === 'en' ? '23C' : '23C'}: {item.c23}
