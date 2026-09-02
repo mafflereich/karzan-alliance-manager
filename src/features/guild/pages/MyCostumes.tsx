@@ -248,7 +248,7 @@ export default function MyCostumesPage() {
   }
 
   return (
-    <div className="bg-stone-100 dark:bg-stone-900 min-h-screen">
+    <div className="bg-stone-100 dark:bg-stone-900">
       <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
         <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
