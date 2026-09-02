@@ -408,6 +408,10 @@
     "load_failed": "成員資料載入失敗，請檢查網路或權限後重試。",
     "retry": "重新載入",
     "filter_guild": "公會篩選",
-    "selected_guilds": "已選 {{count}} 個公會"
+    "selected_guilds": "已選 {{count}} 個公會",
+    "fill_all_5": "全部 +5",
+    "fill_all_5_title": "將所有服裝練度設為 +5",
+    "grant_all_weapons": "全部 UR 專",
+    "grant_all_weapons_title": "將所有角色的 UR 專用武器勾選為擁有"
   }
 }

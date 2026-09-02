@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '@/store';
 import { useTranslation } from 'react-i18next';
-import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, RefreshCw, Loader2 } from 'lucide-react';
+import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, RefreshCw, Loader2, Sparkles } from 'lucide-react';
 import { getImageUrl, getTierColor } from '@/shared/lib/utils';
 import { isManagerRole } from '@/shared/lib/equipment';
 import { getSortedCostumes } from '../utils/sort';
@@ -21,7 +21,7 @@ interface CostumeFilters {
 
 export default function MyCostumesPage() {
   const { t, i18n } = useTranslation();
-  const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchMembers, loadMembersByIds, isMembersLoading } = useAppContext();
+  const { db, userProfileId, userGuildRoles, updateMember, showToast, isRoleLoading, userRole, fetchMembers, loadMembersByIds, isMembersLoading } = useAppContext();
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<CostumeFilters>({});
@@ -100,8 +100,10 @@ export default function MyCostumesPage() {
   }, [reloadKey]);
 
   const myMemberIds = useMemo(() => {
-    return userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : [];
-  }, [userProfileId]);
+    // userGuildRoles 才是該使用者管理的成員 id 列表（來自 profiles.user_guilds）
+    const ids = userGuildRoles.length > 0 ? userGuildRoles : (userProfileId ? userProfileId.split(',').map(uid => uid.trim()).filter(Boolean) : []);
+    return [...new Set(ids)];
+  }, [userGuildRoles, userProfileId]);
 
   // 非管理者：依綁定的 id 載入自己的成員資料，避免誤判為「未綁定」
   useEffect(() => {
@@ -485,9 +487,34 @@ function MemberCostumeEditor({ member, characters, saveState, onSave }: EditorPr
     updateMemberExclusiveWeapon(member.id, characterId, has);
   };
 
+  const setAllLevels = (level: number) => {
+    const costumeIds = Object.values(db.costumes).map(c => c.id);
+    const next = { ...records };
+    costumeIds.forEach(id => {
+      next[id] = { ...(next[id] || { level: -1 }), level };
+    });
+    setRecords(next);
+    // 依序持久化每個服裝（取最快路徑，失敗個別忽略）
+    costumeIds.forEach(costumeId => {
+      updateMemberCostumeLevel(member.id, costumeId, level);
+    });
+  };
+
+  const grantAllWeapons = (has: boolean) => {
+    const characterIds = Object.values(db.costumes).map(c => c.characterId);
+    const next = { ...exclusiveWeapons };
+    characterIds.forEach(id => {
+      next[id] = has;
+    });
+    setExclusiveWeapons(next);
+    characterIds.forEach(characterId => {
+      updateMemberExclusiveWeapon(member.id, characterId, has);
+    });
+  };
+
   return (
     <div className="border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
-      <div className="bg-stone-50 dark:bg-stone-700 px-5 py-3 border-b border-stone-200 dark:border-stone-600 flex justify-between items-center">
+      <div className="bg-stone-50 dark:bg-stone-700 px-5 py-3 border-b border-stone-200 dark:border-stone-600 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-bold text-stone-800 dark:text-stone-200 flex items-center gap-2">
           <User className="w-4 h-4 text-indigo-500" />
           {member.name}
@@ -495,13 +522,31 @@ function MemberCostumeEditor({ member, characters, saveState, onSave }: EditorPr
             <span className="text-xs font-normal text-stone-500 dark:text-stone-400">({db.guilds[member.guildId].name})</span>
           )}
         </h2>
-        <button
-          onClick={onSave}
-          disabled={saveState === 'saving'}
-          className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${saveState === 'done' ? 'bg-green-600 text-white' : saveState === 'saving' ? 'bg-stone-300 dark:bg-stone-600 text-stone-500' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}
-        >
-          {saveState === 'done' ? t('common.saved') : saveState === 'saving' ? t('common.saving') : t('common.save_changes')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setAllLevels(5)}
+            className="px-3 py-1.5 rounded-lg text-sm font-bold bg-green-100 hover:bg-green-200 text-green-800 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-300 transition-colors flex items-center gap-1.5"
+            title={t('my_costumes.fill_all_5_title')}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {t('my_costumes.fill_all_5')}
+          </button>
+          <button
+            onClick={() => grantAllWeapons(true)}
+            className="px-3 py-1.5 rounded-lg text-sm font-bold bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300 transition-colors flex items-center gap-1.5"
+            title={t('my_costumes.grant_all_weapons_title')}
+          >
+            <Swords className="w-3.5 h-3.5" />
+            {t('my_costumes.grant_all_weapons')}
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saveState === 'saving'}
+            className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${saveState === 'done' ? 'bg-green-600 text-white' : saveState === 'saving' ? 'bg-stone-300 dark:bg-stone-600 text-stone-500' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}
+          >
+            {saveState === 'done' ? t('common.saved') : saveState === 'saving' ? t('common.saving') : t('common.save_changes')}
+          </button>
+        </div>
       </div>
 
       <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
