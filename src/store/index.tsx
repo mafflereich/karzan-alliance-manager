@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl, Equipment, PlayPreferences } from '@/entities/member/types';
 import { supabase, supabaseInsert, supabaseKey, supabaseUpdate, supabaseUpsert, toCamel, fetchAllPaginated } from '@/shared/api/supabase';
+import { fetchMemberSecrets, applySecretsToMembers } from '@/shared/api/memberSecrets';
 import { isDebugMode } from '@/shared/api/debugMode';
 import { Logger } from '@/shared/utils/logger';
 import { v4 as uuidv4 } from 'uuid';
@@ -487,7 +488,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false): Promise<boolean> => {
+  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false): Promise<boolean> => {
     if (isOffline && !force) return false;
     if (force) setIsOffline(false);
 
@@ -577,6 +578,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ...acc, [mappedMember.id!]: mappedMember };
     }, {});
 
+    const memberIds = Object.keys(newMembers);
+    if (memberIds.length > 0) {
+      const secrets = await fetchMemberSecrets(memberIds);
+      const merged = applySecretsToMembers(Object.values(newMembers), secrets);
+      merged.forEach((m) => { if (m.id) newMembers[m.id] = m; });
+    }
+
     setDbState(prev => {
       // Filter out old members of this guild from the previous state
       // This ensures that if a member was deleted on the server, they are removed from local state
@@ -632,7 +640,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       while (hasMore) {
         const { data: pageData, error: pageError } = await supabase
           .from('members')
-          .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
+          .select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
           .range(offset, offset + PAGE_SIZE - 1);
 
         if (pageError) {
@@ -653,7 +661,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   app_metadata: session.user.app_metadata,
                   user_metadata: session.user.user_metadata
                 } : null,
-                query: "select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')"
+                query: "select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')"
               }, null, 2));
             });
           });
@@ -703,6 +711,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           delete (mappedMember as any).memberRaidRecords;
           return { ...acc, [mappedMember.id!]: mappedMember };
         }, {});
+        const allMemberIds = Object.keys(allMembers);
+        if (allMemberIds.length > 0) {
+          const secrets = await fetchMemberSecrets(allMemberIds);
+          const merged = applySecretsToMembers(Object.values(allMembers), secrets);
+          merged.forEach((m) => { if (m.id) allMembers[m.id] = m; });
+        }
         setDbState(prev => ({ ...prev, members: allMembers }));
       }
 
@@ -732,10 +746,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       setIsMembersLoading(true);
-      const selectQuery = 'id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status';
+      const selectQuery = 'id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status';
       const data = await fetchAllPaginated<Member>('members', selectQuery, q => q.in('id', uniqueIds));
 
       const newMembers: Record<string, Member> = data.reduce((acc, m) => ({ ...acc, [m.id!]: toCamel<Member>(m) }), {});
+
+      const secrets = await fetchMemberSecrets(Object.keys(newMembers));
+      const merged = applySecretsToMembers(Object.values(newMembers), secrets);
+      merged.forEach((m) => { if (m.id) newMembers[m.id] = m; });
 
       setDbState(prev => ({ ...prev, members: { ...prev.members, ...newMembers } }));
 
@@ -758,7 +776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let queryBuilder = supabase
       .from('members')
-      .select('id, name, guild_id, role, records, exclusive_weapons, equipment, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
+      .select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
       .ilike('name', `%${query}%`)
       .order('status', { ascending: true }) // active comes before archived
       .order('name', { ascending: true })
@@ -788,7 +806,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               app_metadata: session.user.app_metadata,
               user_metadata: session.user.user_metadata
             } : null,
-            query: "select('id, name, guild_id, role, records, exclusive_weapons, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note)')",
+            query: "select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note)')",
             searchQuery: query
           }, null, 2));
         });
@@ -796,31 +814,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { data: [], total: 0 };
     }
 
+    const mappedResults = (data as any[]).map(m => {
+      const camelMember = toCamel<any>(m);
+      const memberNotes = Array.isArray(camelMember.memberNotes) ? camelMember.memberNotes[0] : camelMember.memberNotes;
+      const memberRaidRecords = Array.isArray(camelMember.memberRaidRecords) ? camelMember.memberRaidRecords[0] : camelMember.memberRaidRecords;
+      // member_notes keys are in snake_case since toCamel uses { deep: false }
+      const note = memberNotes?.note || '';
+      const isReserved = memberNotes?.is_reserved || false;
+      const archiveRemark = memberNotes?.archive_remark || '';
+      const seasonNote = memberRaidRecords?.seasonNote || memberRaidRecords?.season_note || '';
+      const overkill = memberRaidRecords?.overkill ?? null;
+      const score = memberRaidRecords?.score ?? m.score ?? 0;
+      const mappedMember: Member = {
+        ...camelMember,
+        note,
+        isReserved,
+        archiveRemark,
+        seasonNote,
+        overkill,
+        score,
+      };
+      delete (mappedMember as any).memberNotes;
+      delete (mappedMember as any).memberRaidRecords;
+      return mappedMember;
+    });
+
+    const searchIds = mappedResults.map(m => m.id).filter((id): id is string => !!id);
+    const secrets = await fetchMemberSecrets(searchIds);
+    const memberData = applySecretsToMembers(mappedResults, secrets);
+
     return {
-      data: (data as any[]).map(m => {
-        const camelMember = toCamel<any>(m);
-        const memberNotes = Array.isArray(camelMember.memberNotes) ? camelMember.memberNotes[0] : camelMember.memberNotes;
-        const memberRaidRecords = Array.isArray(camelMember.memberRaidRecords) ? camelMember.memberRaidRecords[0] : camelMember.memberRaidRecords;
-        // member_notes keys are in snake_case since toCamel uses { deep: false }
-        const note = memberNotes?.note || '';
-        const isReserved = memberNotes?.is_reserved || false;
-        const archiveRemark = memberNotes?.archive_remark || '';
-        const seasonNote = memberRaidRecords?.seasonNote || memberRaidRecords?.season_note || '';
-        const overkill = memberRaidRecords?.overkill ?? null;
-        const score = memberRaidRecords?.score ?? m.score ?? 0;
-        const mappedMember: Member = {
-          ...camelMember,
-          note,
-          isReserved,
-          archiveRemark,
-          seasonNote,
-          overkill,
-          score,
-        };
-        delete (mappedMember as any).memberNotes;
-        delete (mappedMember as any).memberRaidRecords;
-        return mappedMember;
-      }),
+      data: memberData,
       total: count || 0
     };
   };

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '@/shared/lib/utils';
 import { useAppContext } from '@/store';
 import { supabase } from '@/shared/api/supabase';
+import { fetchMemberSecrets } from '@/shared/api/memberSecrets';
 
 interface MemberStatsModalProps {
   member: any;
@@ -29,14 +30,10 @@ export default function MemberStatsModal({ member, onClose }: MemberStatsModalPr
       if (!member?.id) return;
       setLoadingMemberData(true);
       try {
-        const { data, error } = await supabase
-          .from('members')
-          .select('records, exclusive_weapons')
-          .eq('id', member.id)
-          .single();
-        if (error) throw error;
-        setMemberRecords(data?.records ?? {});
-        setMemberExclusiveWeapons(data?.exclusive_weapons ?? {});
+        const secrets = await fetchMemberSecrets([member.id]);
+        const secret = secrets[String(member.id)];
+        setMemberRecords(secret?.records ?? {});
+        setMemberExclusiveWeapons(secret?.exclusiveWeapons ?? {});
       } catch (err) {
         console.error('Error fetching member costume data:', err);
         setMemberRecords({});
