@@ -373,9 +373,23 @@
     "multi_select": "Multiple Select",
     "single_select": "Single Select",
     "note": "Note",
-    "note_placeholder": "Write your note here...",
-    "hide_toggle": "Hide My Equipment",
-    "hide_desc": "When enabled, regular members cannot see your equipment; only managers can. Play preference and note stay visible."
+    "note_placeholder": "Write your note...",
+    "visibility": "Equipment Visibility",
+    "visibility_desc": "When restricted, regular members still see your play preference and note; only equipment columns are hidden by level.",
+    "visibility_opt": {
+      "public": "Public",
+      "all_manager": "All Managers",
+      "guild_manager": "Guild Managers",
+      "admin": "Admins Only"
+    },
+    "refining_traces": "Refining Traces",
+    "refining_traces_desc": "Your total refining traces (visible to managers only).",
+    "category_visibility": "Per-Category Visibility",
+    "category_visibility_desc": "Each equipment slot and C value can override the global visibility; unset fields inherit the global default.",
+    "category_visibility_hint": "Click \"Follow Global\" to clear an override; clearing the slot/23C/24C override reverts to the layer above.",
+    "category_level": "Slot Level",
+    "has_override": "Overridden",
+    "follow_default": "Follow Global"
   },
   "my_costumes": {
     "title": "Costume Table",

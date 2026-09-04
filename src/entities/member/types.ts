@@ -14,6 +14,7 @@ export interface Guild {
 export interface CostumeRecord {
   level: number; // -1 for Not Owned, 0-5 for +0 to +5
   cValue?: number; // 6-24
+  updatedAt?: number; // epoch ms：該服裝最近更新時間
 }
 
 // 遊玩傾向：可複選的內容模式
@@ -131,9 +132,29 @@ export const EQUIPMENT_CATEGORIES: EquipmentCategoryDef[] = [
 export interface EquipmentItem {
   c23: number; // 23C 數量
   c24: number; // 24C 數量
+  updatedAt?: number; // epoch ms：該部位最近更新時間
 }
 
 export type Equipment = Record<string, EquipmentItem>;
+
+// 裝備表隱私級別
+export const EQUIPMENT_VISIBILITY_OPTIONS = [
+  'public',
+  'all_manager',
+  'guild_manager',
+  'admin',
+] as const;
+export type EquipmentVisibility = typeof EQUIPMENT_VISIBILITY_OPTIONS[number];
+
+// 每個部位的隱私設定（23C/24C 可獨立覆蓋）
+export interface CategoryVisibilityItem {
+  visibility?: EquipmentVisibility;  // 部位級（未設定則 fallback 到 equipmentVisibility）
+  c23?: EquipmentVisibility;         // 23C 專屬覆蓋
+  c24?: EquipmentVisibility;         // 24C 專屬覆蓋
+}
+
+// 全域 → 部位 → C值 的層級隱私 map（key = EQUIPMENT_CATEGORIES 的 key）
+export type CategoryVisibility = Record<string, CategoryVisibilityItem>;
 
 export interface Member {
   id?: string;
@@ -145,7 +166,12 @@ export interface Member {
   equipment?: Equipment;
   playPreferences?: PlayPreferences;
   equipmentNote?: string;
-  isEquipmentHidden?: boolean;
+  equipmentVisibility?: EquipmentVisibility;
+  categoryVisibility?: CategoryVisibility; // 每部位獨立隱私（覆蓋 equipmentVisibility）
+  isEquipmentHidden?: boolean; // 舊版布林（僅向後相容用）
+  refiningTraces?: number; // 煉製之痕數量
+  equipmentUpdatedAt?: number; // 整張裝備表最近更新（epoch ms）
+  costumesUpdatedAt?: number; // 全部服裝/專武最近更新（epoch ms）
   note?: string;
   seasonNote?: string;
   overkill?: number | null;

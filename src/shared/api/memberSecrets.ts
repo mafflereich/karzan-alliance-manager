@@ -1,18 +1,16 @@
 import { supabase } from './supabase';
 
 /**
- * 敏感欄位（equipment / records / exclusive_weapons）只能透過
- * docs/sql/rls_member_equipment_security.sql 建立的 SECURITY DEFINER
- * RPC `get_member_equipment` 讀取（一般成員的 base SELECT 已被 REVOKE）。
- *
- * 此 helper 統一負責撈取並合併，前端各處不要再直接從 members
- * select 這三個欄位，否則會因權限不足而失敗。
+ * 敏感欄位（equipment / records / exclusive_weapons / refining_traces）
+ * 只能透過 `get_member_equipment` RPC 讀取（一般成員的 base SELECT
+ * 已 REVOKE，且依隱私級別遮蔽）。此 helper 統一負責撈取並合併。
  */
 
 export interface MemberSecretRow {
   equipment: any;
   records: any;
   exclusiveWeapons: any;
+  refiningTraces?: number | null;
 }
 
 export async function fetchMemberSecrets(memberIds: string[]): Promise<Record<string, MemberSecretRow>> {
@@ -35,6 +33,7 @@ export async function fetchMemberSecrets(memberIds: string[]): Promise<Record<st
         equipment: row.equipment ?? undefined,
         records: row.records ?? undefined,
         exclusiveWeapons: row.exclusive_weapons ?? undefined,
+        refiningTraces: row.refining_traces ?? undefined,
       };
     });
     return map;
@@ -58,6 +57,7 @@ export function applySecretsToMembers<T extends { id?: string | null }>(
       equipment: secret.equipment ?? m.equipment,
       records: secret.records ?? m.records,
       exclusiveWeapons: secret.exclusiveWeapons ?? m.exclusiveWeapons,
+      refiningTraces: secret.refiningTraces ?? m.refiningTraces,
     };
   });
 }

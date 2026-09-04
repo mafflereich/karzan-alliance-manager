@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl, Equipment, PlayPreferences } from '@/entities/member/types';
+import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl, Equipment, PlayPreferences, EquipmentVisibility, CostumeRecord, CategoryVisibility } from '@/entities/member/types';
 import { supabase, supabaseInsert, supabaseKey, supabaseUpdate, supabaseUpsert, toCamel, fetchAllPaginated } from '@/shared/api/supabase';
 import { fetchMemberSecrets, applySecretsToMembers } from '@/shared/api/memberSecrets';
 import { isDebugMode } from '@/shared/api/debugMode';
@@ -58,7 +58,7 @@ interface AppContextType {
   unarchiveMember: (memberId: string, targetGuildId: string) => Promise<void>;
   updateMemberCostumeLevel: (memberId: string, costumeId: string, level: number) => Promise<void>;
   updateMemberExclusiveWeapon: (memberId: string, characterId: string, hasWeapon: boolean) => Promise<void>;
-  updateMemberProfile: (memberId: string, data: { equipment?: Equipment; playPreferences?: PlayPreferences; equipmentNote?: string; isEquipmentHidden?: boolean }) => Promise<void>;
+  updateMemberProfile: (memberId: string, data: { equipment?: Equipment; playPreferences?: PlayPreferences; equipmentNote?: string; equipmentVisibility?: EquipmentVisibility; categoryVisibility?: CategoryVisibility; refiningTraces?: number }) => Promise<void>;
 
   // Guild functions
   addGuild: (name: string) => Promise<string | null>;
@@ -488,7 +488,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Function to fetch members for a specific guild
-  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false): Promise<boolean> => {
+  const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, equipment_visibility, category_visibility, equipment_updated_at, costumes_updated_at, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false): Promise<boolean> => {
     if (isOffline && !force) return false;
     if (force) setIsOffline(false);
 
@@ -640,7 +640,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       while (hasMore) {
         const { data: pageData, error: pageError } = await supabase
           .from('members')
-          .select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
+          .select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, equipment_visibility, category_visibility, equipment_updated_at, costumes_updated_at, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')
           .range(offset, offset + PAGE_SIZE - 1);
 
         if (pageError) {
@@ -661,7 +661,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   app_metadata: session.user.app_metadata,
                   user_metadata: session.user.user_metadata
                 } : null,
-                query: "select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')"
+                query: "select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, equipment_visibility, category_visibility, equipment_updated_at, costumes_updated_at, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark)')"
               }, null, 2));
             });
           });
@@ -746,7 +746,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       setIsMembersLoading(true);
-      const selectQuery = 'id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status';
+      const selectQuery = 'id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, equipment_visibility, category_visibility, equipment_updated_at, costumes_updated_at, color, total_score, updated_at, status';
       const data = await fetchAllPaginated<Member>('members', selectQuery, q => q.in('id', uniqueIds));
 
       const newMembers: Record<string, Member> = data.reduce((acc, m) => ({ ...acc, [m.id!]: toCamel<Member>(m) }), {});
@@ -776,7 +776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let queryBuilder = supabase
       .from('members')
-      .select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
+      .select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, equipment_visibility, category_visibility, equipment_updated_at, costumes_updated_at, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note, overkill)', { count: 'exact' })
       .ilike('name', `%${query}%`)
       .order('status', { ascending: true }) // active comes before archived
       .order('name', { ascending: true })
@@ -806,7 +806,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               app_metadata: session.user.app_metadata,
               user_metadata: session.user.user_metadata
             } : null,
-            query: "select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note)')",
+            query: "select('id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, equipment_visibility, category_visibility, equipment_updated_at, costumes_updated_at, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(score, season_note)')",
             searchQuery: query
           }, null, 2));
         });
@@ -981,16 +981,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateMemberCostumeLevel = async (memberId: string, costumeId: string, level: number) => {
     const currentRecords = db.members[memberId]?.records || {};
+    const now = Date.now();
     const updatedRecords = {
       ...currentRecords,
-      [costumeId]: { level }
+      [costumeId]: { ...(currentRecords[costumeId] || {}), level, updatedAt: now }
     };
 
-    const now = Date.now();
     const { error } = await supabaseUpdate('members',
       {
         records: updatedRecords,
-        updatedAt: now
+        updatedAt: now,
+        costumesUpdatedAt: now
       },
       {
         id: memberId
@@ -1005,7 +1006,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...prev,
         members: {
           ...prev.members,
-          [memberId]: { ...prev.members[memberId], records: updatedRecords, updatedAt: now }
+          [memberId]: { ...prev.members[memberId], records: updatedRecords, updatedAt: now, costumesUpdatedAt: now }
         }
       }));
     }
@@ -1227,7 +1228,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabaseUpdate('members',
       {
         exclusiveWeapons: updatedWeapons,
-        updatedAt: now
+        updatedAt: now,
+        costumesUpdatedAt: now
       },
       {
         id: memberId
@@ -1243,7 +1245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...prev,
         members: {
           ...prev.members,
-          [memberId]: { ...prev.members[memberId], exclusiveWeapons: updatedWeapons, updatedAt: now }
+          [memberId]: { ...prev.members[memberId], exclusiveWeapons: updatedWeapons, updatedAt: now, costumesUpdatedAt: now }
         }
       }));
     }
@@ -1255,11 +1257,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       equipment?: Equipment;
       playPreferences?: PlayPreferences;
       equipmentNote?: string;
-      isEquipmentHidden?: boolean;
+      equipmentVisibility?: EquipmentVisibility;
+      categoryVisibility?: CategoryVisibility;
+      refiningTraces?: number;
     }
   ) => {
     const now = Date.now();
-    const { error } = await supabaseUpdate('members', { ...data, updatedAt: now }, { id: memberId });
+    const payload: Record<string, any> = { ...data, updatedAt: now };
+
+    // 依變更的欄位記下對應的更新日期
+    if (data.equipment !== undefined) {
+      payload.equipmentUpdatedAt = now;
+    }
+    // 服裝/專武更新日期由 updateMemberCostumeLevel/ExclusiveWeapon 負責；
+    // 這裡不覆蓋（保留較精確的每服裝時間）。
+
+    const { error } = await supabaseUpdate('members', payload, { id: memberId });
 
     if (error) {
       console.error('Error updating member profile:', error);
@@ -1270,7 +1283,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     Logger.info({ source: 'member_management', action: 'update_member_profile', message: '更新成員個人資料', details: { memberId, data } });
     setDbState(prev => ({
       ...prev,
-      members: { ...prev.members, [memberId]: { ...prev.members[memberId], ...data, updatedAt: now } }
+      members: { ...prev.members, [memberId]: { ...prev.members[memberId], ...data, updatedAt: now, equipmentUpdatedAt: data.equipment !== undefined ? now : prev.members[memberId]?.equipmentUpdatedAt } }
     }));
   };
 

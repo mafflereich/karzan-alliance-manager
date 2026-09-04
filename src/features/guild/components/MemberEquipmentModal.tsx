@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useAppContext } from '@/store';
-import { X, Save, CheckCircle2, EyeOff, Eye } from 'lucide-react';
+import { X, Save, CheckCircle2, EyeOff, Eye, Lock, ShieldCheck, Users, Hash, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { logEvent } from '@/analytics';
-import { EQUIPMENT_CATEGORIES, PLAY_MODE_OPTIONS, DEDICATION_OPTIONS } from '@/entities/member/types';
-import { normalizeEquipment, normalizePlayPreferences } from '@/shared/lib/equipment';
+import { EQUIPMENT_CATEGORIES, PLAY_MODE_OPTIONS, DEDICATION_OPTIONS, EQUIPMENT_VISIBILITY_OPTIONS } from '@/entities/member/types';
+import type { EquipmentVisibility, CategoryVisibility } from '@/entities/member/types';
+import { normalizeEquipment, normalizePlayPreferences, normalizeEquipmentVisibility } from '@/shared/lib/equipment';
 
 export default function MemberEquipmentModal({ memberId, onClose }: { memberId: string, onClose: () => void }) {
   const { t, i18n } = useTranslation();
@@ -18,7 +19,12 @@ export default function MemberEquipmentModal({ memberId, onClose }: { memberId: 
   const [equipment, setEquipment] = useState(normalizeEquipment(member.equipment));
   const [playPrefs, setPlayPrefs] = useState(normalizePlayPreferences(member.playPreferences));
   const [note, setNote] = useState(member.equipmentNote || '');
-  const [isHidden, setIsHidden] = useState(Boolean(member.isEquipmentHidden));
+  const [visibility, setVisibility] = useState<EquipmentVisibility>(
+    normalizeEquipmentVisibility(member.equipmentVisibility, member.isEquipmentHidden)
+  );
+  const [refiningTraces, setRefiningTraces] = useState<number>(member.refiningTraces ?? 0);
+  const [categoryVisibility, setCategoryVisibility] = useState<CategoryVisibility>(member.categoryVisibility ?? {});
+  const [expandedCat, setExpandedCat] = useState<string | null>(null);
 
   const toggleMode = (mode: any) => {
     setPlayPrefs(prev => {
@@ -34,7 +40,14 @@ export default function MemberEquipmentModal({ memberId, onClose }: { memberId: 
     logEvent('GuildDashboard', 'Update Member Equipment', member.name);
     try {
       setShowSuccess(true);
-      await updateMemberProfile(memberId, { equipment, playPreferences: playPrefs, equipmentNote: note, isEquipmentHidden: isHidden });
+      await updateMemberProfile(memberId, {
+        equipment,
+        playPreferences: playPrefs,
+        equipmentNote: note,
+        equipmentVisibility: visibility,
+        categoryVisibility,
+        refiningTraces,
+      });
       setTimeout(() => {
         setShowSuccess(false);
         onClose();
@@ -50,9 +63,30 @@ export default function MemberEquipmentModal({ memberId, onClose }: { memberId: 
   const updateCount = (key: string, field: 'c23' | 'c24', value: number) => {
     setEquipment(prev => ({
       ...prev,
-      [key]: { ...prev[key], [field]: Math.max(0, value) }
+      [key]: { ...prev[key], [field]: Math.max(0, value), updatedAt: Date.now() }
     }));
   };
+
+  const setCatVisibility = (key: string, field: 'visibility' | 'c23' | 'c24', value: EquipmentVisibility | undefined) => {
+    setCategoryVisibility(prev => {
+      const current = { ...(prev[key] || {}) };
+      if (value === undefined) {
+        delete current[field];
+      } else {
+        current[field] = value;
+      }
+      const next = { ...prev };
+      if (Object.keys(current).length === 0) {
+        delete next[key];
+      } else {
+        next[key] = current;
+      }
+      return next;
+    });
+  };
+
+  const visibilityIcon = (v: EquipmentVisibility) =>
+    v === 'public' ? null : v === 'admin' ? <Lock className="w-4 h-4" /> : v === 'guild_manager' ? <Hash className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />;
 
   return (
     <div className="fixed inset-0 z-[110] flex items-start justify-center p-4 bg-stone-900/60 dark:bg-black/70 backdrop-blur-sm pt-[80px]">
@@ -119,6 +153,11 @@ export default function MemberEquipmentModal({ memberId, onClose }: { memberId: 
                           className="w-16 px-2 py-1.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-stone-50 dark:bg-stone-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
                         />
                       </label>
+                      {item.updatedAt && (
+                        <span className="text-[10px] text-stone-400 dark:text-stone-500 whitespace-nowrap">
+                          {new Date(item.updatedAt).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -191,21 +230,172 @@ export default function MemberEquipmentModal({ memberId, onClose }: { memberId: 
             </div>
           </section>
 
-          {/* 隱藏開關 */}
+          {/* 隱私級別（全域預設） */}
           <section className="bg-white dark:bg-stone-800 rounded-xl shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden">
-            <div className="p-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {isHidden ? <EyeOff className="w-5 h-5 text-stone-400" /> : <Eye className="w-5 h-5 text-amber-500" />}
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                {visibilityIcon(visibility) ?? <Eye className="w-5 h-5 text-amber-500" />}
                 <div>
-                  <p className="font-bold text-stone-800 dark:text-stone-200">{t('equipment.hide_toggle')}</p>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">{t('equipment.hide_desc')}</p>
+                  <p className="font-bold text-stone-800 dark:text-stone-200">{t('equipment.visibility')}</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{t('equipment.visibility_desc')}</p>
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="peer sr-only" checked={isHidden} onChange={(e) => setIsHidden(e.target.checked)} />
-                <div className="w-10 h-6 bg-stone-200 dark:bg-stone-600 rounded-full peer peer-checked:bg-red-500 transition-colors shadow-inner"></div>
-                <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4 shadow-md"></div>
-              </label>
+              <div className="flex flex-wrap gap-2">
+                {EQUIPMENT_VISIBILITY_OPTIONS.map(v => {
+                  const active = visibility === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setVisibility(v)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold rounded-lg border transition-colors ${active
+                        ? 'bg-amber-500 text-white border-amber-500'
+                        : 'bg-stone-50 dark:bg-stone-700 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-stone-600'}`}
+                    >
+                      {visibilityIcon(v)}
+                      {t(`equipment.visibility_opt.${v}`)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* 部位個別隱私設定（折疊式，可覆蓋全域預設） */}
+          <section className="bg-white dark:bg-stone-800 rounded-xl shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden">
+            <div className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <Users className="w-5 h-5 text-amber-500" />
+                <div>
+                  <p className="font-bold text-stone-800 dark:text-stone-200">{t('equipment.category_visibility')}</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{t('equipment.category_visibility_desc')}</p>
+                </div>
+              </div>
+              <div className="divide-y divide-stone-100 dark:divide-stone-700 rounded-xl overflow-hidden border border-stone-100 dark:border-stone-700">
+                {EQUIPMENT_CATEGORIES.map(cat => {
+                  const catVis = categoryVisibility[cat.key];
+                  const hasOverride = !!catVis && Object.keys(catVis).length > 0;
+                  const isExpanded = expandedCat === cat.key;
+                  const resolved = catVis;
+                  return (
+                    <div key={cat.key} className="bg-stone-50/50 dark:bg-stone-800/50">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedCat(isExpanded ? null : cat.key)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 hover:bg-stone-100 dark:hover:bg-stone-700/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExpanded
+                            ? <ChevronDown className="w-4 h-4 text-stone-400" />
+                            : <ChevronRight className="w-4 h-4 text-stone-400" />}
+                          <span className="text-sm font-semibold text-stone-700 dark:text-stone-200">
+                            {t(`equipment.categories.${cat.key}`)}
+                          </span>
+                          {hasOverride && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                              {t('equipment.has_override')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {visibilityIcon(resolved?.visibility || resolved?.c23 || resolved?.c24 || visibility)}
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-1 space-y-3">
+                          <p className="text-[11px] text-stone-400 dark:text-stone-500">{t('equipment.category_visibility_hint')}</p>
+                          <div>
+                            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5">{t('equipment.category_level')}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setCatVisibility(cat.key, 'visibility', undefined)}
+                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors ${!catVis?.visibility
+                                  ? 'bg-amber-500 text-white border-amber-500'
+                                  : 'bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-300 border-stone-200 dark:border-stone-600'}`}
+                              >
+                                <RotateCcw className="w-3 h-3 inline-block mr-1" />
+                                {t('equipment.follow_default')}
+                              </button>
+                              {EQUIPMENT_VISIBILITY_OPTIONS.map(v => {
+                                const active = catVis?.visibility === v;
+                                return (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => setCatVisibility(cat.key, 'visibility', active ? undefined : v)}
+                                    className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors ${active
+                                      ? 'bg-amber-500 text-white border-amber-500'
+                                      : 'bg-stone-50 dark:bg-stone-700 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-stone-600'}`}
+                                  >
+                                    {visibilityIcon(v)}
+                                    {t(`equipment.visibility_opt.${v}`)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {(['c23', 'c24'] as const).map(cField => (
+                            <div key={cField}>
+                              <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5">
+                                {cField === 'c23' ? '23C' : '24C'}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setCatVisibility(cat.key, cField, undefined)}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors ${!catVis?.[cField]
+                                    ? 'bg-amber-500 text-white border-amber-500'
+                                    : 'bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-300 border-stone-200 dark:border-stone-600'}`}
+                                >
+                                  <RotateCcw className="w-3 h-3 inline-block mr-1" />
+                                  {t('equipment.follow_default')}
+                                </button>
+                                {EQUIPMENT_VISIBILITY_OPTIONS.map(v => {
+                                  const active = catVis?.[cField] === v;
+                                  return (
+                                    <button
+                                      key={v}
+                                      type="button"
+                                      onClick={() => setCatVisibility(cat.key, cField, active ? undefined : v)}
+                                      className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-colors ${active
+                                        ? 'bg-amber-500 text-white border-amber-500'
+                                        : 'bg-stone-50 dark:bg-stone-700 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-600 hover:bg-stone-100 dark:hover:bg-stone-600'}`}
+                                    >
+                                      {visibilityIcon(v)}
+                                      {t(`equipment.visibility_opt.${v}`)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* 煉製之痕 */}
+          <section className="bg-white dark:bg-stone-800 rounded-xl shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden">
+            <div className="p-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Hash className="w-5 h-5 text-amber-500" />
+                <div>
+                  <p className="font-bold text-stone-800 dark:text-stone-200">{t('equipment.refining_traces')}</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{t('equipment.refining_traces_desc')}</p>
+                </div>
+              </div>
+              <input
+                type="number"
+                min={0}
+                value={refiningTraces}
+                onChange={(e) => setRefiningTraces(Math.max(0, Number(e.target.value)))}
+                className="w-24 px-2 py-1.5 border border-stone-300 dark:border-stone-600 rounded-lg bg-stone-50 dark:bg-stone-700 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-right"
+              />
             </div>
           </section>
         </div>

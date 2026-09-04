@@ -374,8 +374,22 @@
     "single_select": "只能選一",
     "note": "備註",
     "note_placeholder": "寫下你的備註...",
-    "hide_toggle": "隱藏我的裝備表",
-    "hide_desc": "開啟後，一般成員無法看到你的裝備表，僅管理者可查看。遊玩傾向與備註不隱藏。"
+    "visibility": "裝備表隱私級別",
+    "visibility_desc": "隱藏時，一般成員仍可看到你的遊玩傾向與備註，僅裝備欄位依級別隱藏。",
+    "visibility_opt": {
+      "public": "公開",
+      "all_manager": "所有管理者",
+      "guild_manager": "本公會管理者",
+      "admin": "僅高層管理"
+    },
+    "refining_traces": "煉製之痕",
+    "refining_traces_desc": "你的煉製之痕總數（僅管理者可見）。",
+    "category_visibility": "部位個別隱私設定",
+    "category_visibility_desc": "每個部位與 C 值可獨立覆蓋全域隱私級別；未設定的欄位會沿用全域預設。",
+    "category_visibility_hint": "點選「跟隨全域」可清除覆蓋；清除部位/23C/24C 的覆蓋即回到上一層級。",
+    "category_level": "部位層級",
+    "has_override": "已覆蓋",
+    "follow_default": "跟隨全域"
   },
   "my_costumes": {
     "title": "服裝表",

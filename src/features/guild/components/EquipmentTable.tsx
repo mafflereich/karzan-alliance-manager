@@ -1,9 +1,9 @@
 import React from 'react';
-import { User, EyeOff, ArrowDownNarrowWide, ArrowDownWideNarrow } from 'lucide-react';
+import { User, EyeOff, Lock, ArrowDownNarrowWide, ArrowDownWideNarrow } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppContext } from '@/store';
 import { EQUIPMENT_CATEGORIES } from '@/entities/member/types';
-import { normalizeEquipment, normalizePlayPreferences, isManagerRole } from '@/shared/lib/equipment';
+import { normalizeEquipment, normalizePlayPreferences, normalizeEquipmentVisibility, canViewCategoryForUI } from '@/shared/lib/equipment';
 
 interface EquipmentTableProps {
   members: [string, any][];
@@ -43,13 +43,23 @@ export default function EquipmentTable({
   formatDate
 }: EquipmentTableProps) {
   const { t, i18n } = useTranslation();
-  const manager = isManagerRole(userRole);
 
-  // 所有成員都顯示，但「隱藏裝備表」的成員對一般成員只隱藏裝備欄位，遊玩傾向仍保留
+  // 所有成員都顯示，但依隱私級別對一般成員遮蔽裝備欄位（遊玩傾向/註記仍保留）
   const visibleMembers = React.useMemo(() => members, [members]);
 
-  const canSeeMemberEquipment = (member: any, isCurrentUser: boolean) =>
-    manager || !member.isEquipmentHidden || isCurrentUser;
+  // 觀看者可管理的公會：從其綁定成員身分推得（此表為單一公會視圖）
+  const viewerManagedGuildIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (!userProfileId) return ids;
+    const bound = userProfileId.split(',').map(uid => uid.trim()).filter(Boolean);
+    members.forEach(([, m]: [string, any]) => {
+      if (bound.includes(m.id) && m.guildId) ids.add(m.guildId);
+    });
+    return ids;
+  }, [members, userProfileId]);
+
+  const isRestricted = (member: any) =>
+    normalizeEquipmentVisibility(member.equipmentVisibility, member.isEquipmentHidden) !== 'public';
 
   return (
     <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden relative">
@@ -123,7 +133,7 @@ export default function EquipmentTable({
           </thead>
           <tbody>
             {visibleMembers.map(([id, member]: [string, any]) => {
-              const isCurrentUser = userProfileId && userProfileId.split(',').map(uid => uid.trim()).filter(Boolean).includes(id);
+              const isCurrentUser = !!(userProfileId && userProfileId.split(',').map(uid => uid.trim()).filter(Boolean).includes(id));
               const equipment = normalizeEquipment(member.equipment);
               const playPrefs = normalizePlayPreferences(member.playPreferences);
               return (
@@ -147,14 +157,25 @@ export default function EquipmentTable({
                       >
                         {getTruncatedName(member.name, member.role)}
                       </span>
-                      {member.isEquipmentHidden && (
-                        <EyeOff className="w-3.5 h-3.5 text-stone-300 dark:text-stone-500" />
-                      )}
+                      {isRestricted(member) ? (
+                        normalizeEquipmentVisibility(member.equipmentVisibility, member.isEquipmentHidden) === 'admin'
+                          ? <Lock className="w-3.5 h-3.5 text-red-400 dark:text-red-500" />
+                          : <EyeOff className="w-3.5 h-3.5 text-stone-300 dark:text-stone-500" />
+                      ) : null}
                     </div>
-                    {member.updatedAt && (
-                      <span className="text-[10px] text-stone-400 mt-0.5">
-                        {formatDate(member.updatedAt)}
-                      </span>
+                    {(member.updatedAt || member.refiningTraces != null) && (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {member.refiningTraces != null && member.refiningTraces > 0 && (
+                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400" title={t('equipment.refining_traces')}>
+                            ✦ {member.refiningTraces}
+                          </span>
+                        )}
+                        {member.updatedAt && (
+                          <span className="text-[10px] text-stone-400">
+                            {formatDate(member.updatedAt)}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </td>
@@ -190,22 +211,39 @@ export default function EquipmentTable({
                 </td>
                 {EQUIPMENT_CATEGORIES.map(cat => {
                   const item = equipment[cat.key];
+                  const canSee23 = canViewCategoryForUI(userRole, member, cat.key, 'c23', [...viewerManagedGuildIds], isCurrentUser);
+                  const canSee24 = canViewCategoryForUI(userRole, member, cat.key, 'c24', [...viewerManagedGuildIds], isCurrentUser);
                   return (
                     <td key={cat.key} className="p-0 text-center border-r border-stone-100 dark:border-stone-700 last:border-r-0 h-full">
-                      <div className="flex flex-col items-center justify-center h-full min-h-[60px] py-2 gap-0.5">
-                        {!canSeeMemberEquipment(member, isCurrentUser) ? (
-                          <EyeOff className="w-3.5 h-3.5 text-stone-300 dark:text-stone-500" />
-                        ) : item.c23 > 0 || item.c24 > 0 ? (
-                          <>
-                            <span className="font-bold text-sm text-red-600 dark:text-red-400">
-                              {i18n.language === 'en' ? '23C' : '23C'}: {item.c23}
-                            </span>
-                            <span className="font-bold text-sm text-purple-600 dark:text-purple-400">
-                              {i18n.language === 'en' ? '24C' : '24C'}: {item.c24}
-                            </span>
-                          </>
+                      <div className="flex flex-col items-center justify-center h-full min-h-[60px] py-2 gap-1">
+                        {canSee23 ? (
+                          item.c23 > 0 ? (
+                            <span className="font-bold text-sm text-red-600 dark:text-red-400">23C: {item.c23}</span>
+                          ) : (
+                            <span className="text-sm text-stone-300 dark:text-stone-600">23C: -</span>
+                          )
                         ) : (
-                          <span className="text-sm text-stone-300 dark:text-stone-600">-</span>
+                          <span className="flex items-center gap-1 text-sm font-bold text-red-600 dark:text-red-400">
+                            <span>23C:</span>
+                            <EyeOff className="w-3.5 h-3.5 text-stone-300 dark:text-stone-500" />
+                          </span>
+                        )}
+                        {canSee24 ? (
+                          item.c24 > 0 ? (
+                            <span className="font-bold text-sm text-purple-600 dark:text-purple-400">24C: {item.c24}</span>
+                          ) : (
+                            <span className="text-sm text-stone-300 dark:text-stone-600">24C: -</span>
+                          )
+                        ) : (
+                          <span className="flex items-center gap-1 text-sm font-bold text-purple-600 dark:text-purple-400">
+                            <span>24C:</span>
+                            <EyeOff className="w-3.5 h-3.5 text-stone-300 dark:text-stone-500" />
+                          </span>
+                        )}
+                        {item.updatedAt && (
+                          <span className="text-[9px] text-stone-400 dark:text-stone-500">
+                            {new Date(item.updatedAt).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'zh-TW')}
+                          </span>
                         )}
                       </div>
                     </td>
