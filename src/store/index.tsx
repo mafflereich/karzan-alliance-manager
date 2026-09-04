@@ -955,7 +955,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: Date.now()
     };
 
-    const { data, error } = await supabaseInsert('members', newMember);
+    // 不做 RETURNING：members 的敏感欄位未授權給 anon/authenticated 做 SELECT，
+    // INSERT 搭配 RETURNING * 會因需讀取敏感欄位而回傳 permission denied。
+    const { error } = await supabase
+      .from('members')
+      .insert(toSnake(newMember));
 
     if (error) {
       console.error('Error adding member:', error);
@@ -969,14 +973,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .upsert({ member_id: newMemberId, note, is_reserved: isReserved }, { onConflict: 'member_id' });
     }
 
-    if (data) {
-      const addedMember = { ...data[0], note };
-      Logger.info({ source: 'member_management', action: 'add_member', message: '新增成員', details: { memberId: newMemberId, guildId, name, role, note, isReserved } });
-      setDbState(prev => ({
-        ...prev,
-        members: { ...prev.members, [addedMember.id]: addedMember }
-      }));
-    }
+    const addedMember = { ...newMember, note };
+    Logger.info({ source: 'member_management', action: 'add_member', message: '新增成員', details: { memberId: newMemberId, guildId, name, role, note, isReserved } });
+    setDbState(prev => ({
+      ...prev,
+      members: { ...prev.members, [addedMember.id]: addedMember }
+    }));
   };
 
   const updateMemberCostumeLevel = async (memberId: string, costumeId: string, level: number) => {
@@ -1188,14 +1190,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const archiveCount = historyArray.length;
     const remark = t('common.archive_remark', { time: archivedAt, count: archiveCount });
 
-    const { error: updateError } = await supabaseUpdate('members',
-      {
+    // 不做 RETURNING：members 的敏感欄位（equipment / records / ...）未授權
+    // 給 anon/authenticated 做 SELECT，若 UPDATE 搭配 RETURNING * 會因需讀取
+    // 所有欄位（含敏感）而回傳「permission denied for table members」。
+    const { error: updateError } = await supabase
+      .from('members')
+      .update({
         status: 'active',
         guild_id: targetGuildId
-      },
-      {
-        'id': memberId
-      });
+      })
+      .eq('id', memberId);
 
     if (updateError) throw updateError;
 
