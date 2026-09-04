@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl, Equipment, PlayPreferences, EquipmentVisibility, CostumeRecord, CategoryVisibility } from '@/entities/member/types';
-import { supabase, supabaseInsert, supabaseKey, supabaseUpdate, supabaseUpsert, toCamel, fetchAllPaginated } from '@/shared/api/supabase';
+import { supabase, supabaseInsert, supabaseKey, supabaseUpdate, supabaseUpsert, toCamel, toSnake, fetchAllPaginated } from '@/shared/api/supabase';
 import { fetchMemberSecrets, applySecretsToMembers } from '@/shared/api/memberSecrets';
 import { isDebugMode } from '@/shared/api/debugMode';
 import { Logger } from '@/shared/utils/logger';
@@ -987,15 +987,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       [costumeId]: { ...(currentRecords[costumeId] || {}), level, updatedAt: now }
     };
 
-    const { error } = await supabaseUpdate('members',
-      {
-        records: updatedRecords,
-        updatedAt: now,
-        costumesUpdatedAt: now
-      },
-      {
-        id: memberId
-      });
+    const { error } = await supabase
+      .from('members')
+      .update({
+        records: toSnake(updatedRecords),
+        updated_at: now,
+        costumes_updated_at: now
+      })
+      .eq('id', memberId);
 
     if (error) {
       console.error('Error updating member costume level:', error);
@@ -1016,7 +1015,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = Date.now();
     const { note, isReserved, ...memberData } = data;
 
-    const { error } = await supabaseUpdate('members', { ...memberData, updatedAt: now }, { id: memberId });
+    // 不做 RETURNING（不回傳整列）：members 的部分敏感欄位（records /
+    // exclusive_weapons / equipment…）未授權給 anon/authenticated 做 SELECT，
+    // 若 UPDATE 搭配 RETURNING * 會因需讀取未授權欄位而回傳
+    // 「permission denied for table members」。此函式亦不依賴回傳值。
+    const { error } = await supabase
+      .from('members')
+      .update({ ...toSnake(memberData), updated_at: now })
+      .eq('id', memberId);
 
     // Upsert member_notes fields if any changed. onConflict on member_id makes this
     // atomic and prevents duplicate rows (relies on UNIQUE(member_id) constraint).
@@ -1225,16 +1231,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const now = Date.now();
-    const { error } = await supabaseUpdate('members',
-      {
-        exclusiveWeapons: updatedWeapons,
-        updatedAt: now,
-        costumesUpdatedAt: now
-      },
-      {
-        id: memberId
-      });
-
+    const { error } = await supabase
+      .from('members')
+      .update({
+        exclusive_weapons: toSnake(updatedWeapons),
+        updated_at: now,
+        costumes_updated_at: now
+      })
+      .eq('id', memberId);
 
     if (error) {
       console.error('Error updating exclusive weapon:', error);
@@ -1263,16 +1267,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   ) => {
     const now = Date.now();
-    const payload: Record<string, any> = { ...data, updatedAt: now };
+    const payload: Record<string, any> = toSnake({ ...data, updatedAt: now });
 
     // 依變更的欄位記下對應的更新日期
     if (data.equipment !== undefined) {
-      payload.equipmentUpdatedAt = now;
+      payload.equipment_updated_at = now;
     }
     // 服裝/專武更新日期由 updateMemberCostumeLevel/ExclusiveWeapon 負責；
     // 這裡不覆蓋（保留較精確的每服裝時間）。
 
-    const { error } = await supabaseUpdate('members', payload, { id: memberId });
+    // 注意：updateMemberProfile 會寫入敏感欄位（equipment / refining_traces），
+    // 這些欄位刻意未授權給 anon/authenticated 做 SELECT（只能走
+    // get_member_equipment RPC 讀取）。因此這裡不做 RETURNING（不回傳整列），
+    // 避免 PostgREST 因需要讀取未授權欄位而回傳「permission denied for table
+    // members」。僅依 error 判斷成功與否。
+    const { error } = await supabase
+      .from('members')
+      .update(payload)
+      .eq('id', memberId);
 
     if (error) {
       console.error('Error updating member profile:', error);

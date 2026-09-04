@@ -35,8 +35,13 @@ COMMENT ON COLUMN public.members.category_visibility IS
 --   （模擬 member_equipment_v2.sql STEP 6；一般欄位授權前端讀取。
 --   是否對未授權使用者遮蔽，交由前端 canViewCategoryForUI 與
 --   can_view_equipment RPC 的粗顆粒判斷。）
+--   授權 SELECT（供 RETURNING / 前端讀取）與 UPDATE（供前端寫入）。
 -- ------------------------------------------------------------
 GRANT SELECT (
+  category_visibility
+) ON public.members TO anon, authenticated;
+
+GRANT UPDATE (
   category_visibility
 ) ON public.members TO anon, authenticated;
 
