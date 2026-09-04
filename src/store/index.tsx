@@ -53,6 +53,7 @@ interface AppContextType {
   searchMembers: (query: string, includeArchived?: boolean, page?: number, pageSize?: number) => Promise<{ data: Member[], total: number }>;
   addMember: (guildId: string, name: string, role?: Role, note?: string) => Promise<void>;
   updateMember: (memberId: string, data: Partial<Member>) => Promise<void>;
+  updateMembersNotes: (entries: { id: string; note: string }[]) => Promise<void>;
   deleteMember: (memberId: string) => Promise<void>;
   archiveMember: (memberId: string, fromGuildId: string, reason: string) => Promise<void>;
   unarchiveMember: (memberId: string, targetGuildId: string) => Promise<void>;
@@ -1053,6 +1054,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateMembersNotes = async (entries: { id: string; note: string }[]) => {
+    if (entries.length === 0) return;
+    const now = Date.now();
+
+    const rows = entries.map(({ id, note }) => ({ member_id: id, note }));
+    // 單一批次寫入 member_notes，避免逐人 request/log。
+    const { error } = await supabase
+      .from('member_notes')
+      .upsert(rows, { onConflict: 'member_id' });
+
+    if (error) {
+      console.error('Error updating member notes:', error);
+      Logger.error({ source: 'member_management', action: 'update_members_notes', message: '批次更新成員備註失敗', details: { count: entries.length, error: error.message } });
+      return;
+    }
+
+    Logger.info({ source: 'member_management', action: 'update_members_notes', message: '批次更新成員備註', details: { count: entries.length } });
+
+    setDbState(prev => {
+      const members = { ...prev.members };
+      entries.forEach(({ id, note }) => {
+        members[id] = { ...members[id], note, updatedAt: now };
+      });
+      return { ...prev, members };
+    });
+  };
+
   const addGuild = async (name: string) => {
     const username = name.toLowerCase();
     const newGuild = { id: uuidv4(), name, tier: 1, orderNum: 99, username };
@@ -1615,7 +1643,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       db, setDb, currentView, setCurrentView, currentUser, setCurrentUser, currentAvatar, userGuildRoles, setuserGuildRoles, userRole, userProfileId,
-      fetchMembers, fetchAllMembers, loadMembersByIds, searchMembers, addMember, updateMember, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon, updateMemberProfile,
+      fetchMembers, fetchAllMembers, loadMembersByIds, searchMembers, addMember, updateMember, updateMembersNotes, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon, updateMemberProfile,
       loadDiscordRoles,
       fetchInitialData,
       addGuild, updateGuild, deleteGuild,

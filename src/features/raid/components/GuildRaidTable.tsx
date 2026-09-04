@@ -27,6 +27,7 @@ interface GuildRaidTableProps {
   onGuildNoteChange?: (guildId: string, note: string) => void;
   onBlur: (memberId: string, guildId: string) => void;
   onBulkScoreFill?: (guildId: string, score: number, memberIds: string[]) => Promise<boolean>;
+  onClearAllPrevGuildTags?: (entries: { id: string; note: string }[], guildId: string) => Promise<void>;
   /** Editor error, forwarded to BulkScoreFillModal — the page banner is hidden behind its overlay. */
   editorError?: string;
   onMemberClick: (member: Member) => void;
@@ -65,6 +66,7 @@ function GuildRaidTable({
   onGuildNoteChange,
   onBlur,
   onBulkScoreFill,
+  onClearAllPrevGuildTags,
   editorError,
   onMemberClick,
   rowHeights,
@@ -118,6 +120,21 @@ function GuildRaidTable({
       onGuildNoteChange(guildId, guildNoteInput);
     }
     setIsEditingGuildNote(false);
+  };
+
+  const handleClearAllPrevGuildTags = () => {
+    if (isArchived || isComparisonMode || !onClearAllPrevGuildTags) return;
+    const entries = sortedMembers
+      .map((member) => {
+        if (!member.id) return null;
+        const noteValue = draftRecords[member.id]?.note ?? member.note ?? '';
+        if (!getPrevGuildName(noteValue)) return null;
+        return { id: member.id, note: removeNoteSegment(noteValue, PREV_GUILD_TAG) };
+      })
+      .filter((e): e is { id: string; note: string } => e !== null);
+    if (entries.length > 0) {
+      onClearAllPrevGuildTags(entries, guildId);
+    }
   };
 
   const handleGuildNoteKeyDown = (e: React.KeyboardEvent) => {
@@ -220,8 +237,17 @@ function GuildRaidTable({
             </div>
           )}
         </div>
+        {!isComparisonMode && !isArchived && (
+          <button
+            onClick={handleClearAllPrevGuildTags}
+            className="shrink-0 flex items-center gap-1 text-xs font-normal px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50 hover:bg-amber-200 dark:hover:bg-amber-800/50 transition-colors"
+            title={t('raid.clear_all_prev_guild', '清除全部前公會標籤')}
+          >
+            <X className="w-3 h-3" />
+            {t('raid.clear_all_prev_guild', '清除全部前公會標籤')}
+          </button>
+        )}
       </div>
-      
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="p-8 text-center text-stone-500">{t('common.loading', '載入中...')}</div>

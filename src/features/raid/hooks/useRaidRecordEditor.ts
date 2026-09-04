@@ -25,7 +25,7 @@ export function useRaidRecordEditor({
   guildRaidRecords,
   setGuildRaidRecords,
 }: Options) {
-  const { db, updateMember } = useAppContext();
+  const { db, updateMember, updateMembersNotes } = useAppContext();
 
   const [draftRecords, setDraftRecords] = useState<Record<string, MemberRaidRecord>>({});
   const [saving, setSaving] = useState(false);
@@ -268,6 +268,45 @@ export function useRaidRecordEditor({
     }
   }, [selectedSeasonId, updateGuildMedian, updateMember]); // recordsRef/draftRecordsRef/dbMembersRef are stable refs
 
+  const handleClearAllPrevGuildTags = useCallback(async (
+    entries: { id: string; note: string }[],
+    guildId: string,
+  ): Promise<void> => {
+    if (entries.length === 0) return;
+
+    const ids = entries.map(e => e.id);
+
+    // 取消這些成員既有的延遲自動儲存，避免其在批次寫入後又落地覆蓋。
+    ids.forEach(id => {
+      if (saveTimersRef.current[id]) {
+        clearTimeout(saveTimersRef.current[id]);
+        delete saveTimersRef.current[id];
+      }
+    });
+
+    setSaving(true);
+    try {
+      await updateMembersNotes(entries);
+
+      // 清掉這些成員的草稿，並以已提交內容更新 records（note 不存於 records）。
+      const nextRecords = { ...recordsRef.current };
+      setRecords(nextRecords);
+      setDraftRecords(prev => {
+        const next = { ...prev };
+        ids.forEach(id => { delete next[id]; });
+        return next;
+      });
+
+      Logger.info({ source: 'raid_manager', action: 'clear_all_prev_guild_tags', message: '清除全部前公會標籤', details: { guildId, count: entries.length } });
+    } catch (err: any) {
+      console.error('Clear all prev guild tags failed:', err);
+      Logger.error({ source: 'raid_manager', action: 'clear_all_prev_guild_tags', message: '清除全部前公會標籤失敗', details: { guildId, count: entries.length, error: err.message } });
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }, [updateMembersNotes]); // recordsRef/draftRecordsRef/saveTimersRef are stable refs
+
   const handleAutoSave = useCallback((memberId: string, guildId: string) => {
     clearTimeout(saveTimersRef.current[memberId]);
     saveTimersRef.current[memberId] = setTimeout(() => {
@@ -305,6 +344,7 @@ export function useRaidRecordEditor({
     handleRecordChange,
     handleAutoSave,
     handleBulkScoreFill,
+    handleClearAllPrevGuildTags,
     updateGuildMedian,
     handleGuildNoteChange,
   };
