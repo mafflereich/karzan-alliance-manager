@@ -94,6 +94,16 @@ export const getSortedCostumes = (costumesData: Record<string, any>, charactersD
   });
 };
 
+export const getSortedCharacters = (charactersData: Record<string, any>, costumesData: Record<string, any>) => {
+  return Object.values(charactersData).sort((a, b) => {
+    const aHasNew = Object.values(costumesData).some(c => c.characterId === a.id && c.isNew);
+    const bHasNew = Object.values(costumesData).some(c => c.characterId === b.id && c.isNew);
+    if (aHasNew && !bHasNew) return -1;
+    if (!aHasNew && bHasNew) return 1;
+    return (a.orderNum ?? 999) - (b.orderNum ?? 999);
+  });
+};
+
 export const getSortedGuilds = (
   guildsData: Record<string, any>,
   canSeeAllGuilds: boolean,

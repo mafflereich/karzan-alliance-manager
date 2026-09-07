@@ -399,9 +399,10 @@
   "my_costumes": {
     "title": "Costume Table",
     "desc": "Fill in your output costume levels and UR exclusive weapons. Managers can view all members' costume status.",
-    "search_placeholder": "Type a costume name to add as tag...",
+    "search_placeholder": "Type a character or costume name to add as tag...",
     "no_matching_costume": "No matching costume.",
     "remove_tag": "Remove tag",
+    "costume_count": "{{count}} costumes",
     "no_member": "No member data found for you. Please ask an admin to bind your account.",
     "no_results": "No matching characters or costumes.",
     "filter_all": "All",

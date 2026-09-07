@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, RefreshCw, Loader2, Sparkles, X } from 'lucide-react';
 import { getImageUrl, getTierColor } from '@/shared/lib/utils';
 import { isManagerRole } from '@/shared/lib/equipment';
-import { getSortedCostumes } from '../utils/sort';
+import { getSortedCostumes, getSortedCharacters } from '../utils/sort';
 import CostumeMatrixTable from '../components/CostumeMatrixTable';
 
 const ATK_TYPE_FILTERS = ['物', '魔'];
@@ -22,6 +22,7 @@ export default function MyCostumesPage() {
   const [drafts, setDrafts] = useState<Record<string, { records: any; exclusiveWeapons: any }>>({});
   const [tagInput, setTagInput] = useState('');
   const [selectedCostumeIds, setSelectedCostumeIds] = useState<string[]>([]);
+  const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
   const [tagOpen, setTagOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -161,6 +162,19 @@ export default function MyCostumesPage() {
     });
   }, [db.members, db.guilds, selectedGuildIds]);
 
+  // 有效服裝集合：角色標籤展開為該角色所有服裝（∪），與服裝標籤取交集（∩）
+  const effectiveCostumeIds = useMemo(() => {
+    const costumeTags = new Set(selectedCostumeIds);
+    const charCostumes = new Set(
+      Object.values(db.costumes)
+        .filter(c => selectedCharacterIds.includes(c.characterId))
+        .map(c => c.id)
+    );
+    if (selectedCostumeIds.length === 0) return charCostumes;
+    if (selectedCharacterIds.length === 0) return costumeTags;
+    return new Set([...charCostumes].filter(id => costumeTags.has(id)));
+  }, [db.costumes, selectedCostumeIds, selectedCharacterIds]);
+
   const characters = useMemo(() => {
     const list = Object.values(db.characters).sort((a, b) => {
       const aHasNew = Object.values(db.costumes).some(c => c.characterId === a.id && c.isNew);
@@ -174,21 +188,20 @@ export default function MyCostumesPage() {
       if (filters.attribute?.length && !filters.attribute.includes(c.attribute)) return false;
       return true;
     });
-    if (selectedCostumeIds.length === 0) return filtered;
-    const tagSet = new Set(selectedCostumeIds);
+    if (effectiveCostumeIds.size === 0) return filtered;
     return filtered.filter(c =>
-      Object.values(db.costumes).some(co => co.characterId === c.id && tagSet.has(co.id))
+      Object.values(db.costumes).some(co => co.characterId === c.id && effectiveCostumeIds.has(co.id))
     );
-  }, [db.characters, db.costumes, filters, selectedCostumeIds]);
+  }, [db.characters, db.costumes, filters, effectiveCostumeIds]);
 
   // 服裝表：只顯示通過搜尋/篩選的角色之服裝
   const characterIds = useMemo(() => new Set(characters.map(c => c.id)), [characters]);
   const matrixCostumes = useMemo(() => {
-    const tagSet = selectedCostumeIds.length > 0 ? new Set(selectedCostumeIds) : null;
+    const tagSet = effectiveCostumeIds.size > 0 ? effectiveCostumeIds : null;
     return getSortedCostumes(db.costumes, db.characters).filter(c =>
       characterIds.has(c.characterId) && (!tagSet || tagSet.has(c.id))
     );
-  }, [db.costumes, db.characters, characterIds, selectedCostumeIds]);
+  }, [db.costumes, db.characters, characterIds, effectiveCostumeIds]);
 
   const costumeName = (c: any) => (i18n.language === 'en' ? c?.nameE || c?.name : c?.name) || '';
   const characterName = (id: string) => {
@@ -196,14 +209,24 @@ export default function MyCostumesPage() {
     return ch ? (i18n.language === 'en' ? ch.nameE || ch.name : ch.name) : '';
   };
 
-  // 服裝名稱 autocomplete 候選（依角色順序排列，排除已選 tag）
-  const costumeSuggestions = useMemo(() => {
+  // 角色 + 服裝名稱 autocomplete 候選（依角色順序排列，排除已選 tag）：
+  // - 角色建議：標示該角色的服裝數
+  // - 服裝建議：標示所屬角色
+  const suggestions = useMemo(() => {
     const q = tagInput.trim().toLowerCase();
-    return getSortedCostumes(db.costumes, db.characters)
+    const charList = getSortedCharacters(db.characters, db.costumes)
+      .filter(ch => !selectedCharacterIds.includes(ch.id))
+      .filter(ch => !q || (i18n.language === 'en' ? ch.nameE || ch.name : ch.name).toLowerCase().includes(q))
+      .map(ch => {
+        const count = Object.values(db.costumes).filter(c => c.characterId === ch.id).length;
+        return { type: 'character' as const, id: ch.id, name: ch.nameE || ch.name || '', imageName: ch.imageName, characterId: ch.id, characterName: '', costumeCount: count };
+      });
+    const costumeList = getSortedCostumes(db.costumes, db.characters)
       .filter(c => !selectedCostumeIds.includes(c.id))
       .filter(c => !q || costumeName(c).toLowerCase().includes(q))
-      .slice(0, 10);
-  }, [db.costumes, db.characters, tagInput, selectedCostumeIds, i18n.language]);
+      .map(c => ({ type: 'costume' as const, id: c.id, name: c.nameE || c.name || '', imageName: c.imageName, characterId: c.characterId, characterName: characterName(c.characterId), costumeCount: 0 }));
+    return [...charList, ...costumeList].slice(0, 10);
+  }, [db.characters, db.costumes, tagInput, selectedCharacterIds, selectedCostumeIds, i18n.language, characterName]);
 
   const setFilter = (key: keyof CostumeFilters, value: string) => {
     setFilters(prev => {
@@ -229,12 +252,13 @@ export default function MyCostumesPage() {
     });
   };
 
-  const hasActiveFilters = Object.values(filters).some(f => !!f?.length) || selectedGuildIds.length > 0 || selectedCostumeIds.length > 0;
+  const hasActiveFilters = Object.values(filters).some(f => !!f?.length) || selectedGuildIds.length > 0 || selectedCostumeIds.length > 0 || selectedCharacterIds.length > 0;
 
   const resetFilters = () => {
     setFilters({});
     setSelectedGuildIds([]);
     setSelectedCostumeIds([]);
+    setSelectedCharacterIds([]);
     setTagInput('');
   };
 
@@ -249,15 +273,23 @@ export default function MyCostumesPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const addTag = (costumeId: string) => {
-    setSelectedCostumeIds(prev => (prev.includes(costumeId) ? prev : [...prev, costumeId]));
+  const addTag = (item: { type: 'character' | 'costume'; id: string }) => {
+    if (item.type === 'character') {
+      setSelectedCharacterIds(prev => (prev.includes(item.id) ? prev : [...prev, item.id]));
+    } else {
+      setSelectedCostumeIds(prev => (prev.includes(item.id) ? prev : [...prev, item.id]));
+    }
     setTagInput('');
     setHighlightIndex(-1);
     setTagOpen(false);
   };
 
-  const removeTag = (costumeId: string) => {
-    setSelectedCostumeIds(prev => prev.filter(id => id !== costumeId));
+  const removeTag = (type: 'character' | 'costume', id: string) => {
+    if (type === 'character') {
+      setSelectedCharacterIds(prev => prev.filter(v => v !== id));
+    } else {
+      setSelectedCostumeIds(prev => prev.filter(v => v !== id));
+    }
   };
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -267,7 +299,7 @@ export default function MyCostumesPage() {
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlightIndex(i => Math.min(i + 1, costumeSuggestions.length - 1));
+      setHighlightIndex(i => Math.min(i + 1, suggestions.length - 1));
       return;
     }
     if (e.key === 'ArrowUp') {
@@ -276,10 +308,10 @@ export default function MyCostumesPage() {
       return;
     }
     if (e.key === 'Enter') {
-      const target = highlightIndex >= 0 ? costumeSuggestions[highlightIndex] : costumeSuggestions.length === 1 ? costumeSuggestions[0] : undefined;
+      const target = highlightIndex >= 0 ? suggestions[highlightIndex] : suggestions.length === 1 ? suggestions[0] : undefined;
       if (target) {
         e.preventDefault();
-        addTag(target.id);
+        addTag(target);
       }
     }
   };
@@ -402,22 +434,26 @@ export default function MyCostumesPage() {
                 />
                 {tagOpen && tagInput.trim() && (
                   <div className="absolute z-50 mt-1 w-full bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 rounded-xl shadow-lg overflow-hidden">
-                    {costumeSuggestions.length > 0 ? (
+                    {suggestions.length > 0 ? (
                       <ul className="max-h-60 overflow-y-auto py-1">
-                        {costumeSuggestions.map((c, i) => (
+                        {suggestions.map((c, i) => (
                           <li
-                            key={c.id}
-                            onMouseDown={(e) => { e.preventDefault(); addTag(c.id); }}
+                            key={c.type === 'character' ? `ch-${c.id}` : `co-${c.id}`}
+                            onMouseDown={(e) => { e.preventDefault(); addTag(c); }}
                             onMouseEnter={() => setHighlightIndex(i)}
                             className={`px-3 py-1.5 text-sm cursor-pointer flex items-center gap-2 ${i === highlightIndex ? 'bg-amber-50 dark:bg-amber-900/20' : ''}`}
                           >
                             {c.imageName && (
                               <div className="w-7 h-7 bg-stone-100 dark:bg-stone-700 rounded overflow-hidden border border-stone-200 dark:border-stone-600 flex-shrink-0">
-                                <img src={getImageUrl(c.imageName)} alt={costumeName(c)} className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }} />
+                                <img src={getImageUrl(c.imageName)} alt={c.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }} />
                               </div>
                             )}
-                            <span className="flex-1 truncate text-stone-800 dark:text-stone-200">{costumeName(c)}</span>
-                            <span className="text-[10px] text-stone-400 dark:text-stone-500 shrink-0">{characterName(c.characterId)}</span>
+                            <span className="flex-1 truncate text-stone-800 dark:text-stone-200">{c.name}</span>
+                            {c.type === 'character' ? (
+                              <span className="text-[10px] text-indigo-500 dark:text-indigo-400 shrink-0">{t('my_costumes.costume_count', { count: c.costumeCount })}</span>
+                            ) : (
+                              <span className="text-[10px] text-stone-400 dark:text-stone-500 shrink-0">{c.characterName}</span>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -427,15 +463,31 @@ export default function MyCostumesPage() {
                   </div>
                 )}
               </div>
-              {selectedCostumeIds.length > 0 && (
+              {(selectedCostumeIds.length > 0 || selectedCharacterIds.length > 0) && (
                 <div className="flex flex-wrap items-center gap-1.5">
+                  {selectedCharacterIds.map(id => {
+                    const ch = db.characters[id];
+                    if (!ch) return null;
+                    return (
+                      <button
+                        key={`ch-${id}`}
+                        onClick={() => removeTag('character', id)}
+                        title={t('my_costumes.remove_tag')}
+                        className="px-2.5 py-1 text-xs font-bold rounded-full border bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors flex items-center gap-1"
+                      >
+                        <User className="w-3 h-3" />
+                        {i18n.language === 'en' ? (ch.nameE || ch.name) : ch.name}
+                        <X className="w-3 h-3" />
+                      </button>
+                    );
+                  })}
                   {selectedCostumeIds.map(id => {
                     const c = db.costumes[id];
                     if (!c) return null;
                     return (
                       <button
-                        key={id}
-                        onClick={() => removeTag(id)}
+                        key={`co-${id}`}
+                        onClick={() => removeTag('costume', id)}
                         title={t('my_costumes.remove_tag')}
                         className="px-2.5 py-1 text-xs font-bold rounded-full border bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-1"
                       >
@@ -571,7 +623,7 @@ export default function MyCostumesPage() {
                         key={member.id}
                         member={member}
                         characters={characters}
-                        selectedCostumeIds={selectedCostumeIds}
+                        selectedCostumeIds={effectiveCostumeIds}
                         saveState={saveState[member.id]}
                         onSave={() => handleSave(member)}
                         records={drafts[member.id]?.records ?? member.records ?? {}}
@@ -602,7 +654,7 @@ export default function MyCostumesPage() {
 interface EditorProps {
   member: any;
   characters: any[];
-  selectedCostumeIds: string[];
+  selectedCostumeIds: Set<string>;
   saveState?: string;
   onSave: () => void;
   records: any;
@@ -680,7 +732,7 @@ function MemberCostumeEditor({ member, characters, selectedCostumeIds, saveState
           const costumes = Object.values(db.costumes)
             .filter(c => c.characterId === character.id)
             .sort((a, b) => (a.orderNum ?? 999) - (b.orderNum ?? 999))
-            .filter(c => selectedCostumeIds.length === 0 || selectedCostumeIds.includes(c.id));
+            .filter(c => selectedCostumeIds.size === 0 || selectedCostumeIds.has(c.id));
           if (costumes.length === 0) return null;
 
           return (

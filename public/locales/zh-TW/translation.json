@@ -399,9 +399,10 @@
   "my_costumes": {
     "title": "服裝表",
     "desc": "填寫你的輸出服裝練度與 UR 專用武器；管理者可檢視全部成員的服裝狀態。",
-    "search_placeholder": "輸入服裝名稱，選取作為標籤...",
+    "search_placeholder": "輸入角色或服裝名稱，選取作為標籤...",
     "no_matching_costume": "找不到相符的服裝。",
     "remove_tag": "移除標籤",
+    "costume_count": "{{count}} 套服裝",
     "no_member": "尚未找到你的成員資料，請聯絡管理者綁定。",
     "no_results": "找不到符合的角色或服裝。",
     "filter_all": "全部",
