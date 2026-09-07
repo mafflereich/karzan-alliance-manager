@@ -274,8 +274,8 @@
     "refining_traces": "煉痕",
     "people_filled": "{{count}} 人填了",
     "last_updated": "最後更新 {{date}}",
-    "tier_total": "梯隊總和",
-    "alliance_total": "聯盟總和"
+    "tier_total": "梯隊煉製之痕總和",
+    "alliance_total": "聯盟煉製之痕總和"
   },
   "roles": {
     "leader": "會長",

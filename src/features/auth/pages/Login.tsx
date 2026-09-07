@@ -70,7 +70,7 @@ export default function Login() {
       let lastUpdate = 0;
       members.forEach(m => {
         traces += Number(m.refiningTraces) || 0;
-        if (m.records && Object.keys(m.records).length > 0) filled += 1;
+        if (Number(m.refiningTraces) > 0) filled += 1;
         const upd = Math.max(m.updatedAt ?? 0, m.costumesUpdatedAt ?? 0, m.equipmentUpdatedAt ?? 0);
         if (upd > lastUpdate) lastUpdate = upd;
       });

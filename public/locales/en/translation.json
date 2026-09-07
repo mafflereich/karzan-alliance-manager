@@ -274,8 +274,8 @@
     "refining_traces": "Refining Traces",
     "people_filled": "{{count}} filled",
     "last_updated": "Updated {{date}}",
-    "tier_total": "Tier Total",
-    "alliance_total": "Alliance Total"
+    "tier_total": "Tier Refinement Remnant Total",
+    "alliance_total": "Alliance Refinement Remnant Total"
   },
   "roles": {
     "leader": "Leader",
