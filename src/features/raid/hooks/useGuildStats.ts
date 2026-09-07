@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { supabase, fetchAllPaginated } from '@/shared/api/supabase';
 import { useAppContext } from '@/store';
 
-export function useGuildStats(canManage: boolean, targetTier: number) {
+export function useGuildStats(canManage: boolean, targetTier: number, allowedGuildIds?: string[]) {
   const { db } = useAppContext();
   const [guildMemberCounts, setGuildMemberCounts] = useState<Record<string, number>>({});
 
@@ -22,13 +22,16 @@ export function useGuildStats(canManage: boolean, targetTier: number) {
   }, []);
 
   const availableGuilds = useMemo(() => {
-    return Object.values(db.guilds)
+    const pool = allowedGuildIds && allowedGuildIds.length > 0
+      ? Object.values(db.guilds).filter(g => g.id && allowedGuildIds.includes(g.id))
+      : Object.values(db.guilds);
+    return pool
       .filter(g => canManage || g.tier === targetTier)
       .sort((a, b) => {
         if ((a.tier || 1) !== (b.tier || 1)) return (a.tier || 1) - (b.tier || 1);
         return (a.orderNum || 99) - (b.orderNum || 99);
       });
-  }, [db.guilds, canManage, targetTier]);
+  }, [db.guilds, canManage, targetTier, allowedGuildIds]);
 
   const guildsByTier = useMemo(() => {
     const grouped: Record<number, typeof availableGuilds> = {};

@@ -28,7 +28,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { hasNewVersion, reloadPage } = useVersionCheck(5); // 檢查間隔：5分鐘
-  const { currentUser, userRole, userGuildRoles, isRoleLoading } = useAppContext();
+  const { currentUser, userRole, isRoleLoading, userProfileId } = useAppContext();
 
   useEffect(() => {
     logPageView(location.pathname + location.search);
@@ -39,7 +39,7 @@ function AppContent() {
     userRole !== 'admin' && 
     userRole !== 'creator' && 
     userRole !== 'manager' && 
-    userGuildRoles.length === 0;
+    !userProfileId; // 以綁定身分（profile.id → member）判斷，不再依賴 DC 身分組
 
   useEffect(() => {
     if (isBindingError && location.pathname !== '/') {

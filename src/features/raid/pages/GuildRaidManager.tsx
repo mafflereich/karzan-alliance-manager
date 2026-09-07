@@ -23,15 +23,22 @@ const RAID_MEMBER_COLUMNS = 'id, name, guild_id, role, color, total_score, updat
 export default function GuildRaidManager() {
   const { t } = useTranslation(['raid', 'translation']);
   const navigate = useNavigate();
-  const { db, setDb, userRole, userGuildRoles, fetchMembers } = useAppContext();
+  const { db, setDb, userRole, userGuildRoles, managedGuildIds, canManageGuild, fetchMembers } = useAppContext();
 
-  const canManage = userRole === 'manager' || userRole === 'admin' || userRole === 'creator';
+  // 公會管理權限改按「正/副會長」判斷（creator/admin 亦為全域管理）
+  // 不使用 DC 身分組的 manager 角色
+  const isGlobalAdmin = userRole === 'creator' || userRole === 'admin';
+  const canManage = canManageGuild();
+
   const userGuilds = userGuildRoles.length > 0
     ? Object.entries(db.guilds).filter(([_, g]) => userGuildRoles.includes(g.username || '') || userGuildRoles.includes(g.name || ''))
     : [];
   const userGuildId = userGuilds.length > 0 ? userGuilds[0][0] : null;
-  const adminGuild = userGuildId ? db.guilds[userGuildId] : null;
+  // 非全域管理員時，只能看/管自己為正/副會長的公會
+  const managedGuildId = (managedGuildIds.length > 0 ? managedGuildIds[0] : null) || userGuildId;
+  const adminGuild = managedGuildId ? db.guilds[managedGuildId] : null;
   const targetTier = adminGuild?.tier || 1;
+  const allowedGuildIds = canManage && !isGlobalAdmin ? managedGuildIds : undefined;
 
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [selectedGuildIds, setSelectedGuildIds] = useState<string[]>([]);
@@ -46,7 +53,7 @@ export default function GuildRaidManager() {
   useEffect(() => { dbMembersRef.current = db.members; }, [db.members]);
 
   const { ghostRecords, fetchGhostRecordsForMember, fetchGhostRecordsForMembers, handleAddGhostRecord: addGhostRecord, handleDeleteGhostRecord } = useGhostRecords();
-  const { availableGuilds, guildsByTier, guildMemberCounts } = useGuildStats(canManage, targetTier);
+  const { availableGuilds, guildsByTier, guildMemberCounts } = useGuildStats(canManage, targetTier, allowedGuildIds);
 
   const updateMemberNote = useCallback((memberId: string, payload: Record<string, any>) => {
     setDb(prev => {
@@ -355,7 +362,7 @@ export default function GuildRaidManager() {
           seasons={raidData.seasons}
           isComparisonMode={isComparisonMode}
           setIsComparisonMode={setIsComparisonMode}
-          userRole={userRole}
+          canManage={canManage}
           onToggleSeasonPanel={() => seasonManager.setIsSeasonPanelOpen(!seasonManager.isSeasonPanelOpen)}
           onNavigateToRaid={() => navigate('/raid')}
           onNavigateToTeamAssign={() => navigate('/team')}

@@ -270,7 +270,12 @@
     "guild_password": "公會密碼",
     "enter_password": "請輸入公會密碼",
     "verifying": "驗證中...",
-    "enter": "進入"
+    "enter": "進入",
+    "refining_traces": "煉痕",
+    "people_filled": "{{count}} 人填了",
+    "last_updated": "最後更新 {{date}}",
+    "tier_total": "梯隊總和",
+    "alliance_total": "聯盟總和"
   },
   "roles": {
     "leader": "會長",
@@ -380,7 +385,7 @@
       "public": "公開",
       "all_manager": "所有管理者",
       "guild_manager": "本公會管理者",
-      "admin": "僅高層管理"
+      "admin": "僅總長"
     },
     "refining_traces": "煉製之痕",
     "refining_traces_desc": "你的煉製之痕總數（僅管理者可見）。",
@@ -394,7 +399,9 @@
   "my_costumes": {
     "title": "服裝表",
     "desc": "填寫你的輸出服裝練度與 UR 專用武器；管理者可檢視全部成員的服裝狀態。",
-    "search_placeholder": "搜尋角色或服裝...",
+    "search_placeholder": "輸入服裝名稱，選取作為標籤...",
+    "no_matching_costume": "找不到相符的服裝。",
+    "remove_tag": "移除標籤",
     "no_member": "尚未找到你的成員資料，請聯絡管理者綁定。",
     "no_results": "找不到符合的角色或服裝。",
     "filter_all": "全部",

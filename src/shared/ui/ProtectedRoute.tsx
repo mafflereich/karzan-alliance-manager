@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '@/store';
-import { canUserAccessPage } from '@/shared/lib/access';
+import { canUserAccessGuildPage } from '@/shared/lib/access';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles, pageId }) => {
-  const { currentUser, db, isRoleLoading, userRole } = useAppContext();
+  const { currentUser, db, isRoleLoading, userRole, canManageGuild } = useAppContext();
   const location = useLocation();
 
   if (isRoleLoading) {
@@ -35,7 +35,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles,
   }
 
   // Check dynamic access control if pageId is provided
-  if (pageId && !canUserAccessPage(pageId, userRole || undefined, db.accessControl)) {
+  // 公會級管理頁面：以正/副會長判斷（取代 DC 身分組的 manager 角色）
+  if (pageId && !canUserAccessGuildPage(pageId, userRole || undefined, db.accessControl, canManageGuild)) {
     return <UnauthorizedView />;
   }
 

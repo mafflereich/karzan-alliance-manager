@@ -16,7 +16,7 @@ import { useDragScroll } from '../hooks/useDragScroll';
 export default function AllianceRaidRecord() {
   const { t } = useTranslation(['raid', 'translation']);
   const navigate = useNavigate();
-  const { db, userRole } = useAppContext();
+  const { db, canManageGuild } = useAppContext();
 
   const {
     seasons, loading, error,
@@ -38,7 +38,8 @@ export default function AllianceRaidRecord() {
 
   const exportRef = useRef<HTMLDivElement>(null);
 
-  const canManage = userRole === 'manager' || userRole === 'admin' || userRole === 'creator';
+  // 公會管理權限改按「正/副會長」判斷（creator/admin 亦為全域管理）
+  const canManage = canManageGuild();
 
   const sortedGuilds = useMemo(() =>
     Object.values(db.guilds)

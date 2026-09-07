@@ -8,7 +8,7 @@ interface TopControlBarProps {
   seasons: any[];
   isComparisonMode: boolean;
   setIsComparisonMode: (val: boolean) => void;
-  userRole: string | null;
+  canManage: boolean;
   onToggleSeasonPanel: () => void;
   onNavigateToRaid: () => void;
   onNavigateToTeamAssign: () => void;
@@ -20,14 +20,12 @@ const TopControlBar: React.FC<TopControlBarProps> = ({
   seasons,
   isComparisonMode,
   setIsComparisonMode,
-  userRole,
+  canManage,
   onToggleSeasonPanel,
   onNavigateToRaid,
   onNavigateToTeamAssign,
 }) => {
   const { t } = useTranslation(['raid', 'translation', 'header']);
-
-  const canManage = userRole === 'admin' || userRole === 'creator';
 
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">

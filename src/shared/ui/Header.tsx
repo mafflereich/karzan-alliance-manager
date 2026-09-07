@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/app/providers/ThemeContext';
 import { logEvent } from '@/analytics';
 import { motion, AnimatePresence } from 'motion/react';
-import { canUserAccessPage } from '@/shared/lib/access';
+import { canUserAccessGuildPage } from '@/shared/lib/access';
 
 import { supabase } from '@/shared/api/supabase';
 
@@ -21,7 +21,7 @@ export default function Header() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { db, currentUser, currentAvatar, setCurrentUser, userVolume, setUserVolume, userRole, userGuildRoles, isRoleLoading, handleLogout, fetchSettings } = useAppContext();
+  const { db, currentUser, currentAvatar, setCurrentUser, userVolume, setUserVolume, userRole, userGuildRoles, isRoleLoading, handleLogout, fetchSettings, canManageGuild, managedGuildIds } = useAppContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isVolumeHovered, setIsVolumeHovered] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -45,7 +45,8 @@ export default function Header() {
     };
   }, []);
 
-  const isPrivilegedRole = userRole === 'creator' || userRole === 'admin' || userRole === 'manager';
+  // 公會管理權限改按「正/副會長」判斷（creator/admin 亦為全域管理）
+  const isPrivilegedRole = canManageGuild();
 
   // Close menu and refresh settings on route change
   useEffect(() => {
@@ -74,13 +75,13 @@ export default function Header() {
       return false;
     }
 
-    return canUserAccessPage(pageId, userRole || undefined, db.accessControl);
+    return canUserAccessGuildPage(pageId, userRole || undefined, db.accessControl, canManageGuild);
   };
 
   const userGuilds = Object.entries(db.guilds);
   const userGuildId = userGuilds.length > 0 ? userGuilds[0][0] : null;
 
-  const topGuildId = canSeeAllGuilds ? (sortedGuilds.length > 0 ? sortedGuilds[0][0] : null) : userGuildId;
+  const topGuildId = canSeeAllGuilds ? (sortedGuilds.length > 0 ? sortedGuilds[0][0] : null) : (managedGuildIds[0] || userGuildId);
 
   const navItems = [
     { id: 'costume_list', icon: Users, label: t('header.equipment_list'), path: topGuildId ? `/guild/${topGuildId}` : null, active: location.pathname.startsWith('/guild') },

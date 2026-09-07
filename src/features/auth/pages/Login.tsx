@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '@/store';
 import { Shield, Users, ChevronRight, Lock, X, AlertCircle, Info } from 'lucide-react';
-import { getTierColor, getTierTextColor, getTierBorderHoverClass, getTierTextHoverClass } from '@/shared/lib/utils';
+import { getTierColor, getTierBorderHoverClass, getTierTextHoverClass } from '@/shared/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 import { LoginModal } from '@/shared/ui/LoginModal';
@@ -13,12 +13,26 @@ import { logEvent } from '@/analytics';
 export default function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { db, isRoleLoading, userGuildRoles, userRole, currentUser } = useAppContext();
+  const { db, isRoleLoading, userGuildRoles, userRole, currentUser, fetchAllMembers } = useAppContext();
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const membersFetchedRef = React.useRef(false);
 
   const canSeeAllGuilds = userRole === 'admin' || userRole === 'creator' || userRole === 'manager';
+
+  // 登入後載入全體成員（含煉痕/服裝紀錄），供首頁統計使用
+  useEffect(() => {
+    if (isRoleLoading) return;
+    if (userRole) {
+      if (!membersFetchedRef.current) {
+        membersFetchedRef.current = true;
+        fetchAllMembers();
+      }
+    } else {
+      membersFetchedRef.current = false;
+    }
+  }, [userRole, isRoleLoading, fetchAllMembers]);
 
   const handleGuildSelect = async (guildId: string) => {
     if (userRole) {
@@ -42,22 +56,57 @@ export default function Login() {
     });
   }, [db.guilds]);
 
+  const isLoggedIn = !!userRole;
+
+  // 每張公會卡的統計：煉痕總數 / 多少人填了自己的服裝 / 最後更新日
   const guildStats = React.useMemo(() => {
-    const stats: Record<string, { rate: number; is100: boolean; count: number }> = {};
+    const stats: Record<string, { traces: number; filled: number; lastUpdate: number }> = {};
 
     Object.entries(db.guilds).forEach(([id, guild]) => {
-      const rate = guild.percentShown ?? 0;
-      stats[id] = {
-        rate,
-        is100: rate >= 100,
-        count: 0
-      };
+      if (guild.isDisplay === false) return;
+      const members = Object.values(db.members).filter(m => m && m.guildId === id && m.status !== 'archived');
+      let traces = 0;
+      let filled = 0;
+      let lastUpdate = 0;
+      members.forEach(m => {
+        traces += Number(m.refiningTraces) || 0;
+        if (m.records && Object.keys(m.records).length > 0) filled += 1;
+        const upd = Math.max(m.updatedAt ?? 0, m.costumesUpdatedAt ?? 0, m.equipmentUpdatedAt ?? 0);
+        if (upd > lastUpdate) lastUpdate = upd;
+      });
+      stats[id] = { traces, filled, lastUpdate };
     });
 
     return stats;
-  }, [db.guilds]);
+  }, [db.guilds, db.members]);
 
-  const indexPercentType = db.settings && Object.values(db.settings)[0]?.indexPercentType;
+  // 各梯隊總和
+  const tierSums = React.useMemo(() => {
+    const map: Record<number, { traces: number; filled: number; lastUpdate: number }> = {};
+    Object.entries(db.guilds).forEach(([id, guild]) => {
+      const s = guildStats[id] || { traces: 0, filled: 0, lastUpdate: 0 };
+      const tier = guild.tier || 1;
+      if (!map[tier]) map[tier] = { traces: 0, filled: 0, lastUpdate: 0 };
+      map[tier].traces += s.traces;
+      map[tier].filled += s.filled;
+      if (s.lastUpdate > map[tier].lastUpdate) map[tier].lastUpdate = s.lastUpdate;
+    });
+    return map;
+  }, [db.guilds, guildStats]);
+
+  // 聯盟總和
+  const allianceSum = React.useMemo(() => {
+    let traces = 0;
+    let filled = 0;
+    let lastUpdate = 0;
+    Object.entries(db.guilds).forEach(([id, guild]) => {
+      const s = guildStats[id] || { traces: 0, filled: 0, lastUpdate: 0 };
+      traces += s.traces;
+      filled += s.filled;
+      if (s.lastUpdate > lastUpdate) lastUpdate = s.lastUpdate;
+    });
+    return { traces, filled, lastUpdate };
+  }, [db.guilds, guildStats]);
 
   return (
     <div className="flex flex-col min-h-screen bg-stone-200 dark:bg-stone-950">
@@ -82,6 +131,17 @@ export default function Login() {
                 )}
               </div>
 
+              {isLoggedIn && (
+                <div className="mb-6 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 rounded-xl px-4 py-2.5">
+                  <SummaryLine
+                    label={t('login.alliance_total')}
+                    traces={allianceSum.traces}
+                    filled={allianceSum.filled}
+                    lastUpdate={allianceSum.lastUpdate}
+                  />
+                </div>
+              )}
+
               {isRoleLoading ? (
                 <div className="text-center text-stone-500 dark:text-stone-400 py-8 flex items-center justify-center gap-2">
                   <div className="w-5 h-5 border-2 border-stone-500 dark:border-stone-400 border-t-transparent rounded-full animate-spin"></div>
@@ -99,68 +159,56 @@ export default function Login() {
                     return (
                       <div key={tier} className="space-y-3">
                         <h3 className={`font-bold text-center py-2 rounded-lg border ${getTierColor(tier)}`}>{t('guilds.tier')} {tier}</h3>
+                        {isLoggedIn && tierSums[tier] && (
+                          <SummaryLine
+                            label={`${t('login.tier_total')} / T${tier}`}
+                            traces={tierSums[tier].traces}
+                            filled={tierSums[tier].filled}
+                            lastUpdate={tierSums[tier].lastUpdate}
+                            className="justify-center"
+                          />
+                        )}
                         {tierGuilds.map(([id, guild]: [string, any]) => {
-                          const isDisabled = false;
-                          const stats = guildStats[id] || { rate: 0, is100: false, count: 0 };
-                          const { rate: percentShown, is100 } = stats;
+                          const stats = guildStats[id] || { traces: 0, filled: 0, lastUpdate: 0 };
 
-                          // Determine classes based on state and tier
                           let buttonClasses = "w-full flex items-center justify-between p-4 bg-white dark:bg-stone-800 border rounded-xl transition-all group overflow-hidden relative disabled:opacity-50";
+                          let textClasses = `font-medium transition-colors ${getTierTextHoverClass(tier)}`;
+                          let iconClasses = `w-5 h-5 transition-colors ${getTierTextHoverClass(tier)}`;
 
-                          const showPercent = userRole && indexPercentType && indexPercentType !== 'empty';
+                          buttonClasses += ` ${getTierBorderHoverClass(tier)}`;
 
-                          let textClasses = (showPercent && is100) ? getTierTextColor(tier) : `font-medium transition-colors ${getTierTextHoverClass(tier)}`;
-                          let iconClasses = `w-5 h-5 transition-colors ${isDisabled ? 'text-stone-300 dark:text-stone-600' : getTierTextHoverClass(tier)}`;
-
-                          if (isDisabled) {
-                            buttonClasses += " border-stone-200 dark:border-stone-700 opacity-30 cursor-not-allowed";
-                            if (!(showPercent && is100)) {
-                              buttonClasses += " grayscale";
-                              textClasses = "font-medium text-stone-400 dark:text-stone-500";
-                            }
-                          } else {
-                            // Enabled state - apply tier colors
-                            buttonClasses += ` ${getTierBorderHoverClass(tier)}`;
-
-                            // Add specific background hover colors based on tier
-                            if (tier === 1) buttonClasses += " hover:bg-orange-50 border-orange-200 dark:hover:bg-orange-900/20 dark:border-orange-800";
-                            else if (tier === 2) buttonClasses += " hover:bg-blue-50 border-blue-200 dark:hover:bg-blue-900/20 dark:border-blue-800";
-                            else if (tier === 3) buttonClasses += " hover:bg-stone-50 border-stone-300 dark:hover:bg-stone-700 dark:border-stone-600";
-                            else if (tier === 4) buttonClasses += " hover:bg-green-50 border-green-200 dark:hover:bg-green-900/20 dark:border-green-800";
-                            else buttonClasses += " hover:bg-stone-50 border-stone-200 dark:hover:bg-stone-700 dark:border-stone-700";
-                          }
+                          // Add specific background hover colors based on tier
+                          if (tier === 1) buttonClasses += " hover:bg-orange-50 border-orange-200 dark:hover:bg-orange-900/20 dark:border-orange-800";
+                          else if (tier === 2) buttonClasses += " hover:bg-blue-50 border-blue-200 dark:hover:bg-blue-900/20 dark:border-blue-800";
+                          else if (tier === 3) buttonClasses += " hover:bg-stone-50 border-stone-300 dark:hover:bg-stone-700 dark:border-stone-600";
+                          else if (tier === 4) buttonClasses += " hover:bg-green-50 border-green-200 dark:hover:bg-green-900/20 dark:border-green-800";
+                          else buttonClasses += " hover:bg-stone-50 border-stone-200 dark:hover:bg-stone-700 dark:border-stone-700";
 
                           return (
                             <button
                               key={id}
                               onClick={() => handleGuildSelect(id)}
-                              disabled={isVerifying || isDisabled}
+                              disabled={isVerifying}
                               className={`${buttonClasses} group/btn`}
                             >
-                              {/* Progress Background Overlay - Only show if enabled in settings */}
-                              {showPercent && (
-                                <div
-                                  className={`absolute left-0 top-0 bottom-0 transition-all duration-1000 ${is100
-                                    ? 'bg-amber-500 opacity-10 dark:opacity-20'
-                                    : isDisabled
-                                      ? 'bg-stone-300 dark:bg-stone-600 opacity-20'
-                                      : 'bg-stone-400 opacity-10 dark:opacity-20'
-                                    }`}
-                                  style={{ width: `${percentShown}%` }}
-                                />
-                              )}
-
-                              <div className="relative z-10 flex flex-col items-start">
-                                <span className={textClasses}>{guild.name}</span>
-                                {showPercent && is100 && <span className="text-[9px] uppercase tracking-widest font-bold text-amber-600 dark:text-amber-400">Complete</span>}
+                              <div className="relative z-10 flex flex-col items-start min-w-0">
+                                <span className={`${textClasses} truncate w-full`}>{guild.name}</span>
+                                {isLoggedIn && (
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 w-full">
+                                    <span className="text-[11px] font-black text-purple-600 dark:text-purple-400" title={t('login.refining_traces')}>
+                                      ✦ {stats.traces.toLocaleString()}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400">
+                                      {t('login.people_filled', { count: stats.filled })}
+                                    </span>
+                                    <span className="text-[11px] text-stone-400 dark:text-stone-500">
+                                      {formatUpdateDate(stats.lastUpdate)}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
 
-                              <div className="relative z-10 flex items-center gap-2">
-                                {showPercent && (
-                                  <span className={`text-sm font-black ${is100 ? 'text-amber-500' : isDisabled ? 'text-stone-300 dark:text-stone-600' : 'text-stone-400'}`}>
-                                    {percentShown}%
-                                  </span>
-                                )}
+                              <div className="relative z-10 flex items-center gap-2 shrink-0">
                                 <ChevronRight className={iconClasses} />
                               </div>
                             </button>
@@ -182,6 +230,33 @@ export default function Login() {
           setIsVerifying(false);
         }} />
       )}
+    </div>
+  );
+}
+
+const formatUpdateDate = (timestamp: number) => {
+  if (!timestamp) return '—';
+  const d = new Date(timestamp);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd}`;
+};
+
+function SummaryLine({ label, traces, filled, lastUpdate, className = '' }: {
+  label: string;
+  traces: number;
+  filled: number;
+  lastUpdate: number;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${className}`}>
+      <span className="font-bold text-stone-700 dark:text-stone-200">{label}</span>
+      <span className="font-black text-purple-600 dark:text-purple-400" title={t('login.refining_traces')}>✦ {traces.toLocaleString()}</span>
+      <span className="font-bold text-stone-500 dark:text-stone-400">{t('login.people_filled', { count: filled })}</span>
+      <span className="text-stone-400 dark:text-stone-500">{t('login.last_updated', { date: formatUpdateDate(lastUpdate) })}</span>
     </div>
   );
 }

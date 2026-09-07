@@ -22,7 +22,7 @@ type ApplicationStatus = 'pending' | 'acknowledged' | 'rejected' | 'discuss' | '
 
 export default function ApplicationMailbox() {
   const { t } = useTranslation(['mailbox', 'translation']);
-  const { db, fetchApplyMails, addApplyMail, updateApplyMail, deleteApplyMail, showToast, userRole } = useAppContext();
+  const { db, fetchApplyMails, addApplyMail, updateApplyMail, deleteApplyMail, showToast, canManageGuild } = useAppContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -53,7 +53,8 @@ export default function ApplicationMailbox() {
     return app.subject === filter;
   });
 
-  const isPrivileged = userRole === 'creator' || userRole === 'admin' || userRole === 'manager';
+  // 公會管理權限改按「正/副會長」判斷（creator/admin 亦為全域管理）
+  const isPrivileged = canManageGuild();
 
   const totalPages = Math.ceil(filteredApplications.length / itemsPerPage);
   const currentApplications = filteredApplications.slice(

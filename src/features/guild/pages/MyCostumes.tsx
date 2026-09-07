@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '@/store';
 import { useTranslation } from 'react-i18next';
-import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, RefreshCw, Loader2, Sparkles } from 'lucide-react';
+import { Swords, Shield, User, Search, FilterX, LayoutGrid, BookUser, RefreshCw, Loader2, Sparkles, X } from 'lucide-react';
 import { getImageUrl, getTierColor } from '@/shared/lib/utils';
 import { isManagerRole } from '@/shared/lib/equipment';
 import { getSortedCostumes } from '../utils/sort';
@@ -20,7 +20,11 @@ export default function MyCostumesPage() {
   const { db, userProfileId, updateMember, showToast, isRoleLoading, userRole, fetchMembers, loadMembersByIds, isMembersLoading } = useAppContext();
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'done'>>({});
   const [drafts, setDrafts] = useState<Record<string, { records: any; exclusiveWeapons: any }>>({});
-  const [searchQuery, setSearchQuery] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [selectedCostumeIds, setSelectedCostumeIds] = useState<string[]>([]);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const searchRef = useRef<HTMLDivElement>(null);
   const [filters, setFilters] = useState<CostumeFilters>({});
   const [selectedGuildIds, setSelectedGuildIds] = useState<string[]>([]);
 
@@ -170,19 +174,36 @@ export default function MyCostumesPage() {
       if (filters.attribute?.length && !filters.attribute.includes(c.attribute)) return false;
       return true;
     });
-    if (!searchQuery.trim()) return filtered;
-    const q = searchQuery.trim().toLowerCase();
-    return filtered.filter(c => {
-      const cName = (i18n.language === 'en' ? c.nameE || c.name : c.name).toLowerCase();
-      return cName.includes(q) || Object.values(db.costumes).some(co => co.characterId === c.id && (i18n.language === 'en' ? co.nameE || co.name : co.name).toLowerCase().includes(q));
-    });
-  }, [db.characters, db.costumes, searchQuery, filters, i18n.language]);
+    if (selectedCostumeIds.length === 0) return filtered;
+    const tagSet = new Set(selectedCostumeIds);
+    return filtered.filter(c =>
+      Object.values(db.costumes).some(co => co.characterId === c.id && tagSet.has(co.id))
+    );
+  }, [db.characters, db.costumes, filters, selectedCostumeIds]);
 
   // 服裝表：只顯示通過搜尋/篩選的角色之服裝
   const characterIds = useMemo(() => new Set(characters.map(c => c.id)), [characters]);
   const matrixCostumes = useMemo(() => {
-    return getSortedCostumes(db.costumes, db.characters).filter(c => characterIds.has(c.characterId));
-  }, [db.costumes, db.characters, characterIds]);
+    const tagSet = selectedCostumeIds.length > 0 ? new Set(selectedCostumeIds) : null;
+    return getSortedCostumes(db.costumes, db.characters).filter(c =>
+      characterIds.has(c.characterId) && (!tagSet || tagSet.has(c.id))
+    );
+  }, [db.costumes, db.characters, characterIds, selectedCostumeIds]);
+
+  const costumeName = (c: any) => (i18n.language === 'en' ? c?.nameE || c?.name : c?.name) || '';
+  const characterName = (id: string) => {
+    const ch = db.characters[id];
+    return ch ? (i18n.language === 'en' ? ch.nameE || ch.name : ch.name) : '';
+  };
+
+  // 服裝名稱 autocomplete 候選（依角色順序排列，排除已選 tag）
+  const costumeSuggestions = useMemo(() => {
+    const q = tagInput.trim().toLowerCase();
+    return getSortedCostumes(db.costumes, db.characters)
+      .filter(c => !selectedCostumeIds.includes(c.id))
+      .filter(c => !q || costumeName(c).toLowerCase().includes(q))
+      .slice(0, 10);
+  }, [db.costumes, db.characters, tagInput, selectedCostumeIds, i18n.language]);
 
   const setFilter = (key: keyof CostumeFilters, value: string) => {
     setFilters(prev => {
@@ -208,11 +229,59 @@ export default function MyCostumesPage() {
     });
   };
 
-  const hasActiveFilters = Object.values(filters).some(f => !!f?.length) || selectedGuildIds.length > 0;
+  const hasActiveFilters = Object.values(filters).some(f => !!f?.length) || selectedGuildIds.length > 0 || selectedCostumeIds.length > 0;
 
   const resetFilters = () => {
     setFilters({});
     setSelectedGuildIds([]);
+    setSelectedCostumeIds([]);
+    setTagInput('');
+  };
+
+  // 點擊外部關閉 autocomplete
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setTagOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const addTag = (costumeId: string) => {
+    setSelectedCostumeIds(prev => (prev.includes(costumeId) ? prev : [...prev, costumeId]));
+    setTagInput('');
+    setHighlightIndex(-1);
+    setTagOpen(false);
+  };
+
+  const removeTag = (costumeId: string) => {
+    setSelectedCostumeIds(prev => prev.filter(id => id !== costumeId));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setTagOpen(false);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex(i => Math.min(i + 1, costumeSuggestions.length - 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex(i => Math.max(i - 1, 0));
+      return;
+    }
+    if (e.key === 'Enter') {
+      const target = highlightIndex >= 0 ? costumeSuggestions[highlightIndex] : costumeSuggestions.length === 1 ? costumeSuggestions[0] : undefined;
+      if (target) {
+        e.preventDefault();
+        addTag(target.id);
+      }
+    }
   };
 
   const handleSave = async (member: any) => {
@@ -318,18 +387,65 @@ export default function MyCostumesPage() {
           {/* 搜尋 + 篩選（兩種檢視共用） */}
           <div className="mt-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
+              <div ref={searchRef} className="relative flex-1 min-w-[180px] sm:max-w-xs">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="w-4 h-4 text-stone-400 dark:text-stone-500" />
                 </div>
                 <input
                   type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={tagInput}
+                  onChange={(e) => { setTagInput(e.target.value); setTagOpen(true); setHighlightIndex(-1); }}
+                  onFocus={() => setTagOpen(true)}
+                  onKeyDown={handleTagKeyDown}
                   placeholder={t('my_costumes.search_placeholder')}
                   className="w-full pl-10 pr-4 py-2 border border-stone-300 dark:border-stone-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-stone-50 dark:bg-stone-700 focus:bg-white dark:focus:bg-stone-600 dark:text-stone-100 text-sm"
                 />
+                {tagOpen && tagInput.trim() && (
+                  <div className="absolute z-50 mt-1 w-full bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-600 rounded-xl shadow-lg overflow-hidden">
+                    {costumeSuggestions.length > 0 ? (
+                      <ul className="max-h-60 overflow-y-auto py-1">
+                        {costumeSuggestions.map((c, i) => (
+                          <li
+                            key={c.id}
+                            onMouseDown={(e) => { e.preventDefault(); addTag(c.id); }}
+                            onMouseEnter={() => setHighlightIndex(i)}
+                            className={`px-3 py-1.5 text-sm cursor-pointer flex items-center gap-2 ${i === highlightIndex ? 'bg-amber-50 dark:bg-amber-900/20' : ''}`}
+                          >
+                            {c.imageName && (
+                              <div className="w-7 h-7 bg-stone-100 dark:bg-stone-700 rounded overflow-hidden border border-stone-200 dark:border-stone-600 flex-shrink-0">
+                                <img src={getImageUrl(c.imageName)} alt={costumeName(c)} className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }} />
+                              </div>
+                            )}
+                            <span className="flex-1 truncate text-stone-800 dark:text-stone-200">{costumeName(c)}</span>
+                            <span className="text-[10px] text-stone-400 dark:text-stone-500 shrink-0">{characterName(c.characterId)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-stone-400 dark:text-stone-500">{t('my_costumes.no_matching_costume')}</div>
+                    )}
+                  </div>
+                )}
               </div>
+              {selectedCostumeIds.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {selectedCostumeIds.map(id => {
+                    const c = db.costumes[id];
+                    if (!c) return null;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => removeTag(id)}
+                        title={t('my_costumes.remove_tag')}
+                        className="px-2.5 py-1 text-xs font-bold rounded-full border bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-1"
+                      >
+                        {costumeName(c)}
+                        <X className="w-3 h-3" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <button
                 onClick={resetFilters}
                 disabled={!hasActiveFilters}
@@ -455,6 +571,7 @@ export default function MyCostumesPage() {
                         key={member.id}
                         member={member}
                         characters={characters}
+                        selectedCostumeIds={selectedCostumeIds}
                         saveState={saveState[member.id]}
                         onSave={() => handleSave(member)}
                         records={drafts[member.id]?.records ?? member.records ?? {}}
@@ -485,6 +602,7 @@ export default function MyCostumesPage() {
 interface EditorProps {
   member: any;
   characters: any[];
+  selectedCostumeIds: string[];
   saveState?: string;
   onSave: () => void;
   records: any;
@@ -495,7 +613,7 @@ interface EditorProps {
   onGrantAllWeapons: (next: any) => void;
 }
 
-function MemberCostumeEditor({ member, characters, saveState, onSave, records, exclusiveWeapons, onLevelChange, onWeaponToggle, onFillAll5, onGrantAllWeapons }: EditorProps) {
+function MemberCostumeEditor({ member, characters, selectedCostumeIds, saveState, onSave, records, exclusiveWeapons, onLevelChange, onWeaponToggle, onFillAll5, onGrantAllWeapons }: EditorProps) {
   const { t, i18n } = useTranslation();
   const { db } = useAppContext();
   const setAllLevels = (level: number) => {
@@ -561,7 +679,8 @@ function MemberCostumeEditor({ member, characters, saveState, onSave, records, e
           const hasExclusiveWeapon = exclusiveWeapons[character.id] ?? false;
           const costumes = Object.values(db.costumes)
             .filter(c => c.characterId === character.id)
-            .sort((a, b) => (a.orderNum ?? 999) - (b.orderNum ?? 999));
+            .sort((a, b) => (a.orderNum ?? 999) - (b.orderNum ?? 999))
+            .filter(c => selectedCostumeIds.length === 0 || selectedCostumeIds.includes(c.id));
           if (costumes.length === 0) return null;
 
           return (

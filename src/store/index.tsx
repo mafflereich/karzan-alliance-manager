@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Database, Guild, Member, Costume, Role, User, Character, ArchivedMember, ArchiveHistory, Toast, ToastType, Setting, ApplyMail, AccessControl, Equipment, PlayPreferences, EquipmentVisibility, CostumeRecord, CategoryVisibility } from '@/entities/member/types';
 import { supabase, supabaseInsert, supabaseKey, supabaseUpdate, supabaseUpsert, toCamel, toSnake, fetchAllPaginated } from '@/shared/api/supabase';
 import { fetchMemberSecrets, applySecretsToMembers } from '@/shared/api/memberSecrets';
@@ -40,6 +40,11 @@ interface AppContextType {
   setuserGuildRoles: React.Dispatch<React.SetStateAction<string[]>>;
   userRole: User['role'] | null;
   userProfileId: string | null;
+
+  // guild ids where the bound member is a leader/coleader (判斷公會管理員，不看 DC 身分組)
+  managedGuildIds: string[];
+  // 是否可管理某公會（creator/admin 或該公會正/副會長）
+  canManageGuild: (guildId?: string | null) => boolean;
 
   loadDiscordRoles: () => Promise<void>;
 
@@ -149,6 +154,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userGuildRoles, setuserGuildRolesState] = useState<string[]>([]);
   const [userRole, setUserRole] = useState<User['role'] | null>(null);
   const [userProfileId, setUserProfileId] = useState<string | null>(null);
+
+  // 依綁定 member 的正/副會長身分，計算可管理的公會 id（不使用 DC 身分組）
+  const managedGuildIds = useMemo(() => {
+    if (!userProfileId) return [];
+    const memberIds = userProfileId.split(',').map(id => id.trim()).filter(Boolean);
+    const guildIds = new Set<string>();
+    memberIds.forEach(mid => {
+      const member = db.members[mid];
+      if (member && (member.role === 'leader' || member.role === 'coleader') && member.guildId) {
+        guildIds.add(member.guildId);
+      }
+    });
+    return [...guildIds];
+  }, [db.members, userProfileId]);
+
+  const canManageGuild = useCallback((guildId?: string | null) => {
+    if (userRole === 'creator' || userRole === 'admin') return true;
+    if (guildId) return managedGuildIds.includes(guildId);
+    return managedGuildIds.length > 0;
+  }, [userRole, managedGuildIds]);
 
   const [isRoleLoading, setIsRoleLoading] = useState(false);
   const [isMembersLoading, setIsMembersLoading] = useState(false);
@@ -488,6 +513,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
 
+  // 登入/刷新時載入綁定成員，讓 managedGuildIds 能依正/副會長身分正確計算
+  useEffect(() => {
+    if (!userProfileId) return;
+    const memberIds = userProfileId.split(',').map(id => id.trim()).filter(Boolean);
+    if (memberIds.length === 0) return;
+    const missing = memberIds.filter(mid => !db.members[mid]);
+    if (missing.length > 0) {
+      loadMembersByIds(memberIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfileId]);
   // Function to fetch members for a specific guild
   const fetchMembers = async (guildId: string, columns: string = 'id, name, guild_id, role, play_preferences, equipment_note, is_equipment_hidden, equipment_visibility, category_visibility, equipment_updated_at, costumes_updated_at, color, total_score, updated_at, status, member_notes(note, is_reserved, archive_remark), member_raid_records(id, season_id, score, season_note, overkill)', force: boolean = false): Promise<boolean> => {
     if (isOffline && !force) return false;
@@ -1642,7 +1678,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      db, setDb, currentView, setCurrentView, currentUser, setCurrentUser, currentAvatar, userGuildRoles, setuserGuildRoles, userRole, userProfileId,
+      db, setDb, currentView, setCurrentView, currentUser, setCurrentUser, currentAvatar, userGuildRoles, setuserGuildRoles, userRole, userProfileId, managedGuildIds, canManageGuild,
       fetchMembers, fetchAllMembers, loadMembersByIds, searchMembers, addMember, updateMember, updateMembersNotes, deleteMember, archiveMember, unarchiveMember, updateMemberCostumeLevel, updateMemberExclusiveWeapon, updateMemberProfile,
       loadDiscordRoles,
       fetchInitialData,

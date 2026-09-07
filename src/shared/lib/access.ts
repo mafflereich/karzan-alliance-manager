@@ -1,5 +1,11 @@
 import { AccessControl } from '@/entities/member/types';
 
+// 公會級管理頁面：正/副會長（取代 manager 角色）可存取
+const GUILD_MANAGEMENT_PAGES = ['guild_raid_manager', 'member_board', 'application_mailbox'];
+
+export const isGuildManagementPage = (pageId: string): boolean =>
+  GUILD_MANAGEMENT_PAGES.includes(pageId);
+
 export const getDefaultRoles = (pageId: string): ('member' | 'manager' | 'admin' | 'creator')[] => {
   switch (pageId) {
     case 'costume_list': return ['member', 'manager', 'admin', 'creator'];
@@ -33,4 +39,20 @@ export const canUserAccessPage = (
   */
   
   return hasAccess;
+};
+
+// 公會級管理頁面權限：改按「正/副會長」判斷（creator/admin 亦為全域管理），取代 DC 身分組的 manager 角色。
+// canManageGuild() 已包含 creator/admin 或所屬公會正/副會長。
+export const canUserAccessGuildPage = (
+  pageId: string,
+  userRole: string | undefined,
+  accessControl: Record<string, AccessControl>,
+  canManageGuild: () => boolean,
+): boolean => {
+  // 公會級管理頁面：以 canManageGuild（正/副會長）為依據
+  if (isGuildManagementPage(pageId)) {
+    return canManageGuild();
+  }
+  // 其餘頁面維持既有角色規則
+  return canUserAccessPage(pageId, userRole, accessControl);
 };
