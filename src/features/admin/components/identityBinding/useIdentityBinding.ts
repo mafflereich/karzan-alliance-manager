@@ -41,7 +41,7 @@ export function useIdentityBinding() {
   const fetchAllProfiles = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('profiles').select('*');
+      const { data, error } = await supabase.from('profiles').select('id, discord_id, discord_username, display_name, avatar_url');
       if (error) throw error;
       setAllProfiles(data || []);
     } catch (error) {

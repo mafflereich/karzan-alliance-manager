@@ -22,8 +22,8 @@ export function useAllianceRaidRecord() {
     setLoading(true);
     try {
       const [seasonsRes, recordsRes] = await Promise.all([
-        supabase.from('raid_seasons').select('*').order('season_number', { ascending: false }),
-        supabase.from('guild_raid_records').select('*'),
+        supabase.from('raid_seasons').select('id, season_number, period_text, score_threshold, description, even_rounds, is_archived').order('season_number', { ascending: false }),
+        supabase.from('guild_raid_records').select('id, season_id, guild_id, note, member_score_median, score, rank, overkill'),
       ]);
       if (seasonsRes.error) throw seasonsRes.error;
       if (recordsRes.error) throw recordsRes.error;

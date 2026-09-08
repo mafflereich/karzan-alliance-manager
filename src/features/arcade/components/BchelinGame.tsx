@@ -81,7 +81,7 @@ const Lobby: React.FC<{
   const fetchLeaderboard = async (diff: Difficulty) => {
     const { data } = await supabase
       .from('lb_bchelindishes')
-      .select('*')
+      .select('player_name, score')
       .eq('difficulty', diff)
       .order('score', { ascending: false })
       .limit(5);

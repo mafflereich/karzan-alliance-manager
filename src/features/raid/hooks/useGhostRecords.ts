@@ -11,7 +11,7 @@ export function useGhostRecords() {
     try {
       const { data, error } = await supabase
         .from('ghost_records')
-        .select('*')
+        .select('id, uid, member_id, season_number, created_at')
         .order('created_at', { ascending: false });
 
       if (error && error.code !== '42P01') throw error;
@@ -35,7 +35,7 @@ export function useGhostRecords() {
     try {
       const { data, error } = await supabase
         .from('ghost_records')
-        .select('*')
+        .select('id, uid, member_id, season_number, created_at')
         .eq('member_id', memberId)
         .order('created_at', { ascending: false });
 
@@ -92,7 +92,7 @@ export function useGhostRecords() {
     try {
       const { data, error } = await supabase
         .from('ghost_records')
-        .select('*')
+        .select('id, uid, member_id, season_number, created_at')
         .in('member_id', unfetched)
         .order('created_at', { ascending: false });
 

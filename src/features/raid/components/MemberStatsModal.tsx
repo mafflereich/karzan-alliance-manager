@@ -53,7 +53,7 @@ export default function MemberStatsModal({ member, onClose }: MemberStatsModalPr
         // 1. Get seasons based on historyLimit
         const { data: seasons, error: seasonsError, count } = await supabase
           .from('raid_seasons')
-          .select('*', { count: 'exact' })
+          .select('id, season_number, period_text, is_archived', { count: 'exact' })
           .order('season_number', { ascending: false })
           .limit(historyLimit);
         
@@ -71,7 +71,7 @@ export default function MemberStatsModal({ member, onClose }: MemberStatsModalPr
         // 2. Get member records for these seasons
         const { data: memberRecords, error: memberRecordsError } = await supabase
           .from('member_raid_records')
-          .select('*')
+          .select('season_id, member_id, season_guild, score, season_note')
           .eq('member_id', member.id)
           .in('season_id', seasonIds);
         
@@ -80,7 +80,7 @@ export default function MemberStatsModal({ member, onClose }: MemberStatsModalPr
         // 3. Get guild records for these seasons (to get medians)
         const { data: guildRecords, error: guildRecordsError } = await supabase
           .from('guild_raid_records')
-          .select('*')
+          .select('id, season_id, guild_id, member_score_median')
           .in('season_id', seasonIds);
         
         if (guildRecordsError) throw guildRecordsError;

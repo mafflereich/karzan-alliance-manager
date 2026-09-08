@@ -112,7 +112,7 @@ export default function SpeedRefining() {
   const fetchLeaderboard = async () => {
     const { data, error } = await supabase
       .from('lb_speedrefining')
-      .select('*')
+      .select('id, player_name, total_time')
       .order('total_time', { ascending: true })
       .limit(10);
 

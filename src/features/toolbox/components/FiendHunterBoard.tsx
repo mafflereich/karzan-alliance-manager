@@ -69,7 +69,7 @@ export const FiendHunterBoard: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('fiend_hunter_seasons')
-        .select('*')
+        .select('id, season, days, name')
         .order('season', { ascending: false });
 
       if (error) throw error;
@@ -118,7 +118,7 @@ export const FiendHunterBoard: React.FC = () => {
   const handleAddSeasonSuccess = async (seasonNumber: number) => {
     const { data } = await supabase
       .from('fiend_hunter_seasons')
-      .select('*')
+      .select('id, season, days, name')
       .order('season', { ascending: false });
     if (data) {
       setSeasons(data);
@@ -132,7 +132,7 @@ export const FiendHunterBoard: React.FC = () => {
   const handleEditSeasonSuccess = async () => {
     const { data } = await supabase
       .from('fiend_hunter_seasons')
-      .select('*')
+      .select('id, season, days, name')
       .order('season', { ascending: false });
     if (data) {
       setSeasons(data);

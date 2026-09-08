@@ -393,11 +393,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchInitialData = async () => {
     try {
       const [guildsRes, charactersRes, costumesRes, settingsRes, accessControlRes] = await Promise.all([
-        supabase ? supabase.from('guilds').select('*') : { data: [], error: null },
-        supabase ? supabase.from('characters').select('*') : { data: [], error: null },
-        supabase ? supabase.from('costumes').select('*') : { data: [], error: null },
-        supabase ? supabase.from('settings').select('*') : { data: [], error: null },
-        supabase ? supabase.from('access_control').select('*') : { data: [], error: null },
+        supabase ? supabase.from('guilds').select('id, name, tier, order_num, serial, is_display, username') : { data: [], error: null },
+        supabase ? supabase.from('characters').select('id, name, name_e, order_num, atk_type, attribute') : { data: [], error: null },
+        supabase ? supabase.from('costumes').select('id, name, name_e, character_id, image_name, order_num, is_new') : { data: [], error: null },
+        supabase ? supabase.from('settings').select('id, bgm_url, bgm_default_volume, index_message, index_percent_type, application_pending_count') : { data: [], error: null },
+        supabase ? supabase.from('access_control').select('page, roles') : { data: [], error: null },
       ]);
 
       if (guildsRes.error) throw guildsRes.error;
@@ -1442,7 +1442,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error updating characters order:', error);
       Logger.error({ source: 'character_management', action: 'update_characters_order', message: '更新角色順序失敗', details: { updates, error: (error as any).message } });
       // Revert by fetching fresh data
-      const { data, error: fetchError } = await supabase.from('characters').select('*');
+      const { data, error: fetchError } = await supabase.from('characters').select('id, name, name_e, order_num, atk_type, attribute');
       if (!fetchError && data) {
         const characters = data.reduce((acc, char) => ({ ...acc, [char.id]: toCamel(char) }), {});
         setDbState(prev => ({ ...prev, characters }));
@@ -1525,7 +1525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error updating costumes order:', error);
       Logger.error({ source: 'costume_management', action: 'update_costumes_order', message: '更新服裝順序失敗', details: { updates, error: (error as any).message } });
       // Revert by fetching fresh data
-      const { data, error: fetchError } = await supabase.from('costumes').select('*');
+      const { data, error: fetchError } = await supabase.from('costumes').select('id, name, name_e, character_id, image_name, order_num, is_new');
       if (!fetchError && data) {
         const costumes = data.reduce((acc, costume) => ({ ...acc, [costume.id]: toCamel(costume) }), {});
         setDbState(prev => ({ ...prev, costumes }));
@@ -1592,7 +1592,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchSettings = async () => {
     if (isOffline) return;
 
-    const { data, error } = await supabase.from('settings').select('*');
+    const { data, error } = await supabase.from('settings').select('id, bgm_url, bgm_default_volume, index_message, index_percent_type, application_pending_count');
     if (error) {
       console.error('Error fetching settings:', error);
       return;
@@ -1606,7 +1606,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchApplyMails = async () => {
     if (isOffline) return;
-    const { data, error } = await supabase.from('apply_mail').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('apply_mail').select('id, subject, content, status, created_at').order('created_at', { ascending: false });
     if (error) {
       console.error('Error fetching apply mails:', error);
       return;

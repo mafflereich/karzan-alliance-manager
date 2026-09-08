@@ -35,7 +35,7 @@ export default function RoleSetting() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*');
+        .select('id, discord_id, discord_username, display_name, avatar_url, user_role');
 
       if (error) throw error;
       setAllProfiles(data || []);

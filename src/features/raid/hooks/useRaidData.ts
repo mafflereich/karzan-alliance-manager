@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/shared/api/supabase';
+import { supabase, fetchAllPaginated } from '@/shared/api/supabase';
 import { isDebugMode } from '@/shared/api/debugMode';
 import type { RaidSeason, MemberRaidRecord, GuildRaidRecord } from '../types';
 
@@ -34,7 +34,7 @@ export function useRaidData(
     try {
       const { data, error } = await supabase
         .from('raid_seasons')
-        .select('*')
+        .select('id, season_number, period_text, score_threshold, description, even_rounds, is_archived')
         .order('season_number', { ascending: false });
       if (error) throw error;
       setSeasons(data || []);
@@ -54,18 +54,15 @@ export function useRaidData(
     }
     if (!isBackground) setLoading(true);
     try {
-      const [recordsRes, guildRecordsRes] = await Promise.all([
-        supabase.from('member_raid_records').select('*').eq('season_id', seasonId),
-        supabase.from('guild_raid_records').select('*').eq('season_id', seasonId),
+      const [memberRecordsData, guildRecordsRes] = await Promise.all([
+        fetchAllPaginated<any>('member_raid_records', 'id, member_id, season_id, score, season_note, overkill, season_guild', q => q.eq('season_id', seasonId)),
+        supabase.from('guild_raid_records').select('id, season_id, guild_id, note, member_score_median, score, rank, overkill').eq('season_id', seasonId),
       ]);
 
       if (token !== fetchTokenRef.current) return;
 
-      if (recordsRes.error && recordsRes.error.code !== '42P01') throw recordsRes.error;
-      if (guildRecordsRes.error && guildRecordsRes.error.code !== '42P01') throw guildRecordsRes.error;
-
       const recordsMap: Record<string, MemberRaidRecord> = {};
-      (recordsRes.data || []).forEach(r => { recordsMap[r.member_id] = r; });
+      (memberRecordsData || []).forEach(r => { recordsMap[r.member_id] = r; });
       setRecords(recordsMap);
 
       const guildRecordsMap: Record<string, GuildRaidRecord> = {};

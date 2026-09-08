@@ -200,7 +200,7 @@ export default function GuildRaidManager() {
         if (prevSeasonId) {
           prevRecordsResult = await supabase
             .from('member_raid_records')
-            .select('*')
+            .select('member_id, season_guild')
             .eq('season_id', prevSeasonId);
         }
 

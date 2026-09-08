@@ -70,7 +70,7 @@ export function useSeasonManager({
       const { data, error } = await supabase
         .from('raid_seasons')
         .insert([newSeason])
-        .select();
+        .select('id, season_number, period_text, score_threshold, description, even_rounds, is_archived');
 
       if (error) throw error;
 
